@@ -1,0 +1,66 @@
+# 環境變數（含 API 金鑰，絕對不能上傳）
+.env
+.env.local
+.env.*.local
+
+# Google Cloud / API 金鑰（絕對不能上傳）
+utils/api_keys.json
+utils/api_keys.py
+utils/google-speech-key.json
+utils/google-gemini-key.json
+utils/google-gemini-key.rtf
+*-key.json
+*_key.json
+*-credentials.json
+*_credentials.json
+service_account*.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# 虛擬環境
+venv/
+.venv/
+env/
+
+# 資料庫（本地資料）
+data/*.db
+data/*.db-shm
+data/*.db-wal
+
+# 音訊檔案（體積大，不上傳 GitHub）
+*.wav
+*.mp3
+*.m4a
+*.flac
+*.ogg
+*.aac
+
+# 暫存音檔與封存
+experiments/temp_upload/
+data/audio_archive/
+
+# 實驗資料（辨識結果保留，原始音訊排除）
+experiments/*/source_audio/
+
+# Log 檔
+logs/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

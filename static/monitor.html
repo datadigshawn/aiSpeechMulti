@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>aiSpeechMulti — 五路監控</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Helvetica Neue", Arial, "PingFang TC", "Microsoft JhengHei", sans-serif;
+      background: #0b0d14;
+      color: #d8dde8;
+      min-height: 100vh;
+      padding: 18px 20px;
+    }
+
+    /* ── 標題列 ── */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+    h1 { font-size: 1.25rem; font-weight: 600; color: #7eb8f7; }
+    h1 span { font-size: 0.72rem; color: #556; font-weight: 400; margin-left: 8px; }
+
+    .server-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+    }
+    .server-row input {
+      background: #12151f;
+      border: 1px solid #2a2d3e;
+      border-radius: 5px;
+      color: #c8d0df;
+      padding: 4px 10px;
+      font-size: 0.82rem;
+      width: 200px;
+      outline: none;
+    }
+    .badge-live {
+      background: #2ea043;
+      color: #fff;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 20px;
+      animation: pulse 1.8s infinite;
+    }
+    @keyframes pulse { 0%,100%{ opacity:1 } 50%{ opacity:.5 } }
+    .badge-offline {
+      background: #444;
+      color: #888;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 20px;
+    }
+
+    /* ── 五路狀態卡片 ── */
+    .channels-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 700px) {
+      .channels-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    .ch-card {
+      background: #13161f;
+      border: 1px solid #1e2130;
+      border-radius: 10px;
+      padding: 14px 12px;
+      text-align: center;
+      transition: border-color .3s, background .3s;
+    }
+    .ch-card.active {
+      border-color: #2ea043;
+      background: #121c16;
+    }
+    .ch-card.active .ch-dot { background: #2ea043; box-shadow: 0 0 8px #2ea043; }
+
+    .ch-dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: #2a2d3e;
+      margin: 0 auto 8px;
+      transition: background .3s, box-shadow .3s;
+    }
+    .ch-name  { font-size: 0.95rem; font-weight: 700; color: #c8d0df; margin-bottom: 4px; }
+    .ch-count { font-size: 0.75rem; color: #556; }
+    .ch-time  { font-size: 0.7rem;  color: #445; margin-top: 3px; }
+    .ch-last  {
+      font-size: 0.75rem;
+      color: #7a9fc2;
+      margin-top: 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+    .ch-engine {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 10px;
+      margin-top: 5px;
+      letter-spacing: .03em;
+    }
+    .ch-engine.google { background: #1a2d4a; color: #7eb8f7; }
+    .ch-engine.scribe { background: #2a1a3a; color: #c085f5; }
+
+    /* ── 統計列 ── */
+    .stats-row {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      font-size: 0.82rem;
+      color: #556;
+      margin-bottom: 14px;
+    }
+    .stats-row span { color: #a0b4cc; font-weight: 600; }
+
+    /* ── 辨識結果串流 ── */
+    .feed-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .feed-title { font-size: 0.78rem; text-transform: uppercase; letter-spacing:.08em; color: #445; }
+    .btn-clear {
+      background: #1e2130;
+      border: none;
+      color: #667;
+      font-size: 0.78rem;
+      border-radius: 5px;
+      padding: 3px 10px;
+      cursor: pointer;
+    }
+    .btn-clear:hover { color: #aaa; }
+
+    #feed {
+      height: calc(100vh - 320px);
+      min-height: 260px;
+      overflow-y: auto;
+      background: #0f1219;
+      border: 1px solid #1a1d2a;
+      border-radius: 8px;
+      padding: 10px;
+    }
+    #feed::-webkit-scrollbar { width: 5px; }
+    #feed::-webkit-scrollbar-thumb { background: #2a2d3e; border-radius: 3px; }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      padding: 5px 4px;
+      border-radius: 5px;
+      margin-bottom: 2px;
+      animation: fadeIn .2s ease;
+    }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(-3px) } to { opacity:1 } }
+
+    .row:hover { background: #13161f; }
+
+    .r-time { font-size: 0.72rem; color: #445; white-space: nowrap; padding-top: 2px; min-width: 58px; }
+    .r-ch {
+      font-size: 0.72rem;
+      padding: 1px 7px;
+      border-radius: 20px;
+      font-weight: 700;
+      white-space: nowrap;
+      min-width: 40px;
+      text-align: center;
+    }
+    /* 每個管道用不同顏色 */
+    .r-ch.ch1 { background:#1a2d4a; color:#7eb8f7; }
+    .r-ch.ch2 { background:#1a2d1a; color:#6fcf97; }
+    .r-ch.ch3 { background:#2d2a1a; color:#e2c04a; }
+    .r-ch.ch4 { background:#2d1a1a; color:#e07070; }
+    .r-ch.ch5 { background:#2a1a2d; color:#c085f5; }
+
+    .r-text { flex: 1; font-size: 0.88rem; color: #c8d0df; line-height: 1.5; }
+    .r-conf { font-size: 0.7rem; color: #445; white-space: nowrap; padding-top: 3px; }
+
+    #emptyFeed {
+      text-align: center;
+      color: #2a2d3e;
+      font-size: 0.9rem;
+      margin-top: 60px;
+      line-height: 2.2;
+    }
+
+    /* ── 底部提示 ── */
+    .footer {
+      margin-top: 10px;
+      font-size: 0.75rem;
+      color: #334;
+      text-align: center;
+    }
+    .footer a { color: #445; text-decoration: none; }
+    .footer a:hover { color: #7eb8f7; }
+  </style>
+</head>
+<body>
+
+<!-- 標題列 -->
+<div class="topbar">
+  <h1>📡 aiSpeechMulti <span>五路監控</span></h1>
+  <div class="server-row">
+    <span>伺服器</span>
+    <input id="apiBase" value="http://localhost:8000" />
+    <span id="apiStatus" class="badge-offline">OFFLINE</span>
+  </div>
+</div>
+
+<!-- 五路管道狀態卡片 -->
+<div class="channels-grid" id="channelsGrid">
+  <!-- 由 JS 動態產生 ch1–ch5 -->
+</div>
+
+<!-- 統計列 -->
+<div class="stats-row">
+  已連線管道 <span id="sActive">0</span> / 5 路 ｜
+  總辨識筆數 <span id="sTx">—</span> 筆 ｜
+  更新週期 <span>2 秒</span>
+</div>
+
+<!-- 辨識結果串流 -->
+<div class="feed-header">
+  <div class="feed-title">即時辨識串流</div>
+  <button class="btn-clear" onclick="clearFeed()">清除顯示</button>
+</div>
+
+<div id="feed">
+  <div id="emptyFeed">
+    等待辨識結果…<br>
+    請在其他分頁開啟 <a href="/" target="_blank">音訊擷取頁面</a><br>
+    選擇管道並開始監聽
+  </div>
+</div>
+
+<!-- 底部提示 -->
+<div class="footer">
+  <a href="/" target="_blank">音訊擷取</a> ·
+  <a href="/docs" target="_blank">API 文件</a> ·
+  <a href="/api/health" target="_blank">健康檢查</a>
+</div>
+
+<script>
+// =============================================================================
+// 設定
+// =============================================================================
+const CHANNEL_IDS     = ['ch1', 'ch2', 'ch3', 'ch4', 'ch5'];
+const POLL_INTERVAL   = 2000;   // ms — 每 2 秒輪詢一次
+const FEED_MAX_ROWS   = 200;    // 最多保留幾行（避免 DOM 無限增長）
+
+// =============================================================================
+// 狀態
+// =============================================================================
+let lastTxId     = 0;     // 已顯示的最後一筆 transcript id，避免重複顯示
+let totalShown   = 0;
+
+// =============================================================================
+// 初始化管道卡片
+// =============================================================================
+function initChannelCards() {
+  const grid = document.getElementById('channelsGrid');
+  CHANNEL_IDS.forEach(id => {
+    const card = document.createElement('div');
+    card.className = 'ch-card';
+    card.id = 'card-' + id;
+    card.innerHTML = `
+      <div class="ch-dot" id="dot-${id}"></div>
+      <div class="ch-name">${id.toUpperCase()}</div>
+      <div class="ch-count" id="cnt-${id}">0 筆</div>
+      <div class="ch-time"  id="tim-${id}">—</div>
+      <div class="ch-last"  id="lst-${id}">等待中…</div>
+      <div id="eng-${id}"></div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+// =============================================================================
+// 輪詢 /api/channels — 更新管道狀態卡片
+// =============================================================================
+async function pollChannels() {
+  const base = document.getElementById('apiBase').value.replace(/\/$/, '');
+  try {
+    const res  = await fetch(`${base}/api/channels`, { signal: AbortSignal.timeout(3000) });
+    const data = await res.json();
+
+    // 更新 API 狀態徽章
+    const badge = document.getElementById('apiStatus');
+    badge.textContent = 'LIVE';
+    badge.className   = 'badge-live';
+    document.getElementById('sActive').textContent = data.active_channels;
+
+    // 活躍管道 id set
+    const activeIds = new Set(data.channels.map(c => c.id));
+
+    CHANNEL_IDS.forEach(id => {
+      const card = document.getElementById('card-' + id);
+      const info = data.channels.find(c => c.id === id);
+
+      if (info) {
+        card.classList.add('active');
+        document.getElementById('cnt-' + id).textContent = info.transcript_count + ' 筆';
+        document.getElementById('lst-' + id).textContent = info.last_text || '（靜默）';
+
+        // 連線時間
+        const connAt = new Date(info.connected_at);
+        const elapsed = Math.floor((Date.now() - connAt) / 1000);
+        document.getElementById('tim-' + id).textContent =
+          elapsed < 60 ? `${elapsed}s` : `${Math.floor(elapsed/60)}m${elapsed%60}s`;
+
+        // 辨識引擎徽章
+        const backend = info.stt_backend || 'google';
+        const engLabel = backend === 'scribe' ? '🟣 Scribe' : '🔵 Google';
+        document.getElementById('eng-' + id).innerHTML =
+          `<span class="ch-engine ${backend}">${engLabel}</span>`;
+      } else {
+        card.classList.remove('active');
+        document.getElementById('cnt-' + id).textContent = '0 筆';
+        document.getElementById('tim-' + id).textContent = '—';
+        document.getElementById('lst-' + id).textContent = '等待中…';
+        document.getElementById('eng-' + id).innerHTML = '';
+      }
+    });
+
+  } catch (_) {
+    const badge = document.getElementById('apiStatus');
+    badge.textContent = 'OFFLINE';
+    badge.className   = 'badge-offline';
+    document.getElementById('sActive').textContent = '—';
+  }
+}
+
+// =============================================================================
+// 輪詢 /api/transcripts — 新增辨識結果到串流
+// =============================================================================
+async function pollTranscripts() {
+  const base = document.getElementById('apiBase').value.replace(/\/$/, '');
+  try {
+    const url = `${base}/api/transcripts?limit=50`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+    const data = await res.json();
+
+    const feed = document.getElementById('feed');
+    const hint = document.getElementById('emptyFeed');
+
+    // 找出比上次更新還新的資料（id 遞增）
+    // API 回傳最新在前；.reverse() 轉成舊→新順序，
+    // 再依序 prepend，最終效果：新資料插在最頂部
+    const newRows = data.transcripts
+      .filter(t => t.id > lastTxId)
+      .reverse();   // 舊→新排序，prepend 後最新一筆在最上方
+
+    if (newRows.length === 0) return;
+
+    // 移除空白提示
+    if (hint) hint.remove();
+
+    newRows.forEach(t => {
+      const row = document.createElement('div');
+      row.className = 'row';
+
+      // 時間格式化
+      const dt = new Date(t.created_at);
+      const timeStr = dt.toTimeString().slice(0, 8);
+
+      // 信心度（chirp_3 固定 0，不顯示）
+      const confStr = t.confidence > 0 ? (t.confidence * 100).toFixed(0) + '%' : '';
+
+      // 管道顏色 class（只取 ch1–ch5，其他給 default）
+      const chClass = CHANNEL_IDS.includes(t.channel_id) ? t.channel_id : '';
+
+      row.innerHTML =
+        `<span class="r-time">${timeStr}</span>` +
+        `<span class="r-ch ${chClass}">${t.channel_id}</span>` +
+        `<span class="r-text">${escHtml(t.transcript)}</span>` +
+        (confStr ? `<span class="r-conf">${confStr}</span>` : '');
+
+      // 插入到頂部：最新結果永遠在最上方
+      feed.insertBefore(row, feed.firstChild);
+      lastTxId = Math.max(lastTxId, t.id);
+      totalShown++;
+    });
+
+    // 更新總筆數
+    document.getElementById('sTx').textContent = totalShown;
+
+    // 超過上限時，移除末尾最舊的行
+    const rows = feed.querySelectorAll('.row');
+    if (rows.length > FEED_MAX_ROWS) {
+      for (let i = FEED_MAX_ROWS; i < rows.length; i++) {
+        rows[i].remove();
+      }
+    }
+    // 無需自動捲動：最新結果已固定在頂部
+
+  } catch (_) { /* 靜默失敗，等下次輪詢 */ }
+}
+
+// =============================================================================
+// 清除顯示
+// =============================================================================
+function clearFeed() {
+  document.getElementById('feed').innerHTML =
+    '<div id="emptyFeed">等待辨識結果…</div>';
+  totalShown = 0;
+  document.getElementById('sTx').textContent = '—';
+}
+
+// =============================================================================
+// 工具
+// =============================================================================
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// =============================================================================
+// 啟動
+// =============================================================================
+initChannelCards();
+pollChannels();
+pollTranscripts();
+setInterval(() => { pollChannels(); pollTranscripts(); }, POLL_INTERVAL);
+</script>
+</body>
+</html>

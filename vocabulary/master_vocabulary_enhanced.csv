@@ -1,0 +1,184 @@
+term,category,boost_value,alert_level,pinyin,common_error,description
+# ============================================================================
+# 核心設備術語（從測試結果提取的高頻錯誤）
+# ============================================================================
+OCC,equipment,20,1,O-C-C,歐西|哦西|歐CC|現電力一場,行控中心 Operations Control Center
+MCP,equipment,20,2,M-C-P,ncp|n c p|M C P,主控面板 Master Control Panel
+EDRH,equipment,20,3,E-D-R-H,e d|ED|e d r h,緊急門釋放把手 Emergency Door Release Handle
+MTC,equipment,18,2,M-T-C,M T C,月台門控制 Platform Door Control
+MCS,equipment,18,2,M-C-S,M C S,主控模式 Master Control System
+ATP,equipment,18,1,A-T-P,ATP|a t p,列車自動防護系統 Automatic Train Protection
+ATO,equipment,18,1,A-T-O,ATO|a t o,列車自動駕駛系統 Automatic Train Operation
+VVVF,equipment,20,1,V-V-V-F,VVF|威威威福|v v v f,變頻器 Variable Voltage Variable Frequency
+Bypass,equipment,18,2,Bypass,拜帕斯|百帕斯|偷拜PASS|bypas,旁路模式
+
+# ============================================================================
+# 專業術語修正（測試中發現的同音字錯誤）
+# ============================================================================
+軌旁胸牆,equipment,20,2,gui3 pang2 xiong1 qiang2,鬼旁修牆|鬼旁收牆|規旁修牆,軌道旁防護牆
+月台門,equipment,18,2,yue4 tai2 men2,月車|月台們|越台門,Platform Screen Doors
+月台,location,15,0,yue4 tai2,月車|越台|約台,車站月台
+停準,status,20,2,ting2 zhun3,停駛|停準備|停站,列車停靠準確位置
+列車,equipment,15,0,lie4 che1,捷捷車|例車|劣車,捷運列車
+旅客,role,15,1,lv3 ke4,陸客|旅克|綠客,乘客
+障礙物,status,18,2,zhang4 ai4 wu4,代務委員|障礙屋|障礙,軌道障礙物
+電纜,equipment,18,2,dian4 lan3,電腦|電覽|電覽,電力電纜
+可視範圍,command,12,0,ke3 shi4 fan4 wei2,可是範圍|確認範圍,目視可見範圍
+立即回報,command,18,3,li4 ji2 hui2 bao4,立起回報|力求報|立刻回報,緊急回報指令
+
+# ============================================================================
+# 車站代碼完整列表（綠線 G + 紅線 R）
+# ============================================================================
+G01,station_code,20,0,G-ling2-yi1,G零一|G 0 1|G洞一,北屯總站
+G02,station_code,20,0,G-ling2-er4,G零二|G 0 2|G洞二,舊社
+G03,station_code,20,0,G-ling2-san1,G零三|G 0 3|G洞三,松竹
+G04,station_code,20,0,G-ling2-si4,G零四|G 0 4|G洞四,四維國小
+G05,station_code,20,0,G-ling2-wu3,G零五|G 0 5|G洞五,文心崇德
+G06,station_code,20,0,G-ling2-liu4,G零六|G 0 6|G洞六,文心中清
+G07,station_code,20,0,G-ling2-qi1,G零七|G 0 7|G洞七,文華高中
+G08,station_code,20,0,G-ling2-ba1,G零八|G 0 8|G洞八,文心櫻花
+G08a,station_code,20,0,G-ling2-ba1-a,G零八a|G 0 8 a|G洞八a,文心櫻花站
+G09,station_code,20,0,G-ling2-jiu3,G零九|G 0 9|G洞九,市政府
+G10,station_code,20,0,G-yi1-ling2,G一零|G 1 0|G腰洞|G10,水安宮
+G10a,station_code,20,0,G-yi1-ling2-a,G一零a|G腰零a|G 1 0 a,文心森林公園
+G11,station_code,20,0,G-yi1-yi1,G一一|G腰一|G 1 1|G11,南屯
+G12,station_code,20,0,G-yi1-er4,G一二|G腰二|G 1 2|G12,豐樂公園
+G13,station_code,20,0,G-yi1-san1,G一三|G腰三|G 1 3|G13,大慶
+G14,station_code,20,0,G-yi1-si4,G一四|G腰四|G 1 4|G14,九張犁
+G15,station_code,20,0,G-yi1-wu3,G一五|G腰五|G 1 5|G15,九德
+G16,station_code,20,0,G-yi1-liu4,G一六|G腰六|G 1 6|G16,烏日
+G17,station_code,20,0,G-yi1-qi1,G一七|G腰七|G 1 7|G17,高鐵臺中站
+
+R01,station_code,20,0,R-ling2-yi1,R零一|R 0 1|R洞一,北屯機廠
+R02,station_code,20,0,R-ling2-er4,R零二|R 0 2|R洞二,舊社
+R03,station_code,20,0,R-ling2-san1,R零三|R 0 3|R洞三,松竹
+R04,station_code,20,0,R-ling2-si4,R零四|R 0 4|R洞四,四維國小
+R05,station_code,20,0,R-ling2-wu3,R零五|R 0 5|R洞五,文心崇德
+R06,station_code,20,0,R-ling2-liu4,R零六|R 0 6|R洞六,文心中清
+R07,station_code,20,0,R-ling2-qi1,R零七|R 0 7|R洞七,文華高中
+R08,station_code,20,0,R-ling2-ba1,R零八|R 0 8|R洞八,文心櫻花
+R09,station_code,20,0,R-ling2-jiu3,R零九|R 0 9|R洞九,市政府
+R10,station_code,20,0,R-yi1-ling2,R一零|R 1 0|R腰洞|R10,南屯
+R11,station_code,20,0,R-yi1-yi1,R一一|R腰一|R 1 1|R11,豐樂公園
+R12,station_code,20,0,R-yi1-er4,R一二|R腰二|R 1 2|R12,大慶
+R13,station_code,20,0,R-yi1-san1,R一三|R腰三|R 1 3|R13,九張犁
+R14,station_code,20,0,R-yi1-si4,R一四|R腰四|R 1 4|R14,九德
+R15,station_code,20,0,R-yi1-wu3,R一五|R腰五|R 1 5|R15,烏日
+R16,station_code,20,0,R-yi1-liu4,R一六|R腰六|R 1 6|R16,高鐵臺中站
+R17,station_code,20,0,R-yi1-qi1,R一七|R腰七|R 1 7|R17,綠美橋
+R18,station_code,20,0,R-yi1-ba1,R一八|R腰八|R 1 8|R18,大慶會展中心
+R19,station_code,20,0,R-yi1-jiu3,R一九|R腰九|R 1 9|R19,文教
+R20,station_code,20,0,R-er4-ling2,R二零|R 2 0|R兒洞|R20,臺中榮總
+
+# ============================================================================
+# 車組編號格式（從測試結果提取）
+# ============================================================================
+05車,equipment,18,0,ling2 wu3 che1,動五車|洞五車|05動車,05號車廂
+06車,equipment,18,0,ling2 liu4 che1,動六車|洞六車|06動車,06號車廂
+10車,equipment,18,0,yi1 ling2 che1,腰洞車|一零車|10動車,10號車廂
+22車,equipment,18,0,er4 er4 che1,兩兩車|二二車|22動車,22號車廂
+23車,equipment,18,0,er4 san1 che1,兩三車|二三車|23動車,23號車廂
+25車,equipment,18,0,er4 wu3 che1,兩五車|二五車|25動車,25號車廂
+26車,equipment,18,0,er4 liu4 che1,兩六車|二六車|26動車,26號車廂
+29車,equipment,18,0,er4 jiu3 che1,兩九車|二九車|29動車,29號車廂
+30車,equipment,18,0,san1 ling2 che1,三零車|三洞車|30動車,30號車廂
+25/26車,equipment,20,0,er4 wu3 xie2 er4 liu4 che1,兩兩車|25 26車|2526車,25/26號車組
+05/06車,equipment,20,0,ling2 wu3 xie2 ling2 liu4 che1,動六車|05 06車|0506車,05/06號車組
+
+# ============================================================================
+# 車站名稱（從測試結果提取的高頻站名）
+# ============================================================================
+南屯站,location,15,0,nan2 tun2 zhan4,南敦站|南豚站,G11南屯站
+崇德站,location,15,0,chong2 de2 zhan4,充德站|崇得站,G06文心崇德站
+松竹站,location,15,0,song1 zhu2 zhan4,松竹站|送竹站,G04松竹站
+高鐵站,location,18,0,gao1 tie3 zhan4,高鐵站|高鐵臺中站,G17高鐵臺中站
+九張犁站,location,15,0,jiu3 zhang1 li2 zhan4,九張犁|九張梨,G14九張犁站
+
+# ============================================================================
+# 指令與操作（從測試中識別出的關鍵操作）
+# ============================================================================
+呼叫,command,18,0,hu4 jiao4,護照|戶叫|呼告,無線電呼叫
+通告全線,command,20,2,tong1 gao4 quan2 xian4,通告前線|通告全先,全線廣播通告
+請全線各站長,command,20,2,qing3 quan2 xian4 ge4 zhan4 zhang3,請全新更長|請前線各站長,呼叫所有站長
+立即前往月台,command,20,3,li4 ji2 qian2 wang3 yue4 tai2,立即至月台|力求往月台,緊急前往月台指令
+確認可視範圍內,command,18,2,que4 ren4 ke3 shi4 fan4 wei2 nei4,確認可是範圍內|卻忍可視範圍,檢查可見範圍
+上下行軌道,equipment,18,2,shang4 xia4 xing2 gui3 dao4,上下行鬼|上下型規道,雙向軌道
+協助確認列車,command,18,2,xie2 zhu4 que4 ren4 lie4 che1,協助確認捷捷車|協助卻忍列車,協助檢查列車
+以MCP開啟,command,20,2,yi3 M-C-P kai1 qi3,以ncp開啟|以MCP開起,使用主控面板開啟
+引導旅客下車,command,18,2,yin3 dao3 lv3 ke4 xia4 che1,引導陸客下車|引導旅克下車,引導乘客下車
+清車完畢,command,18,2,qing1 che1 wan2 bi4,情車完畢|清車完備,列車清空完成
+開關門正常,status,15,0,kai1 guan1 men2 zheng4 chang2,開關們正常|開關門正長,車門運作正常
+差一扇門,status,18,2,cha4 yi1 shan4 men2,插一扇門|差一善門,一扇門無法開啟
+未開啟,status,18,2,wei4 kai1 qi3,未開起|沒開啟,設備未開啟
+未停準,status,20,3,wei4 ting2 zhun3,未停駛|沒停準,列車未停準確位置
+停準,status,20,2,ting2 zhun3,停駛|停站|停准,列車停靠準確
+開車,command,15,1,kai1 che1,開球|啟動,列車發車
+
+# ============================================================================
+# 無線電專用數字讀音（關鍵！）
+# ============================================================================
+洞,number,20,0,dong4,零|領|動,無線電讀音:0
+腰,number,20,0,yao1,一|么|要,無線電讀音:1
+兩,number,20,0,liang3,二|兩|倆,無線電讀音:2
+勾,number,20,0,gou1,九|鉤|狗,無線電讀音:9
+拐,number,18,0,guai3,七|怪,無線電讀音:7
+洞洞,number,20,0,dong4 dong4,零零|00|動動,讀音:00
+洞一,number,20,0,dong4 yi1,零一|01|動一,讀音:01
+洞二,number,20,0,dong4 er4,零二|02|動二,讀音:02
+洞三,number,20,0,dong4 san1,零三|03|動三,讀音:03
+洞四,number,20,0,dong4 si4,零四|04|動四,讀音:04
+洞五,number,20,0,dong4 wu3,零五|05|動五,讀音:05
+洞六,number,20,0,dong4 liu4,零六|06|動六,讀音:06
+洞七,number,20,0,dong4 qi1,零七|07|動七,讀音:07
+洞八,number,20,0,dong4 ba1,零八|08|動八,讀音:08
+洞九,number,20,0,dong4 jiu3,零九|09|動九,讀音:09
+腰洞,number,20,0,yao1 dong4,一零|10|腰動,讀音:10
+腰腰,number,20,0,yao1 yao1,一一|11|么么,讀音:11
+腰二,number,20,0,yao1 er4,一二|12|么二,讀音:12
+腰三,number,20,0,yao1 san1,一三|13|么三,讀音:13
+腰四,number,20,0,yao1 si4,一四|14|么四,讀音:14
+腰五,number,20,0,yao1 wu3,一五|15|么五,讀音:15
+腰六,number,20,0,yao1 liu4,一六|16|么六,讀音:16
+腰七,number,20,0,yao1 qi1,一七|17|么七,讀音:17
+腰八,number,20,0,yao1 ba1,一八|18|么八,讀音:18
+腰九,number,20,0,yao1 jiu3,一九|19|么九,讀音:19
+兩洞,number,20,0,liang3 dong4,二零|20|兩動,讀音:20
+
+# ============================================================================
+# 緊急情況術語（Alert Level 3）
+# ============================================================================
+電力異常,emergency,20,3,dian4 li4 yi4 chang2,電力一場|電力意外,電力系統異常
+三軌復電,command,20,2,san1 gui3 fu4 dian4,三鬼附電|三軌負電|三鬼復電,第三軌供電恢復
+三軌佈線,command,20,2,san1 gui3 bu4 xian4,三鬼附電|三鬼佈線,第三軌線路作業
+不含月台以南,location,18,0,bu4 han2 yue4 tai2 yi3 nan2,不含月台以南|撲含月台以南,月台南側不包含
+正線,location,15,0,zheng4 xian4,正先|政線,主要軌道線
+上下行,direction,15,0,shang4 xia4 xing2,上下型|向下行,雙向行駛
+
+# ============================================================================
+# 其他設備與狀態
+# ============================================================================
+意外停滯,emergency,20,3,yi4 wai4 ting2 zhi4,意外停止|以外停滯,列車意外停止
+發生電力異常,emergency,20,3,fa1 sheng1 dian4 li4 yi4 chang2,發生電力一場,發生電力故障
+無發現異常,status,15,0,wu2 fa1 xian4 yi4 chang2,無現一輛|無發現以常,檢查無異常
+軌道設備,equipment,15,2,gui3 dao4 she4 bei4,鬼島設備|規道設備,軌道相關設備
+有異常,status,18,2,you3 yi4 chang2,有一常|有以常,存在異常狀況
+登上列車,command,15,1,deng1 shang4 lie4 che1,等上列車|登上捷捷車,進入列車
+請稍後,command,12,0,qing3 shao1 hou4,清稍後|情稍候,請等待
+
+# ============================================================================
+# 補充：測試結果中的其他錯誤模式
+# ============================================================================
+18站,station_code,18,0,yi1 ba1 zhan4,腰八站|一八站,18號站（測試中提到）
+全線站長,role,18,2,quan2 xian4 zhan4 zhang3,全新站長|全先站長,所有車站站長
+目視範圍內,command,15,0,mu4 shi4 fan4 wei2 nei4,目是範圍內|木視範圍,目視可見範圍
+軌旁修牆下方,location,18,2,gui3 pang2 xiu1 qiang2 xia4 fang1,鬼旁修牆下方|規旁修牆,軌道旁牆下方
+通告完畢,command,15,0,tong1 gao4 wan2 bi4,通話完畢|通告萬畢,廣播結束
+請人員至,command,15,2,qing3 ren2 yuan2 zhi4,請人員到|情人員至,請求人員前往
+
+# ============================================================================
+# Over/Overwrite標準用語
+# ============================================================================
+over,command,12,0,over,over|完畢,無線電結束用語
+通話完畢,command,12,0,tong1 hua4 wan2 bi4,通告完畢|通話萬畢,對話結束
+收到,command,15,0,shou1 dao4,手到|受到,訊息確認
+了解,command,12,0,liao3 jie3,瞭解|料解,訊息理解

@@ -1,0 +1,16 @@
+{
+  "mean_cer": 0.690214,
+  "mean_accuracy": 0.309786,
+  "total_chars": 993,
+  "total_errors": 565,
+  "micro_cer": 0.568983,
+  "micro_accuracy": 0.431017,
+  "n_files_matched": 7,
+  "n_files_total": 7,
+  "meta": {
+    "mode": "audio_asr",
+    "model_label": "Google Gemini",
+    "sub_model": "gemini-2.5-pro",
+    "timestamp": "2026-03-23 14:52:10"
+  }
+}

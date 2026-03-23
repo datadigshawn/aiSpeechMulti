@@ -1,0 +1,441 @@
+{
+  "phrases": [
+    {
+      "value": "OCC",
+      "boost": 20.0
+    },
+    {
+      "value": "呼叫",
+      "boost": 15.0
+    },
+    {
+      "value": "立即至",
+      "boost": 15.0
+    },
+    {
+      "value": "一月台",
+      "boost": 12.0
+    },
+    {
+      "value": "二月台",
+      "boost": 12.0
+    },
+    {
+      "value": "軌道",
+      "boost": 18.0
+    },
+    {
+      "value": "車門",
+      "boost": 15.0
+    },
+    {
+      "value": "滿檔",
+      "boost": 12.0
+    },
+    {
+      "value": "VVVF",
+      "boost": 20.0
+    },
+    {
+      "value": "Bypass",
+      "boost": 18.0
+    },
+    {
+      "value": "異物",
+      "boost": 20.0
+    },
+    {
+      "value": "方向鑰匙",
+      "boost": 15.0
+    },
+    {
+      "value": "斷電",
+      "boost": 20.0
+    },
+    {
+      "value": "火災",
+      "boost": 20.0
+    },
+    {
+      "value": "出軌",
+      "boost": 20.0
+    },
+    {
+      "value": "求救",
+      "boost": 20.0
+    },
+    {
+      "value": "停車",
+      "boost": 15.0
+    },
+    {
+      "value": "啟動",
+      "boost": 12.0
+    },
+    {
+      "value": "關閉",
+      "boost": 12.0
+    },
+    {
+      "value": "開啟",
+      "boost": 12.0
+    },
+    {
+      "value": "檢查",
+      "boost": 10.0
+    },
+    {
+      "value": "確認",
+      "boost": 10.0
+    },
+    {
+      "value": "收到",
+      "boost": 10.0
+    },
+    {
+      "value": "了解",
+      "boost": 10.0
+    },
+    {
+      "value": "G0",
+      "boost": 20.0
+    },
+    {
+      "value": "G03",
+      "boost": 20.0
+    },
+    {
+      "value": "G04",
+      "boost": 20.0
+    },
+    {
+      "value": "G05",
+      "boost": 20.0
+    },
+    {
+      "value": "G06",
+      "boost": 20.0
+    },
+    {
+      "value": "G07",
+      "boost": 20.0
+    },
+    {
+      "value": "G08",
+      "boost": 20.0
+    },
+    {
+      "value": "G08a",
+      "boost": 20.0
+    },
+    {
+      "value": "G09",
+      "boost": 20.0
+    },
+    {
+      "value": "G10",
+      "boost": 20.0
+    },
+    {
+      "value": "G10a",
+      "boost": 20.0
+    },
+    {
+      "value": "G11",
+      "boost": 20.0
+    },
+    {
+      "value": "G12",
+      "boost": 20.0
+    },
+    {
+      "value": "G13",
+      "boost": 20.0
+    },
+    {
+      "value": "G14",
+      "boost": 20.0
+    },
+    {
+      "value": "G15",
+      "boost": 20.0
+    },
+    {
+      "value": "G16",
+      "boost": 20.0
+    },
+    {
+      "value": "G17",
+      "boost": 20.0
+    },
+    {
+      "value": "洞洞",
+      "boost": 18.0
+    },
+    {
+      "value": "洞一",
+      "boost": 18.0
+    },
+    {
+      "value": "洞二",
+      "boost": 18.0
+    },
+    {
+      "value": "洞三",
+      "boost": 18.0
+    },
+    {
+      "value": "洞四",
+      "boost": 18.0
+    },
+    {
+      "value": "洞五",
+      "boost": 18.0
+    },
+    {
+      "value": "洞六",
+      "boost": 18.0
+    },
+    {
+      "value": "洞七",
+      "boost": 18.0
+    },
+    {
+      "value": "洞八",
+      "boost": 18.0
+    },
+    {
+      "value": "洞九",
+      "boost": 18.0
+    },
+    {
+      "value": "腰洞",
+      "boost": 18.0
+    },
+    {
+      "value": "腰腰",
+      "boost": 18.0
+    },
+    {
+      "value": "腰二",
+      "boost": 18.0
+    },
+    {
+      "value": "腰三",
+      "boost": 18.0
+    },
+    {
+      "value": "一一九",
+      "boost": 20.0
+    },
+    {
+      "value": "ATP",
+      "boost": 18.0
+    },
+    {
+      "value": "ATO",
+      "boost": 18.0
+    },
+    {
+      "value": "ATS",
+      "boost": 18.0
+    },
+    {
+      "value": "司機員",
+      "boost": 12.0
+    },
+    {
+      "value": "站務員",
+      "boost": 12.0
+    },
+    {
+      "value": "維修人員",
+      "boost": 12.0
+    },
+    {
+      "value": "行控人員",
+      "boost": 12.0
+    },
+    {
+      "value": "號誌",
+      "boost": 15.0
+    },
+    {
+      "value": "轉轍器",
+      "boost": 18.0
+    },
+    {
+      "value": "電聯車",
+      "boost": 15.0
+    },
+    {
+      "value": "月台門",
+      "boost": 15.0
+    },
+    {
+      "value": "緊急按鈕",
+      "boost": 18.0
+    },
+    {
+      "value": "對講機",
+      "boost": 12.0
+    },
+    {
+      "value": "晚點",
+      "boost": 10.0
+    },
+    {
+      "value": "正常",
+      "boost": 10.0
+    },
+    {
+      "value": "異常",
+      "boost": 10.0
+    },
+    {
+      "value": "故障",
+      "boost": 10.0
+    },
+    {
+      "value": "維修中",
+      "boost": 10.0
+    },
+    {
+      "value": "已修復",
+      "boost": 10.0
+    },
+    {
+      "value": "測試",
+      "boost": 10.0
+    },
+    {
+      "value": "復位",
+      "boost": 10.0
+    },
+    {
+      "value": "重置",
+      "boost": 10.0
+    },
+    {
+      "value": "清空",
+      "boost": 10.0
+    },
+    {
+      "value": "備用",
+      "boost": 10.0
+    },
+    {
+      "value": "待命",
+      "boost": 10.0
+    },
+    {
+      "value": "執行",
+      "boost": 10.0
+    },
+    {
+      "value": "取消",
+      "boost": 10.0
+    },
+    {
+      "value": "暫停",
+      "boost": 10.0
+    },
+    {
+      "value": "繼續",
+      "boost": 10.0
+    },
+    {
+      "value": "通報",
+      "boost": 10.0
+    },
+    {
+      "value": "回報",
+      "boost": 10.0
+    },
+    {
+      "value": "請求支援",
+      "boost": 18.0
+    },
+    {
+      "value": "疏散",
+      "boost": 20.0
+    },
+    {
+      "value": "封鎖",
+      "boost": 18.0
+    },
+    {
+      "value": "解除封鎖",
+      "boost": 15.0
+    },
+    {
+      "value": "進站",
+      "boost": 10.0
+    },
+    {
+      "value": "離站",
+      "boost": 10.0
+    },
+    {
+      "value": "到站",
+      "boost": 10.0
+    },
+    {
+      "value": "發車",
+      "boost": 12.0
+    },
+    {
+      "value": "停靠",
+      "boost": 10.0
+    },
+    {
+      "value": "越站",
+      "boost": 15.0
+    },
+    {
+      "value": "折返",
+      "boost": 12.0
+    },
+    {
+      "value": "調度",
+      "boost": 12.0
+    },
+    {
+      "value": "救援",
+      "boost": 18.0
+    },
+    {
+      "value": "受困",
+      "boost": 20.0
+    },
+    {
+      "value": "受傷",
+      "boost": 20.0
+    },
+    {
+      "value": "送醫",
+      "boost": 20.0
+    },
+
+    {"value": "EDRH",     "boost": 20.0},
+    {"value": "MCS",      "boost": 20.0},
+    {"value": "MCP",      "boost": 20.0},
+    {"value": "MTC",      "boost": 20.0},
+    {"value": "NCP",      "boost": 20.0},
+
+    {"value": "停準",     "boost": 20.0},
+    {"value": "三軌復電", "boost": 20.0},
+    {"value": "復電",     "boost": 18.0},
+    {"value": "布電",     "boost": 18.0},
+    {"value": "胸牆",     "boost": 20.0},
+    {"value": "軌旁胸牆", "boost": 20.0},
+    {"value": "電纜",     "boost": 18.0},
+
+    {"value": "通告全線", "boost": 18.0},
+    {"value": "通告完畢", "boost": 15.0},
+    {"value": "站長",     "boost": 12.0},
+    {"value": "車長",     "boost": 12.0},
+    {"value": "行控中心", "boost": 15.0},
+    {"value": "車組",     "boost": 12.0}
+  ]
+}

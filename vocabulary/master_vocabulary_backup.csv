@@ -1,0 +1,121 @@
+term,category,boost_value,alert_level,pinyin,common_error,description
+OCC,equipment,20,1,O-C-C,歐西|哦西|歐CC,行控中心 Operations Control Center
+呼叫,command,15,0,hu4 jiao4,護照|戶叫,無線電呼叫用語
+立即至,command,15,2,li4 ji2 zhi4,立即致|立即到,緊急前往指令
+一月台,location,12,0,yi1 yue4 tai2,1月台,第一月台
+二月台,location,12,0,er4 yue4 tai2,2月台,第二月台
+軌道,equipment,18,2,gui3 dao4,鬼島|規道|歸道,鐵軌
+車門,equipment,15,2,che1 men2,車們,列車門
+滿檔,status,12,1,man3 dang4,滿當|滿擋,車門完全開啟狀態
+VVVF,equipment,20,1,V-V-V-F,VVF,Variable Voltage Variable Frequency 變頻器
+Bypass,equipment,18,2,Bypass,拜帕斯|百帕斯|偷拜PASS,旁路模式
+異物,emergency,20,3,yi4 wu4,義務|遺物,軌道或月台異物
+方向鑰匙,equipment,15,2,fang1 xiang2 yao4 shi,方向鑰匙,特殊工具鑰匙
+斷電,emergency,20,3,duan4 dian4,斷點|短電,軌道斷電
+火災,emergency,20,3,huo3 zai1,火在,火災事故
+出軌,emergency,20,3,chu1 gui3,出規|初軌,列車出軌
+求救,emergency,20,3,qiu2 jiu4,求救|球救,緊急求救
+停車,command,15,2,ting2 che1,停車,列車停止
+啟動,command,12,1,qi3 dong4,起動,設備啟動
+關閉,command,12,1,guan1 bi4,關閉,設備關閉
+開啟,command,12,1,kai1 qi3,開起,設備開啟
+檢查,command,10,1,jian3 cha2,檢查,設備檢查
+確認,command,10,1,que4 ren4,確任,狀況確認
+收到,command,10,0,shou1 dao4,收到,訊息確認
+了解,command,10,0,liao3 jie3,了解,訊息理解
+G0,station_code,20,0,G-ling,G零,北屯總站
+G03,station_code,20,0,G-ling2-san1,G零三,舊社
+G04,station_code,20,0,G-ling2-si4,G零四,松竹
+G05,station_code,20,0,G-ling2-wu3,G零五,四維國小
+G06,station_code,20,0,G-ling2-liu4,G零六,文心崇德
+G07,station_code,20,0,G-ling2-qi1,G零七,文心中清
+G08,station_code,20,0,G-ling2-ba1,G零八,文華高中
+G08a,station_code,20,0,G-ling2-ba1-a,G零八a,文心櫻花
+G09,station_code,20,0,G-ling2-jiu3,G零九,市政府
+G10,station_code,20,0,G-yi1-ling2,G一零,水安宮
+G10a,station_code,20,0,G-yi1-ling2-a,G一零a|G腰零a,文心森林公園
+G11,station_code,20,0,G-yi1-yi1,G一一|G腰一,南屯
+G12,station_code,20,0,G-yi1-er4,G一二|G腰二,豐樂公園
+G13,station_code,20,0,G-yi1-san1,G一三|G腰三,大慶
+G14,station_code,20,0,R-yi1-si4,G一四|G腰四,九張犁
+G15,station_code,20,0,R-yi1-wu3,G一五|G腰五,九德
+G16,station_code,20,0,G-yi1-liu4,G一六|G腰六,烏日
+G17,station_code,20,0,G-yi1-qi1,G一七|G腰七,高鐵臺中站
+零,number,15,0,ling2,領|洞,數字0
+一,number,15,0,yi1,腰|么,數字1
+二,number,15,0,er4,兒|爾,數字2
+三,number,15,0,san1,參|傘,數字3
+四,number,15,0,si4,肆|寺,數字4
+五,number,15,0,wu3,伍|舞,數字5
+六,number,15,0,liu4,陸|溜,數字6
+七,number,15,0,qi1,柒|妻,數字7
+八,number,15,0,ba1,捌|巴,數字8
+九,number,15,0,jiu3,玖|勾,數字9
+十,number,15,0,shi2,拾|石,數字10
+洞,number,18,0,dong4,零,無線電讀音:0
+勾,number,18,0,gou1,九,無線電讀音:9
+腰,number,18,0,yao1,一|么,無線電讀音:1
+拐,number,18,0,guai3,七,無線電讀音:7(較少用)
+鉤,number,18,0,gou1,九,無線電讀音:9(拐音)
+洞洞,number,18,0,dong4 dong4,零零|00,無線電讀音:00
+洞一,number,18,0,dong4 yi1,零一|01,無線電讀音:01
+洞二,number,18,0,dong4 er4,零二|02,無線電讀音:02
+洞三,number,18,0,dong4 san1,零三|03,無線電讀音:03
+洞四,number,18,0,dong4 si4,零四|04,無線電讀音:04
+洞五,number,18,0,dong4 wu3,零五|05,無線電讀音:05
+洞六,number,18,0,dong4 liu4,零六|06,無線電讀音:06
+洞七,number,18,0,dong4 qi1,零七|07,無線電讀音:07
+洞八,number,18,0,dong4 ba1,零八|08,無線電讀音:08
+洞九,number,18,0,dong4 jiu3,零九|09,無線電讀音:09
+腰洞,number,18,0,yao1 dong4,一零|10,無線電讀音:10
+腰腰,number,18,0,yao1 yao1,一一|11,無線電讀音:11
+腰二,number,18,0,yao1 er4,一二|12,無線電讀音:12
+腰三,number,18,0,yao1 san1,一三|13,無線電讀音:13
+一一九,emergency,20,3,yi1 yi1 jiu3,119|腰腰勾,緊急電話119
+ATP,equipment,18,1,A-T-P,ATP,列車自動防護系統
+ATO,equipment,18,1,A-T-O,ATO,列車自動駕駛系統
+ATS,equipment,18,1,A-T-S,ATS,列車自動監督系統
+司機員,role,12,0,si1 ji1 yuan2,駕駛員|司機,列車司機
+站務員,role,12,0,zhan4 wu4 yuan2,站務人員,車站服務人員
+維修人員,role,12,1,wei2 xiu1 ren2 yuan2,維護人員,設備維修人員
+行控人員,role,12,1,xing2 kong4 ren2 yuan2,OCC人員,行控中心人員
+號誌,equipment,15,2,hao4 zhi4,號志|好誌,軌道號誌系統
+轉轍器,equipment,18,2,zhuan3 zhe2 qi4,轉轍機|轉則器,軌道轉換裝置
+電聯車,equipment,15,1,dian4 lian2 che1,電車|聯結車,捷運列車
+月台門,equipment,15,2,yue4 tai2 men2,月台們,月台安全門
+緊急按鈕,equipment,18,3,jin3 ji2 an4 niu3,緊急鈕|急按鈕,緊急停車按鈕
+對講機,equipment,12,0,dui4 jiang3 ji1,對講雞|無線電,通訊設備
+晚點,status,10,1,wan3 dian3,晚點|誤點,列車延誤
+正常,status,10,0,zheng4 chang2,正常|正長,狀態正常
+異常,status,10,2,yi4 chang2,意外|以常,狀態異常
+故障,status,10,2,gu4 zhang4,故障|故障,設備故障
+維修中,status,10,1,wei2 xiu1 zhong1,維修|修理中,正在維修
+已修復,status,10,1,yi3 xiu1 fu4,修好|已復原,維修完成
+測試,command,10,0,ce4 shi4,側試|測視,設備測試
+復位,command,10,1,fu4 wei4,復位|歸位,系統復位
+重置,command,10,1,chong2 zhi4,重設|重置,系統重置
+清空,command,10,1,qing1 kong1,清空|清除,資料清除
+備用,status,10,1,bei4 yong4,備用|後備,備用狀態
+待命,status,10,0,dai4 ming4,待命|等待,待命狀態
+執行,command,10,1,zhi2 xing2,執行|施行,執行指令
+取消,command,10,1,qu3 xiao1,取消|撤銷,取消操作
+暫停,command,10,1,zan4 ting2,暫停|停止,暫停操作
+繼續,command,10,1,ji4 xu4,繼續|持續,繼續操作
+通報,command,10,2,tong1 bao4,通報|報告,狀況通報
+回報,command,10,1,hui2 bao4,回報|回覆,狀況回報
+請求支援,emergency,18,3,qing3 qiu2 zhi1 yuan2,請求援助|求救,請求協助
+疏散,emergency,20,3,shu1 san4,疏散|撤離,人員疏散
+封鎖,emergency,18,3,feng1 suo3,封鎖|管制,區域封鎖
+解除封鎖,command,15,2,jie3 chu2 feng1 suo3,解封|開放,解除封鎖
+進站,status,10,0,jin4 zhan4,進站|入站,列車進站
+離站,status,10,0,li2 zhan4,離站|出站,列車離站
+到站,status,10,0,dao4 zhan4,到站|抵達,列車到站
+發車,command,12,1,fa1 che1,發車|出發,列車發車
+停靠,command,10,0,ting2 kao4,停靠|停止,列車停靠
+越站,status,15,2,yue4 zhan4,越站|過站,列車不停站通過
+折返,command,12,1,zhe2 fan3,折返|回轉,列車折返
+調度,command,12,1,diao4 du4,調度|調配,列車調度
+救援,emergency,18,3,jiu4 yuan2,救援|支援,緊急救援
+受困,emergency,20,3,shou4 kun4,困住|被困,人員受困
+受傷,emergency,20,3,shou4 shang1,受傷|傷害,人員受傷
+送醫,emergency,20,3,song1 yi4,送醫|送診,醫療送醫

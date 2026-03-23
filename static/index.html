@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>aiSpeechMulti — 管道音訊擷取</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+  <style>
+    /* =========================================================
+       基礎 Reset & 字型
+       ========================================================= */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Helvetica Neue", Arial, "PingFang TC", "Microsoft JhengHei", sans-serif;
+      background: #0f1117;
+      color: #e0e0e0;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    /* =========================================================
+       版面
+       ========================================================= */
+    .container { max-width: 820px; margin: 0 auto; }
+
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: #7eb8f7;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    h1 span.version { font-size: 0.75rem; color: #666; font-weight: 400; }
+
+    /* ── 卡片 ── */
+    .card {
+      background: #1a1d27;
+      border: 1px solid #2a2d3e;
+      border-radius: 10px;
+      padding: 18px 20px;
+      margin-bottom: 16px;
+    }
+    .card-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: #556;
+      margin-bottom: 12px;
+    }
+
+    /* ── 設定行 ── */
+    .config-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+    .config-row label { font-size: 0.85rem; color: #aaa; white-space: nowrap; }
+
+    select, input[type="text"] {
+      background: #0f1117;
+      border: 1px solid #333;
+      border-radius: 6px;
+      color: #e0e0e0;
+      padding: 6px 10px;
+      font-size: 0.88rem;
+      outline: none;
+    }
+    select:focus, input[type="text"]:focus { border-color: #7eb8f7; }
+    select { cursor: pointer; }
+
+    #serverUrl { width: 230px; }
+
+    /* ── 按鈕 ── */
+    button {
+      border: none;
+      border-radius: 6px;
+      padding: 7px 18px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s, transform .1s;
+    }
+    button:active { transform: scale(.97); }
+    button:disabled { opacity: .35; cursor: not-allowed; }
+
+    #btnToggle {
+      background: #2ea043;
+      color: #fff;
+      min-width: 110px;
+    }
+    #btnToggle.active { background: #c9414a; }
+
+    #btnClear {
+      background: #2a2d3e;
+      color: #aaa;
+      font-size: 0.8rem;
+      padding: 5px 12px;
+    }
+    #btnClear:hover { background: #383b50; }
+
+    /* ── 狀態列 ── */
+    .status-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: center;
+      font-size: 0.82rem;
+    }
+    .dot {
+      display: inline-block;
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      background: #555;
+      margin-right: 5px;
+      vertical-align: middle;
+    }
+    .dot.green  { background: #2ea043; box-shadow: 0 0 6px #2ea043; }
+    .dot.yellow { background: #e3a03c; box-shadow: 0 0 6px #e3a03c; }
+    .dot.red    { background: #c9414a; box-shadow: 0 0 6px #c9414a; }
+
+    .stat { color: #888; }
+    .stat span { color: #c8d0df; font-weight: 600; }
+
+    /* ── 音量計 ── */
+    .meter-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .meter-label { font-size: 0.8rem; color: #666; white-space: nowrap; width: 52px; }
+    .meter-bar-bg {
+      flex: 1;
+      height: 10px;
+      background: #1e2130;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+    #meterBar {
+      height: 100%;
+      width: 0%;
+      border-radius: 5px;
+      background: linear-gradient(90deg, #2ea043 60%, #e3a03c 85%, #c9414a 100%);
+      transition: width .08s linear;
+    }
+    .meter-db { font-size: 0.8rem; color: #7eb8f7; width: 52px; text-align: right; }
+
+    /* ── 緩衝進度 ── */
+    .buf-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .buf-label { font-size: 0.8rem; color: #666; white-space: nowrap; width: 100px; }
+    .buf-bar-bg {
+      flex: 1;
+      height: 8px;
+      background: #1e2130;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    #bufBar {
+      height: 100%;
+      width: 0%;
+      border-radius: 4px;
+      background: #7eb8f7;
+      transition: width .1s linear;
+    }
+    .buf-pct { font-size: 0.8rem; color: #7eb8f7; width: 36px; text-align: right; }
+
+    /* ── 辨識結果 ── */
+    .transcript-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    #transcriptArea {
+      height: 380px;
+      overflow-y: auto;
+      font-size: 0.9rem;
+      line-height: 1.7;
+      padding: 4px 2px;
+    }
+    #transcriptArea::-webkit-scrollbar { width: 6px; }
+    #transcriptArea::-webkit-scrollbar-track { background: transparent; }
+    #transcriptArea::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+
+    .entry {
+      padding: 6px 8px;
+      border-radius: 6px;
+      margin-bottom: 4px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      animation: fadeIn .25s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }
+
+    .entry.transcript { background: #1e2130; }
+    .entry.error      { background: #2a1820; }
+    .entry.system     { background: transparent; color: #556; font-size: 0.82rem; }
+
+    .entry-time {
+      font-size: 0.75rem;
+      color: #556;
+      white-space: nowrap;
+      padding-top: 2px;
+      min-width: 56px;
+    }
+    .entry-ch {
+      font-size: 0.75rem;
+      background: #2a3a5a;
+      color: #7eb8f7;
+      border-radius: 4px;
+      padding: 1px 6px;
+      white-space: nowrap;
+      align-self: flex-start;
+      margin-top: 2px;
+    }
+    .entry-text { flex: 1; color: #d8e0ef; }
+    .entry.error .entry-text { color: #e07070; }
+
+    .conf-badge {
+      font-size: 0.7rem;
+      color: #556;
+      white-space: nowrap;
+      padding-top: 3px;
+    }
+
+    /* ── 裝置選擇 ── */
+    .device-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    #deviceSelect {
+      flex: 1;
+      min-width: 200px;
+      max-width: 480px;
+    }
+    #btnScan {
+      background: #2a2d3e;
+      color: #7eb8f7;
+      border: 1px solid #3a4060;
+      font-size: 0.85rem;
+      padding: 6px 14px;
+      white-space: nowrap;
+    }
+    #btnScan:hover:not(:disabled) { background: #353860; }
+
+    .device-hint {
+      font-size: 0.78rem;
+      color: #445;
+      line-height: 1.5;
+      padding: 6px 8px;
+      background: #13151f;
+      border-radius: 6px;
+      border-left: 3px solid #2a3a5a;
+    }
+    .device-hint.ok  { border-left-color: #2ea043; color: #6fa87a; }
+    .device-hint.err { border-left-color: #c9414a; color: #e07070; }
+
+    /* ── 空白提示 ── */
+    #emptyHint {
+      text-align: center;
+      color: #334;
+      font-size: 0.9rem;
+      margin-top: 80px;
+      line-height: 2;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- 標題 -->
+  <h1>🎙️ aiSpeechMulti <span class="version">v1.2</span></h1>
+
+  <!-- 設定卡片 -->
+  <div class="card">
+    <div class="card-title">連線設定</div>
+    <div class="config-row">
+      <label>管道 ID</label>
+      <select id="channelSelect">
+        <option value="ch1">管道 1（ch1）</option>
+        <option value="ch2">管道 2（ch2）</option>
+        <option value="ch3">管道 3（ch3）</option>
+        <option value="ch4">管道 4（ch4）</option>
+        <option value="ch5">管道 5（ch5）</option>
+      </select>
+
+      <label>辨識引擎</label>
+      <select id="engineSelect">
+        <option value="google">🔵 Google STT (chirp_3)</option>
+        <option value="scribe">🟣 ElevenLabs Scribe</option>
+      </select>
+
+      <label>伺服器</label>
+      <input id="serverUrl" type="text" value="ws://localhost:8000" placeholder="ws://host:port" />
+
+      <button id="btnToggle" onclick="toggleCapture()">▶ 開始監聽</button>
+    </div>
+  </div>
+
+  <!-- 音訊裝置卡片 -->
+  <div class="card">
+    <div class="card-title">音訊輸入裝置</div>
+
+    <div class="device-row">
+      <label>裝置</label>
+      <select id="deviceSelect">
+        <option value="">— 請先點擊「掃描裝置」—</option>
+      </select>
+      <button id="btnScan" onclick="scanDevices()">🔍 掃描裝置</button>
+    </div>
+
+    <div id="deviceHint" class="device-hint">
+      首次使用請點擊「掃描裝置」，瀏覽器會請求麥克風權限後列出所有音訊輸入裝置。<br>
+      每個分頁可選擇不同裝置（如不同無線電接收器的虛擬音訊輸入）。
+    </div>
+  </div>
+
+  <!-- 狀態卡片 -->
+  <div class="card">
+    <div class="card-title">即時狀態</div>
+
+    <!-- 連線 & 統計 -->
+    <div class="status-bar" style="margin-bottom:14px;">
+      <div>
+        <span class="dot" id="connDot"></span>
+        <span id="connLabel" style="font-size:.85rem;">未連線</span>
+      </div>
+      <div class="stat">引擎 <span id="statEngine">—</span></div>
+      <div class="stat">取樣率 <span id="statSr">—</span></div>
+      <div class="stat">已送辨識 <span id="statChunks">0</span> 段</div>
+      <div class="stat">辨識筆數 <span id="statTx">0</span></div>
+    </div>
+
+    <!-- 音量計 -->
+    <div class="meter-wrap" style="margin-bottom:10px;">
+      <div class="meter-label">音量</div>
+      <div class="meter-bar-bg"><div id="meterBar"></div></div>
+      <div class="meter-db" id="meterDb">— dB</div>
+    </div>
+
+    <!-- 緩衝進度 -->
+    <div class="buf-wrap">
+      <div class="buf-label">緩衝（15 秒）</div>
+      <div class="buf-bar-bg"><div id="bufBar"></div></div>
+      <div class="buf-pct" id="bufPct">0%</div>
+    </div>
+  </div>
+
+  <!-- 辨識結果卡片 -->
+  <div class="card">
+    <div class="transcript-header">
+      <div class="card-title" style="margin:0;">辨識結果</div>
+      <button id="btnClear" onclick="clearTranscripts()">清除</button>
+    </div>
+
+    <div id="transcriptArea">
+      <div id="emptyHint">尚無辨識結果<br>選擇管道後按「開始監聽」</div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+// =============================================================================
+// 設定常數
+// =============================================================================
+const TARGET_SAMPLE_RATE = 16000;   // 伺服器期望的取樣率
+const CHUNK_SECONDS      = 15;      // 伺服器的緩衝長度（需與 app_api.py 一致）
+const SCRIPT_PROC_BUFFER = 4096;    // ScriptProcessorNode 每次回呼的樣本數
+
+// =============================================================================
+// 全域狀態
+// =============================================================================
+let audioCtx       = null;
+let mediaStream    = null;
+let sourceNode     = null;
+let processorNode  = null;
+let ws             = null;
+let isRunning      = false;
+
+// 統計
+let chunksCount    = 0;
+let txCount        = 0;
+
+// 緩衝追蹤（純顯示用，真正的緩衝在 app_api.py）
+const TARGET_BYTES = TARGET_SAMPLE_RATE * CHUNK_SECONDS * 2;  // 16-bit = 2 bytes
+let bytesSent      = 0;
+
+// =============================================================================
+// ① 工具函式：Float32 → Int16 PCM
+// =============================================================================
+/**
+ * 瀏覽器 Web Audio 輸出 Float32（-1.0 ~ +1.0），
+ * 伺服器 GoogleSTTModel 需要 LINEAR16（-32768 ~ +32767）。
+ * 此函式做轉換。
+ */
+function float32ToInt16(float32Arr) {
+  const int16 = new Int16Array(float32Arr.length);
+  for (let i = 0; i < float32Arr.length; i++) {
+    // 夾在 -1 ~ +1 之間後映射到 16-bit 整數範圍
+    const s = Math.max(-1, Math.min(1, float32Arr[i]));
+    int16[i] = s < 0 ? s * 32768 : s * 32767;
+  }
+  return int16;
+}
+
+// =============================================================================
+// ② 工具函式：線性插值重取樣
+// =============================================================================
+/**
+ * 瀏覽器 AudioContext 預設取樣率通常是 44100 或 48000 Hz。
+ * 若無法建立 16000 Hz 的 AudioContext，需降頻至 16000 Hz。
+ *
+ * 線性插值（linear interpolation）：
+ *   對目標序列的每個點，找出在原始序列中的對應位置，
+ *   取左右兩點加權平均，比單純取整（最近鄰）音質更好。
+ */
+function resampleLinear(float32Arr, fromRate, toRate) {
+  if (fromRate === toRate) return float32Arr;
+
+  const ratio        = fromRate / toRate;
+  const targetLength = Math.round(float32Arr.length / ratio);
+  const result       = new Float32Array(targetLength);
+
+  for (let i = 0; i < targetLength; i++) {
+    const pos  = i * ratio;
+    const idx  = Math.floor(pos);
+    const frac = pos - idx;
+    const left  = float32Arr[idx]       ?? 0;
+    const right = float32Arr[idx + 1]   ?? left;
+    result[i]  = left + frac * (right - left);
+  }
+  return result;
+}
+
+// =============================================================================
+// ③ 計算 RMS 音量（用於音量計顯示）
+// =============================================================================
+function calcRms(float32Arr) {
+  let sum = 0;
+  for (let i = 0; i < float32Arr.length; i++) sum += float32Arr[i] ** 2;
+  return Math.sqrt(sum / float32Arr.length);
+}
+
+// =============================================================================
+// ④ 更新 UI — 音量計
+// =============================================================================
+function updateMeter(rms) {
+  // 映射到 0–100%（−60 dB ~ 0 dB 對應 0 ~ 100%）
+  const db  = rms > 0 ? 20 * Math.log10(rms) : -60;
+  const pct = Math.max(0, Math.min(100, (db + 60) / 60 * 100));
+  document.getElementById('meterBar').style.width = pct + '%';
+  document.getElementById('meterDb').textContent  = db.toFixed(1) + ' dB';
+}
+
+// =============================================================================
+// ⑤ 更新 UI — 緩衝進度
+// =============================================================================
+function updateBuf(sentBytes) {
+  const pct = Math.min(100, Math.round(sentBytes / TARGET_BYTES * 100));
+  document.getElementById('bufBar').style.width  = pct + '%';
+  document.getElementById('bufPct').textContent  = pct + '%';
+}
+
+// =============================================================================
+// ⑥ 更新 UI — 連線狀態
+// =============================================================================
+function setConnStatus(state) {
+  // state: 'disconnected' | 'connecting' | 'connected' | 'error'
+  const dot   = document.getElementById('connDot');
+  const label = document.getElementById('connLabel');
+  const map   = {
+    disconnected: ['',       '未連線'],
+    connecting:   ['yellow', '連線中…'],
+    connected:    ['green',  '已連線'],
+    error:        ['red',    '連線錯誤'],
+  };
+  const [cls, text] = map[state] ?? map.disconnected;
+  dot.className   = 'dot ' + cls;
+  label.textContent = text;
+}
+
+// =============================================================================
+// ⑦ 辨識結果顯示
+// =============================================================================
+function addEntry(type, channelId, text, confidence) {
+  const area = document.getElementById('transcriptArea');
+
+  // 移除空白提示
+  const hint = document.getElementById('emptyHint');
+  if (hint) hint.remove();
+
+  const entry = document.createElement('div');
+  entry.className = 'entry ' + type;
+
+  const now = new Date();
+  const timeStr = now.toTimeString().slice(0, 8);
+
+  if (type === 'system') {
+    entry.innerHTML = `<span class="entry-time">${timeStr}</span><span class="entry-text">${text}</span>`;
+  } else {
+    const confStr = confidence !== undefined ? (confidence * 100).toFixed(0) + '%' : '';
+    entry.innerHTML =
+      `<span class="entry-time">${timeStr}</span>` +
+      `<span class="entry-ch">${channelId}</span>` +
+      `<span class="entry-text">${escHtml(text)}</span>` +
+      (confStr ? `<span class="conf-badge">${confStr}</span>` : '');
+  }
+
+  // 插入到最頂部，讓最新結果永遠在上方
+  area.insertBefore(entry, area.firstChild);
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function clearTranscripts() {
+  const area = document.getElementById('transcriptArea');
+  area.innerHTML = '<div id="emptyHint">尚無辨識結果<br>選擇管道後按「開始監聽」</div>';
+}
+
+// =============================================================================
+// ⑧ 音訊裝置掃描
+// =============================================================================
+/**
+ * 掃描可用音訊輸入裝置，填入 deviceSelect 下拉選單。
+ *
+ * 為什麼需要先請求權限？
+ *   瀏覽器隱私保護機制：
+ *   - 未授權前，enumerateDevices() 仍會回傳裝置清單，但 label 是空字串
+ *   - 只有使用者授予麥克風權限後，label 才會顯示真實裝置名稱
+ *   流程：發起一個臨時 getUserMedia() → 立刻停止（只為拿授權）→ 再 enumerate
+ */
+async function scanDevices() {
+  const btn  = document.getElementById('btnScan');
+  const hint = document.getElementById('deviceHint');
+  const sel  = document.getElementById('deviceSelect');
+
+  btn.disabled = true;
+  btn.textContent = '⏳ 掃描中…';
+  hint.className = 'device-hint';
+  hint.textContent = '正在請求麥克風權限…';
+
+  // ── Step 1：請求一次臨時授權，讓瀏覽器解鎖裝置名稱 ──────────────────────
+  try {
+    const tmpStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    tmpStream.getTracks().forEach(t => t.stop());   // 立刻釋放，不佔用裝置
+  } catch (err) {
+    hint.className = 'device-hint err';
+    hint.textContent = `❌ 麥克風權限被拒絕：${err.message}`;
+    btn.disabled = false;
+    btn.textContent = '🔍 掃描裝置';
+    return;
+  }
+
+  // ── Step 2：列舉所有音訊輸入裝置 ─────────────────────────────────────────
+  const devices    = await navigator.mediaDevices.enumerateDevices();
+  const audioInputs = devices.filter(d => d.kind === 'audioinput');
+
+  if (audioInputs.length === 0) {
+    hint.className = 'device-hint err';
+    hint.textContent = '❌ 未找到任何音訊輸入裝置';
+    btn.disabled = false;
+    btn.textContent = '🔍 掃描裝置';
+    return;
+  }
+
+  // ── Step 3：填入下拉選單 ──────────────────────────────────────────────────
+  // 保留目前選取的 deviceId（重新掃描時維持選擇）
+  const prevId = sel.value;
+  sel.innerHTML = '';
+
+  audioInputs.forEach((d, i) => {
+    const opt   = document.createElement('option');
+    opt.value   = d.deviceId;
+    // deviceId 'default' 通常是系統預設裝置
+    const label = d.label || `音訊輸入裝置 ${i + 1}`;
+    opt.textContent = d.deviceId === 'default' ? `🔊 ${label}（系統預設）` : label;
+    if (d.deviceId === prevId) opt.selected = true;
+    sel.appendChild(opt);
+  });
+
+  // ── Step 4：更新提示文字 ───────────────────────────────────────────────────
+  hint.className = 'device-hint ok';
+  hint.textContent =
+    `✅ 找到 ${audioInputs.length} 個音訊輸入裝置，請選擇此分頁要使用的裝置。`;
+
+  btn.disabled = false;
+  btn.textContent = '🔍 重新掃描';
+
+  // ── Step 5：監聽裝置插拔事件，自動重新掃描 ────────────────────────────────
+  // 只綁定一次（若已綁定則 removeEventListener 後重綁，避免重複）
+  navigator.mediaDevices.removeEventListener('devicechange', scanDevices);
+  navigator.mediaDevices.addEventListener('devicechange', scanDevices);
+}
+
+// =============================================================================
+// ⑨ 主控：開始 / 停止監聽
+// =============================================================================
+async function toggleCapture() {
+  if (isRunning) {
+    stopCapture();
+  } else {
+    await startCapture();
+  }
+}
+
+async function startCapture() {
+  const channelId = document.getElementById('channelSelect').value;
+  const serverUrl = document.getElementById('serverUrl').value.replace(/\/$/, '');
+  const engine    = document.getElementById('engineSelect').value;
+  const wsUrl     = `${serverUrl}/ws/stream/${channelId}?backend=${engine}`;
+
+  // ── 1. 取得指定裝置的音訊流 ──────────────────────────────────────────────
+  //
+  // deviceId 說明：
+  //   - 有值：鎖定使用者選擇的裝置（{ exact: id } = 找不到該裝置直接報錯）
+  //   - 空值：讓瀏覽器選系統預設麥克風（未掃描時的 fallback）
+  //
+  // 關閉回音消除、降噪、自動增益的原因：
+  //   無線電是原始訊號，這些處理會破壞波形，影響 STT 準確率。
+  //
+  const selectedDeviceId = document.getElementById('deviceSelect').value;
+  const audioConstraints = {
+    echoCancellation: false,
+    noiseSuppression: false,
+    autoGainControl:  false,
+    channelCount:     1,
+    ...(selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : {}),
+  };
+
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
+  } catch (err) {
+    // exact deviceId 找不到裝置時，嘗試不指定裝置的 fallback
+    if (err.name === 'OverconstrainedError' && selectedDeviceId) {
+      addEntry('error', channelId, `⚠️ 指定裝置無法使用，改用系統預設裝置`);
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: false, noiseSuppression: false,
+                   autoGainControl: false, channelCount: 1 }
+        });
+      } catch (err2) {
+        addEntry('error', channelId, `❌ 無法取得音訊輸入：${err2.message}`);
+        return;
+      }
+    } else {
+      addEntry('error', channelId, `❌ 無法取得音訊輸入：${err.message}`);
+      return;
+    }
+  }
+
+  // 顯示實際使用的裝置名稱
+  const track      = stream.getAudioTracks()[0];
+  const deviceName = track?.label || '未知裝置';
+  addEntry('system', channelId, `🎤 使用裝置：${deviceName}`);
+
+  mediaStream = stream;
+
+  // ── 2. 建立 AudioContext（優先 16000 Hz，不支援則用預設再重取樣）───────────
+  //
+  // 為什麼要指定 sampleRate: 16000？
+  //   若 AudioContext 直接跑在 16000 Hz，ScriptProcessorNode 輸出的
+  //   Float32 樣本直接轉 Int16 就行，不需要重取樣步驟。
+  //   部分舊版瀏覽器不支援指定 sampleRate，會 fallback 到預設值。
+  //
+  let nativeRate;
+  try {
+    audioCtx   = new AudioContext({ sampleRate: TARGET_SAMPLE_RATE });
+    nativeRate = audioCtx.sampleRate;
+  } catch (_) {
+    audioCtx   = new AudioContext();
+    nativeRate = audioCtx.sampleRate;
+  }
+
+  document.getElementById('statSr').textContent =
+    nativeRate === TARGET_SAMPLE_RATE
+      ? `${nativeRate} Hz`
+      : `${nativeRate} Hz → 重取樣 16000 Hz`;
+
+  // ── 3. 建立 WebSocket 連線 ─────────────────────────────────────────────────
+  setConnStatus('connecting');
+  addEntry('system', channelId, `🔌 正在連線 ${wsUrl}…`);
+
+  ws = new WebSocket(wsUrl);
+  ws.binaryType = 'arraybuffer';
+
+  ws.onopen = () => {
+    setConnStatus('connected');
+    addEntry('system', channelId, `✅ 已連線 → ${wsUrl}`);
+    isRunning = true;
+    // 立即根據選擇顯示引擎（不等伺服器 engine_info）
+    const engineLabel = engine === 'scribe' ? '🟣 ElevenLabs Scribe' : '🔵 Google STT';
+    document.getElementById('statEngine').textContent = engineLabel;
+    const btn = document.getElementById('btnToggle');
+    btn.textContent = '■ 停止監聽';
+    btn.classList.add('active');
+    document.getElementById('channelSelect').disabled = true;
+    document.getElementById('engineSelect').disabled  = true;   // 監聽中鎖定引擎
+    document.getElementById('deviceSelect').disabled  = true;   // 監聽中鎖定裝置
+    document.getElementById('btnScan').disabled       = true;
+  };
+
+  ws.onmessage = (evt) => {
+    try {
+      const data = JSON.parse(evt.data);
+
+      if (data.type === 'engine_info') {
+        // 伺服器確認使用的引擎（後端欄位名稱為 stt_backend）
+        const backend = data.stt_backend || data.backend || 'google';
+        const label = backend === 'scribe' ? '🟣 ElevenLabs Scribe' : '🔵 Google STT';
+        document.getElementById('statEngine').textContent = label;
+        addEntry('system', channelId, `🔧 辨識引擎：${label}`);
+      } else if (data.type === 'transcript') {
+        txCount++;
+        document.getElementById('statTx').textContent = txCount;
+        addEntry('transcript', data.channel_id, data.text, data.confidence);
+      } else if (data.type === 'error') {
+        addEntry('error', data.channel_id, `⚠️ 伺服器錯誤：${data.message}`);
+      }
+    } catch (_) { /* 非 JSON 訊息忽略 */ }
+  };
+
+  ws.onerror = () => {
+    setConnStatus('error');
+    addEntry('error', channelId, '❌ WebSocket 連線錯誤');
+  };
+
+  ws.onclose = (evt) => {
+    setConnStatus('disconnected');
+    if (isRunning) {
+      // 非主動關閉（如伺服器滿載、網路中斷）
+      const reason = evt.reason || `code ${evt.code}`;
+      addEntry('system', channelId, `🔌 連線已關閉（${reason}）`);
+      stopCapture(false);  // false = 不再次關閉 ws
+    }
+  };
+
+  // ── 4. 音訊管線：麥克風 → ScriptProcessorNode → WebSocket ─────────────────
+  //
+  // ScriptProcessorNode（已標記為過時但仍廣泛支援）
+  //   每 SCRIPT_PROC_BUFFER 個樣本觸發一次 onaudioprocess 回呼。
+  //   在回呼中取出 Float32 音訊 → 重取樣（若需要）→ 轉 Int16 → 送 WebSocket。
+  //
+  // 若未來需要升級：AudioWorkletNode 是新標準，但需額外的 worklet JS 檔案。
+  //
+  sourceNode    = audioCtx.createMediaStreamSource(stream);
+  processorNode = audioCtx.createScriptProcessor(SCRIPT_PROC_BUFFER, 1, 1);
+
+  processorNode.onaudioprocess = (evt) => {
+    if (!isRunning || ws?.readyState !== WebSocket.OPEN) return;
+
+    // 取出 mono channel 的 Float32 樣本
+    const float32 = evt.inputBuffer.getChannelData(0);
+
+    // 音量計更新（不影響音訊送出）
+    updateMeter(calcRms(float32));
+
+    // 重取樣（若 AudioContext 實際取樣率不是 16000）
+    const resampled = resampleLinear(float32, nativeRate, TARGET_SAMPLE_RATE);
+
+    // Float32 → Int16 PCM
+    const int16 = float32ToInt16(resampled);
+
+    // 送出 PCM bytes（ArrayBuffer）
+    ws.send(int16.buffer);
+
+    // 更新緩衝進度顯示
+    bytesSent = (bytesSent + int16.buffer.byteLength) % TARGET_BYTES;
+    chunksCount++;
+    if (chunksCount % Math.ceil(TARGET_BYTES / int16.buffer.byteLength) === 0) {
+      // 每送完約 15 秒重設計數器
+      bytesSent = 0;
+      document.getElementById('statChunks').textContent = ++chunksCount;
+    }
+    updateBuf(bytesSent);
+  };
+
+  sourceNode.connect(processorNode);
+  processorNode.connect(audioCtx.destination);
+}
+
+// =============================================================================
+// ⑨ 停止監聽
+// =============================================================================
+function stopCapture(closeWs = true) {
+  isRunning = false;
+
+  // 中斷音訊管線
+  if (processorNode) { processorNode.disconnect(); processorNode = null; }
+  if (sourceNode)    { sourceNode.disconnect();    sourceNode    = null; }
+  if (mediaStream)   { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+  if (audioCtx)      { audioCtx.close(); audioCtx = null; }
+
+  // 關閉 WebSocket
+  if (closeWs && ws && ws.readyState === WebSocket.OPEN) {
+    ws.close();
+    ws = null;
+  }
+
+  // 重設 UI
+  const btn = document.getElementById('btnToggle');
+  btn.textContent = '▶ 開始監聽';
+  btn.classList.remove('active');
+  document.getElementById('channelSelect').disabled = false;
+  document.getElementById('engineSelect').disabled  = false;
+  document.getElementById('deviceSelect').disabled  = false;
+  document.getElementById('btnScan').disabled       = false;
+  document.getElementById('statEngine').textContent = '—';
+  document.getElementById('meterBar').style.width   = '0%';
+  document.getElementById('meterDb').textContent    = '— dB';
+  document.getElementById('bufBar').style.width     = '0%';
+  document.getElementById('bufPct').textContent     = '0%';
+  document.getElementById('statSr').textContent     = '—';
+  bytesSent = 0;
+
+  setConnStatus('disconnected');
+}
+
+// =============================================================================
+// ⑩ 頁面關閉時自動清理
+// =============================================================================
+window.addEventListener('beforeunload', () => stopCapture());
+</script>
+</body>
+</html>

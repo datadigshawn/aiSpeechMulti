@@ -1,0 +1,2490 @@
+#!/usr/bin/env python3
+"""
+app_dashboard.py — aiSpeechMulti 整合操作面板
+版本: 2.0
+
+功能:
+- 即時多路監控：五路 WebSocket 管道狀態 + 即時辨識串流（輪詢 FastAPI）
+- 語音辨識模式：批次音檔辨識，支援 Google Cloud STT / Gemini / Whisper
+- 事件管理：歷史事件瀏覽、危害等級、備注、關鍵字
+- 全文搜尋：FTS5 / LIKE 跨事件搜尋
+- 統計報表：趨勢圖、模型分布、危害分布、CSV 匯出
+- 詞彙表管理：master_vocabulary.csv 在線編輯
+
+啟動方式:
+    streamlit run app_dashboard.py
+    （需同時啟動 FastAPI：python app_api.py）
+"""
+
+import re
+import csv
+import io
+import sys
+import os
+import json
+import shutil
+import time
+import traceback
+from pathlib import Path
+from datetime import datetime
+
+import pandas as pd
+import requests
+import streamlit as st
+
+# ============================================================================
+# 路徑設定
+# ============================================================================
+PROJECT_ROOT = Path(__file__).parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+EXPERIMENTS_DIR    = PROJECT_ROOT / "experiments"
+TEMP_UPLOAD_DIR    = EXPERIMENTS_DIR / "temp_upload"
+SUPPORTED_EXTENSIONS = ['.wav', '.mp3', '.m4a', '.flac', '.ogg', '.aac']
+MAX_UPLOAD_FILES   = 100
+VOCABULARY_CSV     = PROJECT_ROOT / "vocabulary" / "master_vocabulary.csv"
+DB_PATH            = PROJECT_ROOT / "data" / "aiSpeechMulti.db"   # ← 統一使用 aiSpeechMulti.db
+
+# ============================================================================
+# FastAPI 即時監控常數
+# ============================================================================
+API_BASE     = "http://localhost:8000"
+ALL_CHANNELS = ["ch1", "ch2", "ch3", "ch4", "ch5"]
+CH_COLORS    = {
+    "ch1": "#7eb8f7",
+    "ch2": "#7ef7b0",
+    "ch3": "#f7d07e",
+    "ch4": "#f77eb8",
+    "ch5": "#b07ef7",
+}
+
+# ============================================================================
+# 批次辨識常數
+# ============================================================================
+HAZARD_LABELS = {
+    0: "0 — 正常",
+    1: "1 — 輕微異常",
+    2: "2 — 需注意",
+    3: "3 — 中等（影響服務）",
+    4: "4 — 嚴重",
+    5: "5 — 緊急（火災／出軌／傷亡）",
+}
+
+MODEL_OPTIONS = {
+    "Google Cloud STT": "google_stt",
+    "Google Gemini":    "gemini",
+    "OpenAI Whisper":   "whisper",
+}
+
+SUB_MODEL_OPTIONS = {
+    "google_stt": [
+        ("chirp_3 — 最新高精度（推薦）",           "chirp_3"),
+        ("chirp_3 簡中+講者辨識 — 測試",           "chirp_3_hans"),
+        ("chirp_2 — 一般辨識",                    "chirp_2"),
+        ("chirp_telephony — 電話品質音訊",         "chirp_telephony"),
+    ],
+    "gemini": [
+        ("gemini-2.5-flash — 最佳價格/性能（推薦）", "gemini-2.5-flash"),
+        ("gemini-2.5-pro — 最高準確度",             "gemini-2.5-pro"),
+        ("gemini-2.5-flash-lite — 最快、最省費",    "gemini-2.5-flash-lite"),
+        ("gemini-2.0-flash — 穩定版（2026/6 停用）", "gemini-2.0-flash"),
+    ],
+    "whisper": [
+        ("large-v3 — 最準確（推薦）", "large-v3"),
+        ("turbo — 最快",            "turbo"),
+        ("medium — 均衡",           "medium"),
+    ],
+}
+
+# ============================================================================
+# 詞彙表欄位定義
+# ============================================================================
+_VOCAB_COLUMNS = ["term", "category", "boost_value", "alert_level", "pinyin", "common_error", "description"]
+_VOCAB_CATEGORIES = ["equipment", "location", "action", "personnel", "numeric", "other"]
+
+# ============================================================================
+# 頁面設定（必須在最頂層）
+# ============================================================================
+st.set_page_config(
+    page_title="aiSpeechMulti 語音辨識平台",
+    page_icon="🎙️",
+    layout="wide",
+)
+
+# ============================================================================
+# 自訂 CSS
+# ============================================================================
+st.markdown("""
+<style>
+/* ── 管道狀態卡 ── */
+.ch-card {
+    background: #1a1d27;
+    border: 1px solid #2a2d3e;
+    border-radius: 10px;
+    padding: 14px 16px;
+    min-height: 100px;
+}
+.ch-card.active { border-color: #2ea043; }
+.ch-dot {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+.ch-dot.on  { background: #2ea043; box-shadow: 0 0 6px #2ea043; }
+.ch-dot.off { background: #334; }
+.ch-id   { font-size: 1rem; font-weight: 700; }
+.ch-cnt  { font-size: 0.78rem; color: #778; margin-top: 4px; }
+.ch-text { font-size: 0.82rem; color: #99a; margin-top: 6px;
+           overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+/* ── 辨識結果列 ── */
+.tx-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 7px 10px;
+    border-radius: 7px;
+    margin-bottom: 4px;
+    background: #1a1d27;
+    border-left: 3px solid #2a2d3e;
+    animation: fadeIn .2s ease;
+}
+@keyframes fadeIn { from { opacity:0; transform:translateY(3px); } to { opacity:1; } }
+.tx-time { font-size: 0.75rem; color: #556; white-space: nowrap; padding-top: 2px; min-width: 58px; }
+.tx-ch   { font-size: 0.72rem; border-radius: 4px; padding: 1px 7px;
+           white-space: nowrap; align-self: flex-start; margin-top: 2px;
+           font-weight: 600; }
+.tx-text { flex: 1; font-size: 0.88rem; color: #d0d8ef; line-height: 1.6; }
+
+/* ── API 離線橫幅 ── */
+.offline-banner {
+    background: #2a1820;
+    border: 1px solid #c9414a;
+    border-radius: 8px;
+    padding: 10px 16px;
+    color: #e07070;
+    font-size: 0.9rem;
+    margin-bottom: 12px;
+}
+
+/* ── 統計數字 ── */
+.stat-num { font-size: 1.6rem; font-weight: 700; color: #7eb8f7; }
+.stat-lbl { font-size: 0.78rem; color: #556; }
+</style>
+""", unsafe_allow_html=True)
+
+
+# ============================================================================
+# Session State 初始化
+# ============================================================================
+def init_session_state():
+    defaults = {
+        "page":           "home",
+        "model_type":     None,
+        "sub_model":      None,
+        "uploaded_files": [],
+        "server_files":   [],
+        "results":        [],
+        "use_vocabulary": True,
+        "merge_results":  False,
+        "event_name":     "",
+        "last_event_id":  None,
+        "search_query":   "",
+        # 準確率評測頁面 ── 語音辨識模式
+        "eval_case_name":   "",
+        "eval_model_type":  None,
+        "eval_sub_model":   None,
+        "eval_done":        False,
+        "eval_results":     None,   # dict 來自 cer_engine.evaluate_case()
+        "eval_output_dir":  "",
+        "eval_timestamp":   "",
+        "eval_meta":        {},     # 辨識模式資訊（模型、子模型等）
+        # 準確率評測頁面 ── 純文稿比對模式
+        "eval_text_done":    False,
+        "eval_text_results": None,
+        "eval_text_meta":    {},
+        # 辨識狀態（防止 re-run 重複辨識）
+        "recognition_done":    False,
+        "recognition_results": [],
+        # 即時監控
+        "api_base":       API_BASE,
+        "auto_refresh":   True,
+        "show_limit":     50,
+        "filter_ch_sidebar": "全部",
+        "q_result":       None,
+    }
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
+
+
+# ============================================================================
+# 認證設定
+# ============================================================================
+def setup_credentials():
+    try:
+        from scripts.batch_inference import setup_google_credentials
+        setup_google_credentials()
+    except Exception:
+        pass
+
+
+# ============================================================================
+# 工具：從檔名解析日期時間
+# ============================================================================
+def parse_filename_datetime(stem: str) -> datetime | None:
+    match = re.search(r'(20\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})', stem)
+    if not match:
+        return None
+    try:
+        return datetime(
+            int(match.group(1)), int(match.group(2)), int(match.group(3)),
+            int(match.group(4)), int(match.group(5)), int(match.group(6)),
+        )
+    except ValueError:
+        return None
+
+
+# ============================================================================
+# 工具：掃描伺服器音檔
+# ============================================================================
+def scan_server_audio_files() -> dict:
+    result = {}
+    if not EXPERIMENTS_DIR.exists():
+        return result
+    for test_case_dir in sorted(EXPERIMENTS_DIR.iterdir()):
+        if not test_case_dir.is_dir() or test_case_dir.name == "temp_upload":
+            continue
+        audio_dir = test_case_dir / "source_audio"
+        if not audio_dir.exists():
+            continue
+        files = []
+        for ext in SUPPORTED_EXTENSIONS:
+            files.extend(audio_dir.glob(f"*{ext}"))
+            files.extend(audio_dir.glob(f"*{ext.upper()}"))
+        if files:
+            result[test_case_dir.name] = sorted(set(files))
+    return result
+
+
+# ============================================================================
+# 即時監控：API 呼叫（帶快取 TTL）
+# ============================================================================
+@st.cache_data(ttl=3)
+def fetch_channels() -> dict | None:
+    try:
+        base = st.session_state.get("api_base", API_BASE)
+        r = requests.get(f"{base}/api/channels", timeout=3)
+        r.raise_for_status()
+        return r.json()
+    except Exception:
+        return None
+
+
+@st.cache_data(ttl=3)
+def fetch_transcripts(limit: int, channel_id: str | None, offset: int = 0) -> dict | None:
+    try:
+        base = st.session_state.get("api_base", API_BASE)
+        params = {"limit": limit, "offset": offset}
+        if channel_id:
+            params["channel_id"] = channel_id
+        r = requests.get(f"{base}/api/transcripts", params=params, timeout=3)
+        r.raise_for_status()
+        return r.json()
+    except Exception:
+        return None
+
+
+@st.cache_data(ttl=10)
+def fetch_health() -> dict | None:
+    try:
+        base = st.session_state.get("api_base", API_BASE)
+        r = requests.get(f"{base}/api/health", timeout=3)
+        r.raise_for_status()
+        return r.json()
+    except Exception:
+        return None
+
+
+# ============================================================================
+# 即時監控：工具函式
+# ============================================================================
+def ts_display(ts_str: str) -> str:
+    try:
+        return ts_str[11:19]
+    except Exception:
+        return ts_str
+
+
+def ch_badge(channel_id: str) -> str:
+    color = CH_COLORS.get(channel_id, "#7eb8f7")
+    return (
+        f'<span class="tx-ch" '
+        f'style="background:{color}22; color:{color};">'
+        f'{channel_id}</span>'
+    )
+
+
+def build_rt_csv(transcripts: list[dict]) -> bytes:
+    df = pd.DataFrame(transcripts, columns=["id", "channel_id", "transcript", "confidence", "stt_backend", "created_at"])
+    df = df.rename(columns={
+        "id": "序號", "channel_id": "管道", "transcript": "辨識文字",
+        "confidence": "信心值", "stt_backend": "辨識引擎", "created_at": "時間",
+    })
+    buf = io.BytesIO()
+    df.to_csv(buf, index=False, encoding="utf-8-sig")
+    return buf.getvalue()
+
+
+# ============================================================================
+# 即時監控：頁面元件
+# ============================================================================
+def render_rt_api_status(health: dict | None) -> bool:
+    base = st.session_state.get("api_base", API_BASE)
+    if health is None:
+        st.markdown(
+            f'<div class="offline-banner">'
+            f'⚠️ 無法連線至 FastAPI（{base}）。'
+            f'請確認 <code>python app_api.py</code> 已啟動。'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        return False
+    return True
+
+
+def render_channel_cards(channels_data: dict | None):
+    st.markdown("#### 管道狀態")
+    active_map: dict[str, dict] = {}
+    if channels_data:
+        for ch in channels_data.get("channels", []):
+            active_map[ch["id"]] = ch
+
+    # 引擎徽章樣式
+    ENGINE_BADGE = {
+        "google": '<span style="font-size:.65rem;background:#1a2d4a;color:#7eb8f7;'
+                  'border-radius:10px;padding:1px 7px;font-weight:600;">🔵 Google</span>',
+        "scribe": '<span style="font-size:.65rem;background:#2a1a3a;color:#c085f5;'
+                  'border-radius:10px;padding:1px 7px;font-weight:600;">🟣 Scribe</span>',
+    }
+
+    cols = st.columns(5)
+    for i, ch_id in enumerate(ALL_CHANNELS):
+        is_active = ch_id in active_map
+        ch_info   = active_map.get(ch_id, {})
+        color     = CH_COLORS.get(ch_id, "#7eb8f7")
+        dot_cls   = "on" if is_active else "off"
+        card_cls  = "active" if is_active else ""
+        status    = "連線中" if is_active else "待機"
+        cnt_txt   = f"{ch_info.get('transcript_count', 0)} 筆" if is_active else "—"
+        last_txt  = ch_info.get("last_text", "") or ""
+        backend   = ch_info.get("stt_backend", "google") if is_active else ""
+        eng_badge = ENGINE_BADGE.get(backend, "") if is_active else ""
+
+        with cols[i]:
+            st.markdown(
+                f'<div class="ch-card {card_cls}">'
+                f'  <span class="ch-dot {dot_cls}"></span>'
+                f'  <span class="ch-id" style="color:{color};">{ch_id}</span>'
+                f'  <div class="ch-cnt">{status}　{cnt_txt}</div>'
+                f'  <div class="ch-text">{last_txt if last_txt else "—"}</div>'
+                f'  <div style="margin-top:5px;">{eng_badge}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+
+def render_transcript_feed(tx_data: dict | None, filter_ch: str, show_limit: int):
+    st.markdown("#### 即時辨識結果")
+    if tx_data is None:
+        st.info("等待 FastAPI 回應…")
+        return
+    txs = tx_data.get("transcripts", [])
+    if not txs:
+        st.markdown(
+            '<div style="color:#445; padding:20px; text-align:center;">尚無辨識記錄</div>',
+            unsafe_allow_html=True,
+        )
+        return
+    lines = []
+    for t in txs:
+        ch_id = t.get("channel_id", "?")
+        text  = t.get("transcript", "")
+        ts    = ts_display(t.get("created_at", ""))
+        color = CH_COLORS.get(ch_id, "#7eb8f7")
+        lines.append(
+            f'<div class="tx-row" style="border-left-color:{color}44;">'
+            f'  <span class="tx-time">{ts}</span>'
+            f'  {ch_badge(ch_id)}'
+            f'  <span class="tx-text">{text}</span>'
+            f'</div>'
+        )
+    st.markdown("\n".join(lines), unsafe_allow_html=True)
+    st.caption(f"顯示最新 {len(txs)} 筆 / 共 {tx_data.get('count', 0)} 筆")
+
+
+def render_rt_stats(channels_data: dict | None, all_tx: dict | None):
+    st.markdown("#### 統計")
+    active_map: dict[str, int] = {}
+    if channels_data:
+        for ch in channels_data.get("channels", []):
+            active_map[ch["id"]] = ch.get("transcript_count", 0)
+    total_db = all_tx.get("count", 0) if all_tx else 0
+
+    cols = st.columns(6)
+    for i, ch_id in enumerate(ALL_CHANNELS):
+        cnt   = active_map.get(ch_id, 0)
+        color = CH_COLORS.get(ch_id, "#7eb8f7")
+        with cols[i]:
+            st.markdown(
+                f'<div style="text-align:center; padding:8px;">'
+                f'  <div class="stat-num" style="color:{color};">{cnt}</div>'
+                f'  <div class="stat-lbl">{ch_id} 本次</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+    with cols[5]:
+        st.markdown(
+            f'<div style="text-align:center; padding:8px;">'
+            f'  <div class="stat-num" style="color:#778;">{total_db}</div>'
+            f'  <div class="stat-lbl">DB 累計</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+
+def render_rt_query_export():
+    st.markdown("---")
+    st.markdown("#### 歷史查詢與匯出")
+    col1, col2, col3 = st.columns([2, 2, 2])
+    with col1:
+        q_channel = st.selectbox("管道過濾", options=["全部"] + ALL_CHANNELS, key="q_channel")
+    with col2:
+        q_limit = st.number_input("最多筆數", min_value=10, max_value=500, value=100, step=10, key="q_limit")
+    with col3:
+        st.markdown("<div style='padding-top:28px;'>", unsafe_allow_html=True)
+        search_btn = st.button("🔍 查詢", use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    if search_btn or st.session_state.get("q_result") is not None:
+        ch_filter = None if q_channel == "全部" else q_channel
+        result = fetch_transcripts(limit=int(q_limit), channel_id=ch_filter)
+        st.session_state["q_result"] = result
+
+    result = st.session_state.get("q_result")
+    if result:
+        txs = result.get("transcripts", [])
+        if txs:
+            df = pd.DataFrame(txs)
+            df = df.rename(columns={
+                "id": "序號", "channel_id": "管道", "transcript": "辨識文字",
+                "confidence": "信心值", "stt_backend": "辨識引擎", "created_at": "時間",
+            })
+            st.dataframe(df, use_container_width=True, hide_index=True)
+            st.download_button(
+                label=f"📥 下載 CSV（{len(txs)} 筆）",
+                data=build_rt_csv(txs),
+                file_name=f"aiSpeechMulti_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+            )
+        else:
+            st.info("查詢結果為空")
+
+
+# ============================================================================
+# 頁面：首頁
+# ============================================================================
+def render_home_page():
+    st.title("🎙️ aiSpeechMulti 語音辨識平台")
+    st.caption("台灣捷運無線電通訊 — 五路即時辨識 + 批次音檔辨識管理平台")
+    st.divider()
+
+    # 第一列（4 張卡片）
+    col1, col2, col3, col4 = st.columns(4, gap="large")
+
+    with col1:
+        st.markdown(
+            """
+            <div style='padding:24px; border:1.5px solid #3a7bd5; border-radius:12px; min-height:160px;'>
+                <h3 style='margin-top:0; color:#7eb8f7;'>📡 即時多路監控</h3>
+                <p style='color:#aaa;'>監控五路 WebSocket 管道即時辨識狀態，查詢歷史辨識記錄。</p>
+                <p style='color:#667; font-size:0.85em;'>需同時啟動 app_api.py FastAPI 服務</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.write("")
+        if st.button("進入即時監控", type="primary", use_container_width=True, key="btn_monitor"):
+            st.session_state["page"] = "monitor"
+            st.rerun()
+
+    with col2:
+        st.markdown(
+            """
+            <div style='padding:24px; border:1.5px solid #4A90D9; border-radius:12px; min-height:160px;'>
+                <h3 style='margin-top:0;'>語音辨識模式</h3>
+                <p style='color:#aaa;'>上傳語音檔案，選擇辨識模型，批次轉換為文字。</p>
+                <p style='color:#667; font-size:0.85em;'>支援：Google Cloud STT ／ Gemini ／ Whisper</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.write("")
+        if st.button("進入語音辨識模式", use_container_width=True, key="btn_speech"):
+            st.session_state["page"] = "speech"
+            st.rerun()
+
+    with col3:
+        st.markdown(
+            """
+            <div style='padding:24px; border:1.5px solid #2ECC71; border-radius:12px; min-height:160px;'>
+                <h3 style='margin-top:0;'>事件管理</h3>
+                <p style='color:#aaa;'>瀏覽歷史辨識事件，設定危害等級，管理關鍵字。</p>
+                <p style='color:#667; font-size:0.85em;'>支援：AI 關鍵字擷取（Gemini）／ 手動標注</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.write("")
+        if st.button("進入事件管理", use_container_width=True, key="btn_management"):
+            st.session_state["page"] = "management"
+            st.rerun()
+
+    with col4:
+        st.markdown(
+            """
+            <div style='padding:24px; border:1.5px solid #9B59B6; border-radius:12px; min-height:160px;'>
+                <h3 style='margin-top:0;'>全文搜尋</h3>
+                <p style='color:#aaa;'>跨事件搜尋辨識文字，快速定位關鍵通訊內容。</p>
+                <p style='color:#667; font-size:0.85em;'>FTS5 引擎 ／ 支援中文子字串搜尋</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.write("")
+        if st.button("進入全文搜尋", use_container_width=True, key="btn_search"):
+            st.session_state["page"] = "search"
+            st.rerun()
+
+    st.write("")
+
+    # 第二列（3 張卡片）
+    col5, col6, col7, col8 = st.columns([1, 1, 1, 1], gap="large")
+
+    with col5:
+        st.markdown(
+            """
+            <div style='padding:24px; border:1.5px solid #E67E22; border-radius:12px; min-height:160px;'>
+                <h3 style='margin-top:0;'>統計報表</h3>
+                <p style='color:#aaa;'>事件趨勢、危害等級分布、模型使用量統計。</p>
+                <p style='color:#667; font-size:0.85em;'>圖表 ／ 數字摘要 ／ CSV 匯出</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.write("")
+        if st.button("進入統計報表", use_container_width=True, key="btn_stats"):
+            st.session_state["page"] = "stats"
+            st.rerun()
+
+    with col6:
+        st.markdown(
+            """
+            <div style='padding:24px; border:1.5px solid #1ABC9C; border-radius:12px; min-height:160px;'>
+                <h3 style='margin-top:0;'>詞彙表管理</h3>
+                <p style='color:#aaa;'>編輯捷運無線電術語庫，新增、修改或刪除詞條。</p>
+                <p style='color:#667; font-size:0.85em;'>master_vocabulary.csv ／ 即時存檔</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.write("")
+        if st.button("進入詞彙表管理", use_container_width=True, key="btn_vocab"):
+            st.session_state["page"] = "vocabulary"
+            st.rerun()
+
+    with col7:
+        st.markdown(
+            """
+            <div style='padding:24px; border:1.5px solid #9B59B6; border-radius:12px; min-height:160px;'>
+                <h3 style='margin-top:0;'>語音準確率</h3>
+                <p style='color:#aaa;'>對照標準文稿計算 CER，輸出差異高亮分析。</p>
+                <p style='color:#667; font-size:0.85em;'>逐檔比對 ／ 整體統計 ／ 結果下載</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.write("")
+        if st.button("進入準確率評測", use_container_width=True, key="btn_eval"):
+            st.session_state["page"] = "evaluation"
+            st.rerun()
+
+    with col8:
+        base = st.session_state.get("api_base", API_BASE)
+        st.markdown(
+            f"""
+            <div style='padding:24px; border:1.5px solid #334; border-radius:12px; min-height:160px;'>
+                <h3 style='margin-top:0; color:#667;'>快速連結</h3>
+                <p style='color:#667; font-size:0.88em;'>
+                    🎤 <a href='http://localhost:8000/' target='_blank' style='color:#7eb8f7;'>音訊擷取頁面</a><br><br>
+                    📡 <a href='http://localhost:8000/monitor' target='_blank' style='color:#7eb8f7;'>五路監控頁面</a><br><br>
+                    📖 <a href='{base}/docs' target='_blank' style='color:#7eb8f7;'>FastAPI 文件</a><br><br>
+                    🩺 <a href='{base}/api/health' target='_blank' style='color:#7eb8f7;'>健康檢查</a>
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
+# ============================================================================
+# 頁面：即時多路監控
+# ============================================================================
+def render_monitor_page():
+    # ── 側邊欄 ─────────────────────────────────────────────────────────
+    with st.sidebar:
+        st.markdown("### ⚙️ 設定")
+        api_base_input = st.text_input(
+            "FastAPI 位址",
+            value=st.session_state.get("api_base", API_BASE),
+            key="api_base_input",
+        )
+        if st.button("套用"):
+            st.session_state["api_base"] = api_base_input
+            st.cache_data.clear()
+            st.rerun()
+
+        st.markdown("---")
+        show_limit = st.slider(
+            "即時顯示筆數", min_value=10, max_value=200, value=50, step=10, key="show_limit",
+        )
+        filter_ch = st.selectbox(
+            "管道過濾（即時區）",
+            options=["全部"] + ALL_CHANNELS,
+            key="filter_ch_sidebar",
+        )
+        st.markdown("---")
+        if st.button("← 返回首頁", key="monitor_back"):
+            st.session_state["page"] = "home"
+            st.rerun()
+
+    # ── 標題列 ─────────────────────────────────────────────────────────
+    col_title, col_ctrl = st.columns([6, 2])
+    with col_title:
+        st.markdown("## 📡 即時多路監控")
+    with col_ctrl:
+        st.markdown("<div style='padding-top:12px;'>", unsafe_allow_html=True)
+        col_a, col_b = st.columns(2)
+        with col_a:
+            auto = st.toggle("自動刷新", value=True, key="auto_refresh")
+        with col_b:
+            if st.button("🔄 刷新", use_container_width=True):
+                st.cache_data.clear()
+                st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    st.caption(f"最後刷新：{datetime.now().strftime('%H:%M:%S')}　｜　API：{st.session_state.get('api_base', API_BASE)}")
+
+    # ── 呼叫 API ────────────────────────────────────────────────────────
+    health        = fetch_health()
+    channels_data = fetch_channels()
+    ch_filter     = None if filter_ch == "全部" else filter_ch
+    tx_data       = fetch_transcripts(limit=show_limit, channel_id=ch_filter)
+    all_tx        = fetch_transcripts(limit=1, channel_id=None)
+
+    # ── API 狀態 ─────────────────────────────────────────────────────
+    api_ok = render_rt_api_status(health)
+    if not api_ok:
+        st.stop()
+
+    if health:
+        st.caption(
+            f"模型：{health.get('stt_model', '—')}　｜　"
+            f"語言：{health.get('stt_language', '—')}　｜　"
+            f"每段：{health.get('chunk_seconds', '—')} 秒　｜　"
+            f"管道：{health.get('active_channels', 0)}/{health.get('max_channels', 5)} 路連線中"
+        )
+
+    st.markdown("---")
+    render_channel_cards(channels_data)
+
+    st.markdown("---")
+    render_rt_stats(channels_data, all_tx)
+
+    st.markdown("---")
+    render_transcript_feed(tx_data, filter_ch, show_limit)
+
+    render_rt_query_export()
+
+    # ── 自動刷新 ───────────────────────────────────────────────────────
+    if st.session_state.get("auto_refresh", True):
+        time.sleep(4)
+        st.cache_data.clear()
+        st.rerun()
+
+
+# ============================================================================
+# 頁面：語音辨識設定
+# ============================================================================
+def render_speech_page():
+    if st.button("← 返回首頁", key="back_home"):
+        st.session_state["page"] = "home"
+        st.rerun()
+
+    st.title("語音辨識模式")
+    st.divider()
+
+    # ── Step 1：模型類型 ─────────────────────────────────────────────────
+    st.subheader("Step 1　選擇辨識模型")
+    model_label = st.radio(
+        "模型", options=list(MODEL_OPTIONS.keys()), horizontal=True, label_visibility="collapsed",
+    )
+    model_type = MODEL_OPTIONS[model_label]
+    st.write("")
+
+    # ── Step 2：子模型 ──────────────────────────────────────────────────
+    st.subheader("Step 2　選擇子模型")
+    sub_options = SUB_MODEL_OPTIONS[model_type]
+    sub_labels  = [label for label, _ in sub_options]
+    sub_val_map = {label: val for label, val in sub_options}
+    sub_label   = st.radio("子模型", options=sub_labels, label_visibility="collapsed")
+    sub_model   = sub_val_map[sub_label]
+
+    if sub_model == "chirp_3_hans":
+        st.info(
+            "🧪 **測試模式**  \n"
+            "• 語言：**簡體中文（cmn-Hans-CN）**  \n"
+            "• 自動啟用**講者辨識**（Google chirp_3 官方支援）  \n"
+            "• 輸出格式：`【講者A ｜ MM:SS】文字...`  \n"
+            "• ⚠️ 繁體中文用語可能辨識準確度較低，僅供測試"
+        )
+
+    st.write("")
+
+    # ── Step 3：音檔載入 ────────────────────────────────────────────────
+    st.subheader("Step 3　載入語音檔案")
+    tab_upload, tab_server = st.tabs(["上傳本機檔案", "瀏覽伺服器音檔"])
+
+    selected_upload_files = []
+    selected_server_files = []
+
+    with tab_upload:
+        uploaded = st.file_uploader(
+            f"選擇音檔（最多 {MAX_UPLOAD_FILES} 個，支援 .wav .mp3 .m4a .flac .ogg .aac）",
+            type=["wav", "mp3", "m4a", "flac", "ogg", "aac"],
+            accept_multiple_files=True,
+            key="file_uploader",
+        )
+        if uploaded:
+            if len(uploaded) > MAX_UPLOAD_FILES:
+                st.warning(f"最多只能選擇 {MAX_UPLOAD_FILES} 個檔案，目前選了 {len(uploaded)} 個，將只處理前 {MAX_UPLOAD_FILES} 個。")
+                uploaded = uploaded[:MAX_UPLOAD_FILES]
+            selected_upload_files = uploaded
+            st.success(f"已選擇 {len(selected_upload_files)} 個檔案")
+            for f in selected_upload_files:
+                st.write(f"  - `{f.name}`")
+
+    with tab_server:
+        server_audio_map = scan_server_audio_files()
+        if not server_audio_map:
+            st.info(f"在 `experiments/` 目錄下未找到任何音檔。\n\n預設搜尋路徑：`{EXPERIMENTS_DIR}`")
+        else:
+            display_to_path = {}
+            for test_case, files in server_audio_map.items():
+                for fp in files:
+                    display_name = f"[{test_case}]  {fp.name}"
+                    display_to_path[display_name] = fp
+            selected_display = st.multiselect(
+                f"選擇要辨識的音檔（最多 {MAX_UPLOAD_FILES} 個）",
+                options=list(display_to_path.keys()),
+                max_selections=MAX_UPLOAD_FILES,
+            )
+            if selected_display:
+                selected_server_files = [display_to_path[d] for d in selected_display]
+                st.success(f"已選擇 {len(selected_server_files)} 個檔案")
+
+    # ── Step 4：詞彙優化 ─────────────────────────────────────────────────
+    st.write("")
+    st.subheader("Step 4　詞彙優化")
+    use_vocabulary = st.checkbox(
+        "啟用三層詞彙系統（辨識結果後處理）",
+        value=st.session_state.get("use_vocabulary", True),
+        key="vocab_checkbox",
+        help=(
+            "套用台灣捷運無線電專用詞彙規則，修正 ASR 常見的同音異字與術語錯誤。\n\n"
+            "• 第一層（辨識前）：Google PhraseSet 詞彙提示，僅限 Google STT 模型\n"
+            "• 第二層（辨識後）：OCC / MCP 等核心術語修正 + 同音字修正（102 條規則）\n"
+            "• 第二層+：correction_dict.py 補充詞彙，含月台編號、軍事數字讀法（+195 條規則）"
+        ),
+    )
+
+    if use_vocabulary:
+        col_l1, col_l2, col_l3 = st.columns(3)
+        with col_l1:
+            if model_type != "google_stt":
+                icon, label = "⚪", "僅限 Google STT"
+            elif sub_model == "chirp_3":
+                icon, label = "🔴", "Chirp 3 不支援（跳過）"
+            else:
+                icon, label = "🟢", "啟用中"
+            st.caption(f"{icon} **第一層**　PhraseSet 辨識提示\n{label}")
+        with col_l2:
+            st.caption("🟢 **第二層**　術語 + 同音字修正\n啟用中（102 條）")
+        with col_l3:
+            st.caption("🟢 **第二層+**　correction_dict 補充\n啟用中（+195 條）")
+    else:
+        st.caption("⚫ 詞彙優化已關閉，辨識結果將保留原始 ASR 輸出")
+
+    # ── Step 5：彙整輸出 ─────────────────────────────────────────────────
+    st.write("")
+    st.subheader("Step 5　彙整輸出")
+    merge_results = st.checkbox(
+        "將辨識結果彙整到單一檔案",
+        value=st.session_state.get("merge_results", False),
+        key="merge_checkbox",
+        help=(
+            "依照檔名日期+時間排序，將所有辨識結果合併為一個文字檔。\n\n"
+            "輸出資料夾命名格式：{事件名}_{日期}_{開始時分}-{結束時分}\n"
+            "例：捷運火災_20251222_1922-1947"
+        ),
+    )
+
+    event_name = st.session_state.get("event_name", "")
+    if merge_results:
+        event_name = st.text_input(
+            "事件名稱　（必填）",
+            value=event_name,
+            key="event_name_input",
+            placeholder="例如：捷運火災事故",
+            help="用於命名輸出資料夾與彙整檔案，最多 30 個字",
+            max_chars=30,
+        )
+        if not event_name.strip():
+            st.warning("⚠️ 請輸入事件名稱，才能執行彙整輸出。")
+    else:
+        event_name = ""
+
+    # ── 執行按鈕 ─────────────────────────────────────────────────────────
+    st.divider()
+    has_files  = bool(selected_upload_files or selected_server_files)
+    can_execute = has_files and (not merge_results or bool(event_name.strip()))
+    col_btn, col_hint = st.columns([2, 5])
+
+    with col_btn:
+        if st.button("執行辨識", type="primary", disabled=not can_execute, use_container_width=True):
+            st.session_state["model_type"]     = model_type
+            st.session_state["sub_model"]      = sub_model
+            st.session_state["uploaded_files"] = selected_upload_files
+            st.session_state["server_files"]   = selected_server_files
+            st.session_state["use_vocabulary"] = use_vocabulary
+            st.session_state["merge_results"]  = merge_results
+            st.session_state["event_name"]     = event_name.strip()
+            st.session_state["results"]             = []
+            st.session_state["recognition_done"]    = False
+            st.session_state["recognition_results"] = []
+            st.session_state["page"]                = "running"
+            st.rerun()
+
+    with col_hint:
+        if not has_files:
+            st.caption("請先在上方載入至少一個音檔")
+        elif merge_results and not event_name.strip():
+            st.caption("請輸入事件名稱後再執行")
+
+
+# ============================================================================
+# 工具：Google STT VAD 切段辨識
+# ============================================================================
+def transcribe_google_stt_with_vad(engine, audio_file: Path, output_dir: Path, max_duration: float = 55.0) -> dict:
+    import soundfile as sf
+    try:
+        info     = sf.info(str(audio_file))
+        duration = info.duration
+    except Exception:
+        duration = 0
+
+    if duration <= max_duration:
+        return engine.transcribe_file(audio_file)
+
+    from scripts.vad_preprocess import VADPreprocessor
+    vad_chunks_dir = output_dir / "vad_chunks" / audio_file.stem
+    vad_chunks_dir.mkdir(parents=True, exist_ok=True)
+
+    preprocessor = VADPreprocessor(
+        vad_method="energy", max_chunk_length=50.0,
+        min_silence_duration=0.5, min_speech_duration=0.3,
+    )
+    vad_result = preprocessor.process_audio_file(audio_file, vad_chunks_dir)
+
+    if vad_result.get("status") != "success" or vad_result.get("chunks", 0) == 0:
+        return engine.transcribe_file(audio_file)
+
+    chunk_files     = sorted(vad_chunks_dir.glob(f"{audio_file.stem}_chunk_*.wav"))
+    all_transcripts = []
+    has_diarization = False
+
+    for chunk_file in chunk_files:
+        try:
+            chunk_result = engine.transcribe_file(chunk_file)
+            chunk_text   = chunk_result.get("transcript", "").strip()
+            if chunk_result.get("has_diarization"):
+                has_diarization = True
+            if chunk_text:
+                all_transcripts.append(chunk_text)
+        except Exception:
+            pass
+
+    separator = "\n\n" if has_diarization else " "
+    return {"transcript": separator.join(all_transcripts), "has_diarization": has_diarization}
+
+
+# ============================================================================
+# 輔助函式：辨識完成後的結果區（可安全重複渲染，不會重觸辨識）
+# ============================================================================
+def _render_results_section(all_results, total, output_dir, timestamp,
+                             merge_results, event_name, filename_datetimes):
+    """顯示辨識摘要、下載按鈕、危害等級設定與返回首頁按鈕。"""
+    success_count = sum(1 for r in all_results if r["status"] == "success")
+    error_count   = total - success_count
+
+    st.divider()
+    st.success(f"辨識完成　成功：{success_count} 個　失敗：{error_count} 個")
+    st.caption(f"結果已儲存至：`{output_dir}`")
+
+    if merge_results and event_name:
+        def _dt_sort_key(r):
+            return filename_datetimes.get(Path(r["filename"]).stem, datetime.max)
+
+        sorted_results = sorted(all_results, key=_dt_sort_key)
+        sorted_dts_m   = sorted(filename_datetimes.values()) if filename_datetimes else []
+        if sorted_dts_m:
+            time_range = (
+                f"{sorted_dts_m[0].strftime('%Y-%m-%d %H:%M')}"
+                f" ─ {sorted_dts_m[-1].strftime('%Y-%m-%d %H:%M')}"
+            )
+        else:
+            time_range = "（無法從檔名解析時間）"
+
+        lines = [
+            f"事件名稱：{event_name}",
+            f"彙整時間：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            f"檔案數量：{len(sorted_results)} 個",
+            f"時間範圍：{time_range}",
+            "=" * 60, "",
+        ]
+        for r in sorted_results:
+            dt         = filename_datetimes.get(Path(r["filename"]).stem)
+            time_label = dt.strftime("%H:%M:%S") if dt else "??:??:??"
+            lines.append(f"【{time_label}】{r['filename']}")
+            if r["status"] == "success":
+                lines.append(r["transcript"] if r["transcript"] else "（無辨識結果）")
+            else:
+                lines.append(f"（辨識失敗：{r.get('error', '未知錯誤')}）")
+            lines.append("")
+
+        merged_content  = "\n".join(lines)
+        merged_filename = f"{event_name}_彙整.txt"
+        merged_file     = output_dir / merged_filename
+        merged_file.write_text(merged_content, encoding="utf-8")
+        st.info(f"📄 彙整檔案已儲存：`{merged_filename}`")
+        st.download_button(
+            f"⬇️ 下載彙整結果（{merged_filename}）",
+            data=merged_content.encode("utf-8"),
+            file_name=f"{event_name}_彙整_{timestamp}.txt",
+            mime="text/plain",
+            key="dl_merged",
+        )
+    else:
+        full_text = "\n\n".join(
+            f"=== {r['filename']} ===\n{r['transcript']}" for r in all_results
+        )
+        st.download_button(
+            "⬇️ 下載全部結果（TXT）",
+            data=full_text.encode("utf-8"),
+            file_name=f"asr_results_{timestamp}.txt",
+            mime="text/plain",
+            key="dl_all",
+        )
+
+    # ── 危害等級設定 ──────────────────────────────────────────────────────
+    last_eid = st.session_state.get("last_event_id")
+    if last_eid:
+        st.divider()
+        st.subheader("⚠️ 設定危害等級")
+        selected_hazard = st.selectbox(
+            "此次事件的危害等級",
+            options=list(HAZARD_LABELS.keys()),
+            format_func=lambda x: HAZARD_LABELS[x],
+            index=0,
+            key="hazard_select_running",
+        )
+        if st.button("💾 儲存危害等級", key="save_hazard_running"):
+            try:
+                from utils.db_manager import DBManager as _DBM
+                _db = _DBM(DB_PATH)
+                _db.update_event_hazard(last_eid, selected_hazard)
+                _db.close()
+                st.success(f"✅ 已儲存：{HAZARD_LABELS[selected_hazard]}")
+            except Exception as _he:
+                st.warning(f"⚠️ 儲存失敗：{_he}")
+
+    st.divider()
+    if st.button("返回首頁", type="primary", key="go_home_final"):
+        shutil.rmtree(TEMP_UPLOAD_DIR / "source_audio", ignore_errors=True)
+        st.session_state["page"] = "home"
+        st.rerun()
+
+
+# ============================================================================
+# 頁面：執行辨識
+# ============================================================================
+def render_running_page():
+    model_type     = st.session_state["model_type"]
+    sub_model      = st.session_state["sub_model"]
+    use_vocabulary = st.session_state.get("use_vocabulary", True)
+    merge_results  = st.session_state.get("merge_results", False)
+    event_name     = st.session_state.get("event_name", "").strip()
+    uploaded_files = st.session_state.get("uploaded_files") or []
+    server_files   = st.session_state.get("server_files") or []
+
+    model_label = {v: k for k, v in MODEL_OPTIONS.items()}.get(model_type, model_type)
+
+    if st.button("← 返回設定", key="back_speech"):
+        st.session_state["page"] = "speech"
+        st.rerun()
+
+    st.title("執行語音辨識")
+    vocab_badge = "🟢 詞彙優化：開啟" if use_vocabulary else "⚫ 詞彙優化：關閉"
+    merge_badge = f"　　🔵 彙整輸出：{event_name}" if (merge_results and event_name) else ""
+    st.write(f"模型：**{model_label}**　　子模型：`{sub_model}`　　{vocab_badge}{merge_badge}")
+    st.divider()
+
+    # ── 準備音檔清單 ──────────────────────────────────────────────────────
+    audio_paths = []
+    if uploaded_files:
+        upload_dir = TEMP_UPLOAD_DIR / "source_audio"
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        for uf in uploaded_files:
+            dest = upload_dir / uf.name
+            dest.write_bytes(uf.getbuffer())
+            audio_paths.append(dest)
+    audio_paths.extend([Path(p) for p in server_files])
+
+    if not audio_paths:
+        st.error("找不到音檔，請返回重新選擇。")
+        return
+
+    # ── 輸出目錄 ──────────────────────────────────────────────────────────
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename_datetimes: dict = {}
+    for p in audio_paths:
+        dt = parse_filename_datetime(p.stem)
+        if dt:
+            filename_datetimes[p.stem] = dt
+
+    if merge_results and event_name:
+        sorted_dts = sorted(filename_datetimes.values())
+        if sorted_dts:
+            date_str    = sorted_dts[0].strftime("%Y%m%d")
+            start_hhmm  = sorted_dts[0].strftime("%H%M")
+            end_hhmm    = sorted_dts[-1].strftime("%H%M")
+            folder_name = f"{event_name}_{date_str}_{start_hhmm}-{end_hhmm}_{sub_model}"
+        else:
+            folder_name = f"{event_name}_{timestamp}_{sub_model}"
+        output_dir = TEMP_UPLOAD_DIR / "ASR_Evaluation" / folder_name
+    else:
+        output_dir = TEMP_UPLOAD_DIR / "ASR_Evaluation" / f"{model_type}_{sub_model}_{timestamp}"
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # ── 若已辨識完畢，直接從 session_state 取回結果，跳過辨識迴圈 ────────
+    if st.session_state.get("recognition_done"):
+        _render_results_section(
+            all_results          = st.session_state["recognition_results"],
+            total                = st.session_state["recognition_total"],
+            output_dir           = Path(st.session_state["recognition_output_dir"]),
+            timestamp            = st.session_state["recognition_timestamp"],
+            merge_results        = merge_results,
+            event_name           = event_name,
+            filename_datetimes   = st.session_state.get("recognition_filename_datetimes", {}),
+        )
+        return
+
+    # ── 初始化模型 ────────────────────────────────────────────────────────
+    total        = len(audio_paths)
+    progress_bar = st.progress(0, text="初始化模型中，請稍候...")
+    status_msg   = st.empty()
+    all_results  = []
+
+    try:
+        from scripts.batch_inference import BatchInference, setup_google_credentials
+        setup_google_credentials()
+
+        PHRASESET_INCOMPATIBLE = {"chirp_3", "chirp_3_hans"}
+        vocabulary_file = None
+        if use_vocabulary and model_type == "google_stt" and sub_model not in PHRASESET_INCOMPATIBLE:
+            vocab_path = PROJECT_ROOT / "vocabulary" / "google_phrases.json"
+            if vocab_path.exists():
+                vocabulary_file = str(vocab_path)
+
+        if model_type == "google_stt" and sub_model == "chirp_3_hans":
+            actual_stt_model    = "chirp_3"
+            actual_language_code = "cmn-Hans-CN"
+        else:
+            actual_stt_model    = sub_model
+            actual_language_code = "cmn-Hant-TW"
+
+        if model_type == "whisper":
+            from scripts.models.model_whisper import transcribe_with_whisper as whisper_transcribe
+            engine = None
+        else:
+            engine = BatchInference(
+                input_dir=str(audio_paths[0].parent),
+                output_dir=str(output_dir),
+                model_type=model_type,
+                stt_model=actual_stt_model if model_type == "google_stt" else "chirp_3",
+                gemini_model=sub_model if model_type == "gemini" else "gemini-2.5-flash",
+                vocabulary_file=vocabulary_file,
+                language_code=actual_language_code if model_type == "google_stt" else "cmn-Hant-TW",
+            )
+
+        status_msg.empty()
+
+        for i, audio_file in enumerate(audio_paths):
+            audio_file = Path(audio_file)
+            progress_bar.progress(i / total, text=f"辨識中：{audio_file.name}  ({i + 1}/{total})")
+            try:
+                if model_type == "whisper":
+                    raw_text = whisper_transcribe(str(audio_file), model_size=sub_model)
+                    result   = {"transcript": raw_text}
+                elif model_type == "google_stt":
+                    result = transcribe_google_stt_with_vad(engine, audio_file, output_dir)
+                else:
+                    result = engine.transcribe_file(audio_file)
+
+                transcript = result.get("transcript", "")
+                if use_vocabulary:
+                    try:
+                        from utils.text_cleaner import fix_radio_jargon
+                        transcript = fix_radio_jargon(transcript)
+                    except Exception:
+                        pass
+
+                txt_file = output_dir / f"{audio_file.stem}.txt"
+                txt_file.write_text(transcript, encoding="utf-8")
+                all_results.append({"filename": audio_file.name, "transcript": transcript, "status": "success"})
+                st.success(f"**{audio_file.name}**　完成")
+                st.text_area(
+                    label="辨識結果",
+                    value=transcript if transcript else "（無辨識結果）",
+                    height=80, key=f"result_{i}", disabled=True,
+                )
+            except Exception as e:
+                all_results.append({"filename": audio_file.name, "transcript": "", "status": "error", "error": str(e)})
+                st.error(f"**{audio_file.name}**　辨識失敗：{e}")
+
+        progress_bar.progress(1.0, text=f"完成！共處理 {total} 個檔案")
+
+        json_file = output_dir / f"results_{timestamp}.json"
+        json_file.write_text(json.dumps(all_results, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        # ── 快取辨識結果，防止 Streamlit re-run 重複辨識 ──────────────
+        st.session_state["recognition_done"]               = True
+        st.session_state["recognition_results"]            = all_results
+        st.session_state["recognition_total"]              = total
+        st.session_state["recognition_output_dir"]         = str(output_dir)
+        st.session_state["recognition_timestamp"]          = timestamp
+        st.session_state["recognition_filename_datetimes"] = filename_datetimes
+
+        # ── 儲存至資料庫 ──────────────────────────────────────────────
+        try:
+            from utils.db_manager import DBManager
+            from utils.audio_archiver import AudioArchiver
+
+            db       = DBManager(DB_PATH)
+            archiver = AudioArchiver(PROJECT_ROOT / "data" / "audio_archive")
+
+            sorted_dts_db   = sorted(filename_datetimes.values()) if filename_datetimes else []
+            event_date_db   = sorted_dts_db[0].date() if sorted_dts_db else None
+            effective_name  = event_name if event_name else f"{model_type}_{sub_model}_{timestamp}"
+
+            event_id = db.create_event(
+                event_name=effective_name,
+                model_type=model_type,
+                sub_model=sub_model,
+                event_date=event_date_db,
+            )
+
+            for result in all_results:
+                fname    = result["filename"]
+                src_path = next((p for p in audio_paths if p.name == fname), None)
+                arc_path, file_hash, file_size = None, None, None
+                if src_path and Path(src_path).exists():
+                    try:
+                        arc_path, file_hash, file_size = archiver.archive_file(
+                            Path(src_path), effective_name,
+                            ref_datetime=sorted_dts_db[0] if sorted_dts_db else None,
+                        )
+                        arc_path = str(arc_path)
+                    except Exception:
+                        pass
+
+                audio_id = db.save_audio_file(
+                    event_id=event_id,
+                    original_filename=fname,
+                    archive_path=arc_path,
+                    file_hash=file_hash,
+                    file_size=file_size,
+                    recorded_at=filename_datetimes.get(Path(fname).stem),
+                )
+                db.save_transcription(
+                    audio_file_id=audio_id,
+                    event_id=event_id,
+                    transcript=result.get("transcript", ""),
+                    status=result.get("status", "success"),
+                    error_message=result.get("error"),
+                )
+
+            db.close()
+            st.session_state["last_event_id"] = event_id
+            st.info(f"💾 已儲存至資料庫（事件 ID: {event_id}，共 {len(all_results)} 筆）")
+
+        except Exception as db_err:
+            st.warning(f"⚠️ 資料庫儲存失敗（不影響辨識結果）：{db_err}")
+
+        # ── 辨識完成後顯示結果區 ──────────────────────────────────────
+        _render_results_section(
+            all_results        = all_results,
+            total              = total,
+            output_dir         = output_dir,
+            timestamp          = timestamp,
+            merge_results      = merge_results,
+            event_name         = event_name,
+            filename_datetimes = filename_datetimes,
+        )
+
+    except Exception as e:
+        progress_bar.empty()
+        status_msg.empty()
+        st.error(f"執行失敗：{e}")
+        with st.expander("詳細錯誤訊息"):
+            st.code(traceback.format_exc())
+
+
+# ============================================================================
+# 頁面：事件管理
+# ============================================================================
+def render_management_page():
+    if st.button("← 返回首頁", key="back_home_mgmt"):
+        st.session_state["page"] = "home"
+        st.rerun()
+
+    st.title("📋 事件管理")
+    st.caption("瀏覽歷史辨識事件，設定危害等級，管理 AI 與手動關鍵字。")
+    st.divider()
+
+    try:
+        from utils.db_manager import DBManager
+        db = DBManager(DB_PATH)
+    except Exception as e:
+        st.error(f"無法連線資料庫：{e}")
+        return
+
+    events = db.list_events(limit=200)
+    if not events:
+        st.info("📭 尚無事件記錄。請先執行語音辨識以建立事件。")
+        db.close()
+        return
+
+    def _event_label(e):
+        date_str   = (e["event_date"] or "")[:10]
+        hazard     = e["hazard_level"] or 0
+        hazard_tag = f"[L{hazard}] " if hazard > 0 else ""
+        return f"{hazard_tag}{date_str}　{e['event_name']}　（{e['model_type']}/{e['sub_model']}）"
+
+    event_labels = [_event_label(e) for e in events]
+    selected_idx = st.selectbox(
+        "選擇事件",
+        options=range(len(events)),
+        format_func=lambda i: event_labels[i],
+        key="mgmt_event_select",
+    )
+    ev       = events[selected_idx]
+    event_id = ev["id"]
+    st.divider()
+
+    # ── 基本資訊 ──────────────────────────────────────────────────────────
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("事件名稱", ev["event_name"])
+    m2.metric("事件日期", (ev["event_date"] or "—")[:10])
+    m3.metric("模型", f"{ev['model_type']} / {ev['sub_model']}")
+    m4.metric("建立時間", (ev["created_at"] or "—")[:16])
+    st.divider()
+
+    # ── 危害等級 ──────────────────────────────────────────────────────────
+    st.subheader("⚠️ 危害等級")
+    current_hazard = ev["hazard_level"] or 0
+    col_h1, col_h2 = st.columns([3, 1])
+    with col_h1:
+        new_hazard = st.selectbox(
+            "危害等級",
+            options=list(HAZARD_LABELS.keys()),
+            format_func=lambda x: HAZARD_LABELS[x],
+            index=current_hazard,
+            key=f"hazard_sel_{event_id}",
+            label_visibility="collapsed",
+        )
+    with col_h2:
+        if st.button("💾 更新", key=f"save_hazard_{event_id}", use_container_width=True):
+            db.update_event_hazard(event_id, new_hazard)
+            st.success(f"✅ 已更新：{HAZARD_LABELS[new_hazard]}")
+            st.rerun()
+
+    # ── 備注 ──────────────────────────────────────────────────────────────
+    st.subheader("📝 備注")
+    current_notes = ev["notes"] or ""
+    new_notes = st.text_area(
+        "備注", value=current_notes, height=80,
+        key=f"notes_{event_id}", label_visibility="collapsed", placeholder="輸入事件備注…",
+    )
+    if st.button("💾 儲存備注", key=f"save_notes_{event_id}"):
+        db.update_event_notes(event_id, new_notes)
+        st.success("✅ 備注已儲存")
+        st.rerun()
+
+    st.divider()
+
+    # ── 辨識結果 ──────────────────────────────────────────────────────────
+    st.subheader("📄 辨識結果")
+    transcriptions = db.get_event_transcriptions(event_id)
+    if not transcriptions:
+        st.info("此事件無辨識結果。")
+    else:
+        for t in transcriptions:
+            rec_time    = (t["recorded_at"] or "??:??:??")[:19]
+            fname       = t["original_filename"]
+            status_icon = "✅" if t["status"] == "success" else "❌"
+            with st.expander(f"{status_icon} {rec_time}　{fname}"):
+                if t["status"] == "success":
+                    st.text_area(
+                        "辨識文字", value=t["transcript"] or "（無辨識結果）",
+                        height=100, key=f"trans_{t['id']}", disabled=True, label_visibility="collapsed",
+                    )
+                else:
+                    st.error(f"辨識失敗：{t['transcript']}")
+
+    st.divider()
+
+    # ── 關鍵字管理 ────────────────────────────────────────────────────────
+    st.subheader("🔑 關鍵字")
+    keywords   = db.get_event_keywords(event_id)
+    ai_kws     = [k for k in keywords if k["source"] == "ai"]
+    manual_kws = [k for k in keywords if k["source"] == "manual"]
+
+    kw_col1, kw_col2 = st.columns(2)
+    with kw_col1:
+        st.markdown("**🤖 AI 擷取**")
+        if ai_kws:
+            for kw in ai_kws:
+                lv = kw["hazard_level"]
+                c1, c2 = st.columns([4, 1])
+                c1.markdown(
+                    f"`{kw['keyword']}` "
+                    f"<span style='color:{'#e74c3c' if lv>=4 else '#f39c12' if lv>=2 else '#27ae60'};'>L{lv}</span>",
+                    unsafe_allow_html=True,
+                )
+                if c2.button("×", key=f"del_kw_{kw['id']}", help="刪除"):
+                    db.delete_keyword(kw["id"])
+                    st.rerun()
+        else:
+            st.caption("尚無 AI 關鍵字")
+
+    with kw_col2:
+        st.markdown("**✏️ 手動新增**")
+        if manual_kws:
+            for kw in manual_kws:
+                lv = kw["hazard_level"]
+                c1, c2 = st.columns([4, 1])
+                c1.markdown(
+                    f"`{kw['keyword']}` "
+                    f"<span style='color:{'#e74c3c' if lv>=4 else '#f39c12' if lv>=2 else '#27ae60'};'>L{lv}</span>",
+                    unsafe_allow_html=True,
+                )
+                if c2.button("×", key=f"del_mkw_{kw['id']}", help="刪除"):
+                    db.delete_keyword(kw["id"])
+                    st.rerun()
+        else:
+            st.caption("尚無手動關鍵字")
+
+    st.write("")
+    with st.expander("＋ 手動新增關鍵字"):
+        add_col1, add_col2, add_col3 = st.columns([3, 2, 1])
+        with add_col1:
+            new_kw = st.text_input("關鍵字", key=f"new_kw_{event_id}", placeholder="e.g. 疏散")
+        with add_col2:
+            new_kw_hazard = st.selectbox(
+                "危害等級", options=list(HAZARD_LABELS.keys()),
+                format_func=lambda x: HAZARD_LABELS[x], key=f"new_kw_hazard_{event_id}",
+            )
+        with add_col3:
+            st.write("")
+            st.write("")
+            if st.button("＋ 新增", key=f"add_kw_{event_id}", use_container_width=True):
+                if new_kw.strip():
+                    db.add_keyword(event_id=event_id, keyword=new_kw.strip(), source="manual", hazard_level=new_kw_hazard)
+                    st.success(f"✅ 已新增關鍵字：{new_kw.strip()}")
+                    st.rerun()
+                else:
+                    st.warning("請輸入關鍵字")
+
+    st.divider()
+
+    # ── AI 關鍵字擷取 ─────────────────────────────────────────────────────
+    st.subheader("🤖 AI 分析關鍵字（Gemini）")
+    st.caption("合併此事件所有辨識文字，以 Gemini 自動擷取關鍵術語與危害等級。")
+
+    ai_model_col, ai_btn_col = st.columns([2, 1])
+    with ai_model_col:
+        ai_model = st.selectbox(
+            "Gemini 模型",
+            options=["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.5-flash-lite"],
+            index=0, key=f"ai_model_{event_id}",
+        )
+    with ai_btn_col:
+        st.write("")
+        st.write("")
+        run_ai = st.button("🤖 開始分析", key=f"run_ai_{event_id}", use_container_width=True, type="primary")
+
+    if run_ai:
+        merged = "\n".join(
+            t["transcript"] for t in transcriptions if t["status"] == "success" and t["transcript"]
+        )
+        if not merged.strip():
+            st.warning("此事件無有效辨識文字，無法進行 AI 分析。")
+        else:
+            with st.spinner("Gemini 分析中，請稍候…"):
+                try:
+                    from utils.gemini_keyword_extractor import GeminiKeywordExtractor
+                    extractor = GeminiKeywordExtractor(model_name=ai_model)
+                    extracted = extractor.extract(merged, event_name=ev["event_name"])
+                    if not extracted:
+                        st.info("Gemini 未擷取到關鍵字。")
+                    else:
+                        saved = 0
+                        for item in extracted:
+                            db.add_keyword(event_id=event_id, keyword=item["keyword"], source="ai", hazard_level=item["hazard_level"])
+                            saved += 1
+                        st.success(f"✅ 已新增 {saved} 個 AI 關鍵字！")
+                        st.rerun()
+                except ValueError as ve:
+                    st.error(f"❌ API Key 錯誤：{ve}")
+                except Exception as ge:
+                    st.error(f"❌ Gemini 分析失敗：{ge}")
+                    with st.expander("詳細錯誤"):
+                        st.code(traceback.format_exc())
+
+    db.close()
+
+
+# ============================================================================
+# 頁面：全文搜尋
+# ============================================================================
+def render_search_page():
+    if st.button("← 返回首頁", key="back_home_search"):
+        st.session_state["page"] = "home"
+        st.rerun()
+
+    st.title("🔍 全文搜尋")
+    st.caption("跨所有事件搜尋辨識文字。FTS5 引擎（≥3 字元），短查詢自動切換 LIKE 模式。")
+    st.divider()
+
+    query = st.text_input(
+        "搜尋關鍵字",
+        placeholder="例：疏散、G05、月台門故障、OCC 收到",
+        key="search_query",
+    )
+    col_limit, _ = st.columns([2, 3])
+    with col_limit:
+        limit = st.selectbox("最多顯示筆數", [20, 50, 100, 200], index=0, key="search_limit")
+
+    if not query.strip():
+        st.info("請輸入搜尋關鍵字（至少 1 個字）")
+        return
+
+    try:
+        from utils.db_manager import DBManager
+        db = DBManager(DB_PATH)
+    except Exception as e:
+        st.error(f"無法連線資料庫：{e}")
+        return
+
+    q       = query.strip()
+    use_fts = len(q) >= 3
+
+    with st.spinner("搜尋中…"):
+        try:
+            if use_fts:
+                rows       = db.search_transcriptions(q, limit=limit)
+                mode_label = "FTS5"
+            else:
+                rows       = db.search_transcriptions_like(q, limit=limit)
+                mode_label = "LIKE"
+        except Exception as e:
+            st.error(f"搜尋失敗：{e}")
+            db.close()
+            return
+
+    db.close()
+
+    if not rows:
+        st.warning(f"未找到包含「{q}」的辨識結果。")
+        return
+
+    st.success(f"找到 **{len(rows)}** 筆結果（{mode_label} 模式）")
+    st.divider()
+
+    for row in rows:
+        transcript = row["transcript"] or ""
+        event_name = row["event_name"]
+        filename   = row["original_filename"]
+        created_at = (row["created_at"] or "")[:16]
+        highlighted = transcript.replace(q, f"**:orange[{q}]**")
+        with st.expander(f"📁 {event_name}　｜　{filename}　（{created_at}）"):
+            st.markdown(highlighted)
+
+
+# ============================================================================
+# 頁面：統計報表
+# ============================================================================
+def _make_csv_bytes(rows, fieldnames: list) -> bytes:
+    buf    = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=fieldnames)
+    writer.writeheader()
+    for r in rows:
+        writer.writerow({k: r[k] for k in fieldnames})
+    return ("\ufeff" + buf.getvalue()).encode("utf-8")
+
+
+def render_stats_page():
+    if st.button("← 返回首頁", key="back_home_stats"):
+        st.session_state["page"] = "home"
+        st.rerun()
+
+    st.title("📊 統計報表")
+    st.divider()
+
+    try:
+        from utils.db_manager import DBManager
+        db = DBManager(DB_PATH)
+    except Exception as e:
+        st.error(f"無法連線資料庫：{e}")
+        return
+
+    # ── 摘要 ────────────────────────────────────────────────────────────────
+    summary = db.get_stats_summary()
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("總事件數",     summary.get("total_events",   0))
+    c2.metric("總音檔數",     summary.get("total_audios",   0))
+    c3.metric("辨識成功筆數", summary.get("total_trans",    0))
+    c4.metric("關鍵字總數",   summary.get("total_keywords", 0))
+    st.divider()
+
+    # ── 事件趨勢 ──────────────────────────────────────────────────────────
+    st.subheader("📅 事件趨勢（按日期）")
+    date_rows = db.get_stats_by_date()
+    if date_rows:
+        df_date = pd.DataFrame(
+            [(r["event_date"], r["count"]) for r in date_rows], columns=["日期", "事件數"],
+        ).set_index("日期")
+        st.bar_chart(df_date)
+    else:
+        st.info("尚無日期資料（事件缺少 event_date）")
+
+    st.divider()
+
+    # ── 模型使用分布 ──────────────────────────────────────────────────────
+    st.subheader("🤖 模型使用分布")
+    model_rows = db.get_stats_by_model()
+    if model_rows:
+        df_model = pd.DataFrame(
+            [(f"{r['model_type']} / {r['sub_model']}", r["count"]) for r in model_rows],
+            columns=["模型", "事件數"],
+        ).set_index("模型")
+        st.bar_chart(df_model)
+    else:
+        st.info("尚無模型統計資料")
+
+    st.divider()
+
+    # ── 危害等級分布 ──────────────────────────────────────────────────────
+    st.subheader("⚠️ 危害等級分布")
+    hazard_rows = db.get_stats_by_hazard()
+    if hazard_rows:
+        label_map = {
+            0: "L0 正常", 1: "L1 輕微異常", 2: "L2 需注意",
+            3: "L3 中等",  4: "L4 嚴重",    5: "L5 緊急",
+        }
+        df_hazard = pd.DataFrame(
+            [(label_map.get(r["hazard_level"], f"L{r['hazard_level']}"), r["count"]) for r in hazard_rows],
+            columns=["危害等級", "事件數"],
+        ).set_index("危害等級")
+        st.bar_chart(df_hazard)
+    else:
+        st.info("尚無危害等級資料")
+
+    st.divider()
+
+    # ── 資料匯出 ──────────────────────────────────────────────────────────
+    st.subheader("⬇️ 資料匯出")
+    st.caption("匯出所有事件、音檔與辨識結果為 CSV（UTF-8 BOM，Excel 相容）")
+
+    col_exp1, col_exp2 = st.columns(2)
+    with col_exp1:
+        if st.button("產生事件完整匯出 CSV", use_container_width=True):
+            export_rows = db.export_all_events_csv()
+            if export_rows:
+                fieldnames = [
+                    "event_id", "event_name", "event_date", "model_type", "sub_model",
+                    "hazard_level", "notes", "event_created_at",
+                    "original_filename", "recorded_at", "file_size",
+                    "transcript", "transcription_status",
+                ]
+                csv_bytes = _make_csv_bytes(export_rows, fieldnames)
+                ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                st.download_button(
+                    "⬇️ 下載 CSV", data=csv_bytes,
+                    file_name=f"aiSpeechMulti_export_{ts}.csv", mime="text/csv",
+                )
+            else:
+                st.info("資料庫尚無資料可匯出")
+
+    with col_exp2:
+        events_for_export = db.list_events(limit=500)
+        if events_for_export:
+            fieldnames_ev = ["id", "event_name", "event_date", "model_type", "sub_model", "hazard_level", "notes", "created_at"]
+            csv_events = _make_csv_bytes(events_for_export, fieldnames_ev)
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            st.download_button(
+                "⬇️ 下載事件清單 CSV", data=csv_events,
+                file_name=f"aiSpeechMulti_events_{ts}.csv", mime="text/csv",
+                use_container_width=True,
+            )
+
+    db.close()
+
+
+# ============================================================================
+# 詞彙表工具函式
+# ============================================================================
+def _load_vocabulary_csv() -> list:
+    if not VOCABULARY_CSV.exists():
+        return []
+    rows = []
+    with VOCABULARY_CSV.open(encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if row.get("term", "").startswith("#"):
+                continue
+            rows.append(row)
+    return rows
+
+
+def _save_vocabulary_csv(rows: list) -> None:
+    with VOCABULARY_CSV.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=_VOCAB_COLUMNS, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+# ============================================================================
+# 頁面：語音準確率辨識計算
+# ============================================================================
+def render_evaluation_page():
+    """語音辨識準確率評測頁面（CER / 差異分析）。"""
+    import json as _json
+
+    if st.button("← 返回首頁", key="back_home_eval"):
+        for k in ("eval_done", "eval_results", "eval_text_done", "eval_text_results"):
+            st.session_state[k] = False if "done" in k else None
+        st.session_state["page"] = "home"
+        st.rerun()
+
+    st.title("📊 語音準確率辨識計算")
+    st.caption("對照標準文稿（ground truth），計算 CER（字元錯誤率）與辨識準確率，並輸出差異高亮分析。")
+    st.divider()
+
+    # ── 頂層 Tab：選擇評測模式 ────────────────────────────────────────────
+    tab_audio, tab_text = st.tabs([
+        "🎙️ 語音辨識 + 準確率計算",
+        "📄 純文稿比對",
+    ])
+
+    with tab_audio:
+        _render_audio_eval_mode(_json)
+
+    with tab_text:
+        _render_text_compare_mode(_json)
+
+
+def _render_audio_eval_mode(_json):
+    """Tab A：語音辨識 → 準確率計算（原有流程）。"""
+
+    # ── 若評測已完成，直接顯示結果 ─────────────────────────────────────────
+    if st.session_state.get("eval_done") and st.session_state.get("eval_results"):
+        _render_eval_results(
+            results     = st.session_state["eval_results"],
+            case_name   = st.session_state.get("eval_case_name", ""),
+            output_dir  = Path(st.session_state.get("eval_output_dir", ".")),
+            timestamp   = st.session_state.get("eval_timestamp", ""),
+            meta        = st.session_state.get("eval_meta", {}),
+            key_suffix  = "_audio",
+        )
+        st.divider()
+        if st.button("🔄 重新評測", key="eval_reset"):
+            st.session_state["eval_done"]    = False
+            st.session_state["eval_results"] = None
+            st.session_state["eval_meta"]    = {}
+            st.rerun()
+        return
+
+    # ── Step 1：選擇案例 ────────────────────────────────────────────────────
+    st.subheader("Step 1　選擇評測案例")
+
+    # 掃描 experiments/ 下所有子目錄
+    all_cases = sorted(
+        [d.name for d in EXPERIMENTS_DIR.iterdir()
+         if d.is_dir() and d.name != "temp_upload"],
+        key=str.lower
+    ) if EXPERIMENTS_DIR.exists() else []
+
+    # ── 「使用現有案例」下拉選單（唯一的 case_name 來源）──────────────────
+    if not all_cases:
+        st.warning("experiments/ 目錄下找不到任何案例。請先用下方「新建案例」建立。")
+        case_name = ""
+    else:
+        case_name = st.selectbox(
+            "選擇案例（experiments/ 子目錄）",
+            options=all_cases,
+            key="eval_case_select",
+        )
+
+    # ── 新建案例（僅負責建立目錄，不改變 case_name 選擇）────────────────────
+    with st.expander("➕ 新建案例", expanded=False):
+        new_case_input = st.text_input(
+            "新案例名稱（將自動建立子目錄）",
+            placeholder="例如：Test_03_Airport",
+            key="eval_new_case_name",
+        )
+        if st.button("建立案例", key="eval_create_case"):
+            name = new_case_input.strip()
+            if name:
+                new_dir = EXPERIMENTS_DIR / name
+                for sub in ["source_audio", "ground_truth", "asr_output", "evaluation"]:
+                    (new_dir / sub).mkdir(parents=True, exist_ok=True)
+                st.success(f"✅ 已建立：experiments/{name}/　請在上方下拉選單選擇此案例。")
+                st.rerun()
+            else:
+                st.error("請輸入案例名稱。")
+
+    if not case_name:
+        return
+
+    case_dir = EXPERIMENTS_DIR / case_name
+    st.session_state["eval_case_name"] = case_name
+
+    # 顯示目錄結構狀態
+    src_dir = case_dir / "source_audio"
+    gt_dir  = case_dir / "ground_truth"
+    asr_dir = case_dir / "asr_output"
+    eval_dir = case_dir / "evaluation"
+
+    _GT_EXTS  = {".txt", ".csv"}
+    _ASR_EXTS = {".txt", ".csv"}
+    _AUDIO_EXTS = {".wav", ".mp3", ".m4a", ".flac", ".ogg", ".aac"}
+
+    # 重新計算（確保每次 rerun 都是最新值）
+    src_dir.mkdir(parents=True, exist_ok=True)
+    gt_dir.mkdir(parents=True, exist_ok=True)
+    asr_dir.mkdir(parents=True, exist_ok=True)
+
+    n_src = len([f for f in src_dir.iterdir() if f.suffix.lower() in _AUDIO_EXTS])
+    n_gt  = len([f for f in gt_dir.iterdir()  if f.suffix.lower() in _GT_EXTS])
+    n_asr = len([f for f in asr_dir.iterdir() if f.suffix.lower() in _ASR_EXTS])
+
+    col_a, col_b, col_c = st.columns(3)
+    with col_a:
+        st.metric("🎵 語音檔案", f"{n_src} 個",
+                  help=f"完整路徑：\n{src_dir}")
+    with col_b:
+        icon = "✅" if n_gt > 0 else "⚠️"
+        st.metric(f"{icon} 標準文稿", f"{n_gt} 份",
+                  help=f"完整路徑：\n{gt_dir}")
+    with col_c:
+        st.metric("📝 辨識結果", f"{n_asr} 份",
+                  help=f"完整路徑：\n{asr_dir}")
+
+    # 顯示各目錄的完整路徑，方便使用者確認放錯位置
+    with st.expander("📂 查看各目錄完整路徑", expanded=(n_src == 0)):
+        st.code(f"語音檔案  ➜  {src_dir}", language=None)
+        st.code(f"標準文稿  ➜  {gt_dir}",  language=None)
+        st.code(f"辨識結果  ➜  {asr_dir}", language=None)
+        st.caption("請確認語音檔案已放置在上方「語音檔案」路徑內，而非其他同名資料夾。")
+
+    st.divider()
+
+    # ── Step 1.5：上傳語音檔案（source_audio）────────────────────────────────
+    st.subheader("Step 1.5　載入語音檔案")
+
+    with st.expander(
+        f"📤 上傳語音檔案到 source_audio/（目前 {n_src} 個）",
+        expanded=(n_src == 0),
+    ):
+        uploaded_audios = st.file_uploader(
+            f"選擇語音檔案（支援 .wav .mp3 .m4a .flac .ogg .aac，最多 {MAX_UPLOAD_FILES} 個）",
+            type=["wav", "mp3", "m4a", "flac", "ogg", "aac"],
+            accept_multiple_files=True,
+            key="eval_audio_upload",
+        )
+        if uploaded_audios and st.button("儲存語音檔案", key="eval_save_audio"):
+            for uf in uploaded_audios:
+                (src_dir / uf.name).write_bytes(uf.getbuffer())
+            st.success(f"✅ 已儲存 {len(uploaded_audios)} 個語音檔案至 source_audio/")
+            st.rerun()
+
+    # 已有語音檔清單 + 刪除
+    if n_src > 0:
+        src_files = sorted(f for f in src_dir.iterdir() if f.suffix.lower() in _AUDIO_EXTS)
+        with st.expander(f"已載入 {n_src} 個語音檔案（點擊展開 / 刪除）", expanded=False):
+            for af in src_files:
+                col_aname, col_abtn = st.columns([8, 1])
+                with col_aname:
+                    st.caption(f"  • 🎵　{af.name}")
+                with col_abtn:
+                    if st.button("🗑️", key=f"del_src_{af.stem}_{af.suffix}",
+                                 help=f"刪除 {af.name}"):
+                        af.unlink()
+                        st.toast(f"已刪除：{af.name}", icon="🗑️")
+                        st.rerun()
+
+    st.divider()
+
+    # ── Step 2：上傳 / 確認 Ground Truth ────────────────────────────────────
+    st.subheader("Step 2　標準文稿（Ground Truth）")
+
+    st.caption(
+        "支援 **.csv**（與辨識結果下載格式相同，自動讀取「辨識文字」欄）"
+        " 或 **.txt**（純文字），"
+        "檔名須與對應音檔主檔名相同。"
+    )
+
+    with st.expander("📤 上傳標準文稿（.csv 或 .txt，一個音檔對應一個文稿）", expanded=(n_gt == 0)):
+        uploaded_gts = st.file_uploader(
+            "選擇標準文稿（.csv / .txt，檔名須與音檔主檔名相同）",
+            type=["csv", "txt"],
+            accept_multiple_files=True,
+            key="eval_gt_upload",
+        )
+        if uploaded_gts and st.button("儲存標準文稿", key="eval_save_gt"):
+            gt_dir.mkdir(parents=True, exist_ok=True)
+            for uf in uploaded_gts:
+                dest = gt_dir / uf.name
+                dest.write_bytes(uf.getbuffer())
+            st.success(f"✅ 已儲存 {len(uploaded_gts)} 份標準文稿至 ground_truth/")
+            st.rerun()
+
+    if n_gt > 0:
+        gt_files = sorted(
+            f for f in gt_dir.iterdir() if f.suffix.lower() in _GT_EXTS
+        )
+        st.success(f"找到 {n_gt} 份標準文稿：")
+
+        # 逐列顯示檔名 + 刪除按鈕
+        for gf in gt_files:
+            fmt_tag = "📊 CSV" if gf.suffix.lower() == ".csv" else "📄 TXT"
+            col_name, col_btn = st.columns([8, 1])
+            with col_name:
+                st.caption(f"  • {fmt_tag}　{gf.name}")
+            with col_btn:
+                if st.button("🗑️", key=f"del_gt_{gf.stem}_{gf.suffix}",
+                             help=f"刪除 {gf.name}"):
+                    gf.unlink()
+                    st.toast(f"已刪除：{gf.name}", icon="🗑️")
+                    st.rerun()
+
+        # 比對音檔 ↔ 標準文稿 對應關係
+        if n_src > 0:
+            src_stems    = {f.stem for f in src_dir.iterdir()
+                            if f.suffix.lower() in {".wav", ".mp3", ".m4a", ".flac", ".ogg", ".aac"}}
+            gt_stems     = {f.stem for f in gt_files}
+            unpaired_src = src_stems - gt_stems
+            if unpaired_src:
+                st.warning(f"⚠️ 以下音檔尚無對應標準文稿：{', '.join(sorted(unpaired_src))}")
+    else:
+        st.warning("⚠️ 請先上傳標準文稿（.csv 或 .txt）才能執行評測。")
+
+    st.divider()
+
+    # ── Step 3：選擇辨識模型 ────────────────────────────────────────────────
+    st.subheader("Step 3　選擇辨識模型")
+
+    # 若已有 asr_output，提供「跳過辨識」選項
+    skip_asr = False
+    if n_asr > 0:
+        skip_asr = st.checkbox(
+            f"使用已有辨識結果（asr_output/ 內有 {n_asr} 份）跳過重新辨識，直接計算準確率",
+            value=True,
+            key="eval_skip_asr",
+        )
+
+    # 模型選擇（skip_asr 時仍顯示但 disabled，保留使用者設定）
+    col_m1, col_m2 = st.columns(2)
+    with col_m1:
+        eval_model_type = st.radio(
+            "辨識模型",
+            options=list(MODEL_OPTIONS.keys()),
+            key="eval_model_radio",
+            horizontal=True,
+            disabled=skip_asr,
+        )
+        # eval_model_type 此時為 display label（如 "Google Cloud STT"）
+        eval_model_value = MODEL_OPTIONS[eval_model_type]
+
+    with col_m2:
+        sub_options = SUB_MODEL_OPTIONS.get(eval_model_value, [])
+        if sub_options:
+            eval_sub_model = st.radio(
+                "子模型",
+                options=[v for _, v in sub_options],
+                format_func=lambda v: next((k for k, vv in sub_options if vv == v), v),
+                key="eval_sub_radio",
+                disabled=skip_asr,
+            )
+        else:
+            eval_sub_model = eval_model_value
+
+    if skip_asr:
+        st.caption("🔒 模型選擇已鎖定（使用現有辨識結果）")
+
+    # 存入 session_state 備用
+    st.session_state["eval_model_type"] = eval_model_value
+    st.session_state["eval_sub_model"]  = eval_sub_model
+
+    st.divider()
+
+    # ── Step 4：執行 ────────────────────────────────────────────────────────
+    st.subheader("Step 4　執行評測")
+
+    # 前置條件檢查（只顯示警告，不中斷渲染）
+    if n_gt == 0:
+        st.warning("⚠️ ground_truth/ 中尚無標準文稿，請先完成 Step 2 上傳。")
+        return
+
+    if not skip_asr and n_src == 0:
+        st.warning("⚠️ source_audio/ 中找不到語音檔案。請先將音檔放入該目錄，或勾選上方「跳過辨識」。")
+        return
+
+    # 按鈕
+    if skip_asr:
+        btn_label = "📊 計算準確率（使用現有辨識結果）"
+    else:
+        btn_label = f"🚀 辨識 {n_src} 個語音檔並計算準確率"
+
+    st.info(
+        "📌 **評測流程**：\n"
+        + ("① 略過辨識　" if skip_asr else f"① 辨識 source_audio/ 下 {n_src} 個語音檔　")
+        + "② 逐檔與標準文稿比對　③ 計算 CER / 準確率　④ 輸出差異分析"
+    )
+
+    if st.button(btn_label, type="primary", key="eval_run", use_container_width=True):
+        timestamp   = datetime.now().strftime("%Y%m%d_%H%M%S")
+        eval_dir.mkdir(parents=True, exist_ok=True)
+        run_asr_dir = asr_dir
+
+        # ── 辨識 ──────────────────────────────────────────────────────────
+        if not skip_asr:
+            audio_exts  = {".wav", ".mp3", ".m4a", ".flac", ".ogg", ".aac"}
+            audio_files = sorted([
+                f for f in src_dir.iterdir() if f.suffix.lower() in audio_exts
+            ])
+            run_asr_dir.mkdir(parents=True, exist_ok=True)
+            prog = st.progress(0, text="初始化辨識模型...")
+
+            try:
+                from scripts.batch_inference import BatchInference, setup_google_credentials
+                setup_google_credentials()
+
+                engine = BatchInference(
+                    input_dir    = str(src_dir),
+                    output_dir   = str(run_asr_dir),
+                    model_type   = eval_model_value,
+                    stt_model    = eval_sub_model if eval_model_value == "google_stt" else "chirp_3",
+                    gemini_model = eval_sub_model if eval_model_value == "gemini"     else "gemini-2.5-flash",
+                    language_code= "cmn-Hant-TW",
+                ) if eval_model_value != "whisper" else None
+
+                for idx, af in enumerate(audio_files):
+                    prog.progress(
+                        idx / len(audio_files),
+                        text=f"辨識中：{af.name}  ({idx + 1}/{len(audio_files)})"
+                    )
+                    try:
+                        if eval_model_value == "whisper":
+                            from scripts.models.model_whisper import transcribe_with_whisper
+                            txt = transcribe_with_whisper(str(af), model_size=eval_sub_model)
+                        else:
+                            result = engine.transcribe_file(af)
+                            txt    = result.get("transcript", "")
+                        (run_asr_dir / f"{af.stem}.txt").write_text(txt, encoding="utf-8")
+                    except Exception as e:
+                        st.warning(f"⚠️ {af.name} 辨識失敗：{e}")
+
+                prog.progress(1.0, text="辨識完成！")
+
+            except Exception as e:
+                st.error(f"❌ 辨識失敗：{e}")
+                return
+
+        # ── 計算 CER ──────────────────────────────────────────────────────
+        with st.spinner("計算 CER 與差異分析中..."):
+            try:
+                from scripts.cer_engine import evaluate_case, generate_text_report
+                results = evaluate_case(gt_dir, run_asr_dir)
+            except Exception as e:
+                st.error(f"CER 計算失敗：{e}")
+                return
+
+        # ── 建立 meta（評測資訊）──────────────────────────────────────────
+        _model_label = {v: k for k, v in MODEL_OPTIONS.items()}.get(eval_model_value, eval_model_value)
+        meta = {
+            "mode":        "audio_asr",
+            "model_label": _model_label,
+            "sub_model":   eval_sub_model if not skip_asr else "（使用已有辨識結果）",
+            "timestamp":   datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
+
+        # ── 儲存報告 ───────────────────────────────────────────────────────
+        summary_file = eval_dir / f"summary_{timestamp}.json"
+        report_file  = eval_dir / f"report_{timestamp}.txt"
+        summary_file.write_text(
+            _json.dumps({**results["overall"], "meta": meta}, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        report_text = generate_text_report(case_name, results, meta=meta)
+        report_file.write_text(report_text, encoding="utf-8")
+
+        # ── 快取到 session_state ───────────────────────────────────────────
+        st.session_state["eval_done"]       = True
+        st.session_state["eval_results"]    = results
+        st.session_state["eval_output_dir"] = str(eval_dir)
+        st.session_state["eval_timestamp"]  = timestamp
+        st.session_state["eval_meta"]       = meta
+        st.rerun()
+
+
+def _render_text_compare_mode(_json):
+    """Tab B：純文稿比對（直接上傳 ASR 結果 + 標準文稿進行 CER 比對）。"""
+
+    # ── 若已完成，顯示結果 ────────────────────────────────────────────────
+    if st.session_state.get("eval_text_done") and st.session_state.get("eval_text_results"):
+        meta = st.session_state.get("eval_text_meta", {})
+        ts   = meta.get("timestamp", datetime.now().strftime("%Y%m%d_%H%M%S")).replace(" ", "_").replace(":", "")
+        _render_eval_results(
+            results      = st.session_state["eval_text_results"],
+            case_name    = "純文稿比對",
+            output_dir   = Path("."),
+            timestamp    = ts,
+            meta         = meta,
+            save_to_disk = False,
+            key_suffix   = "_text",
+        )
+        st.divider()
+        if st.button("🔄 重新比對", key="eval_text_reset"):
+            st.session_state["eval_text_done"]    = False
+            st.session_state["eval_text_results"] = None
+            st.session_state["eval_text_meta"]    = {}
+            st.rerun()
+        return
+
+    st.write("")
+    st.info(
+        "**適用情境**：已有辨識結果文字檔，想直接與標準文稿比對，"
+        "無需重新辨識語音。支援 **.csv** 與 **.txt** 格式。"
+    )
+    st.divider()
+
+    # ── Step A：標準文稿 ──────────────────────────────────────────────────
+    st.subheader("Step A　上傳標準文稿（Ground Truth）")
+    st.caption("支援 .csv（自動讀取「辨識文字」欄）或 .txt 純文字。")
+    gt_file = st.file_uploader(
+        "選擇標準文稿（單一檔案）",
+        type=["csv", "txt"],
+        accept_multiple_files=False,
+        key="tc_gt_upload",
+    )
+
+    # ── Step B：辨識結果文稿 ──────────────────────────────────────────────
+    st.subheader("Step B　上傳辨識結果文稿")
+    st.caption("支援 .csv（從「語音辨識模式」下載的格式）或 .txt。")
+    asr_file = st.file_uploader(
+        "選擇辨識結果文稿（單一檔案）",
+        type=["csv", "txt"],
+        accept_multiple_files=False,
+        key="tc_asr_upload",
+    )
+
+    # ── Step C：執行比對 ──────────────────────────────────────────────────
+    st.subheader("Step C　執行準確率計算")
+
+    if gt_file and asr_file:
+        st.success(f"✅ 標準文稿：{gt_file.name}　│　辨識結果：{asr_file.name}")
+        if st.button("📊 計算準確率", type="primary", key="tc_run", use_container_width=True):
+            with st.spinner("讀取文稿並計算 CER..."):
+                try:
+                    from scripts.cer_engine import read_transcript_file, compare_two_texts
+                    import tempfile, os
+
+                    # 暫存到磁碟供 read_transcript_file 讀取
+                    def _save_tmp(uf):
+                        suffix = Path(uf.name).suffix
+                        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+                        tmp.write(uf.getbuffer())
+                        tmp.flush()
+                        return tmp.name
+
+                    gt_tmp  = _save_tmp(gt_file)
+                    asr_tmp = _save_tmp(asr_file)
+                    gt_text  = read_transcript_file(Path(gt_tmp))
+                    asr_text = read_transcript_file(Path(asr_tmp))
+                    os.unlink(gt_tmp)
+                    os.unlink(asr_tmp)
+
+                    results = compare_two_texts(
+                        gt_text,
+                        asr_text,
+                        gt_name  = Path(gt_file.name).stem,
+                        asr_name = Path(asr_file.name).stem,
+                    )
+
+                    now = datetime.now()
+                    meta = {
+                        "mode":         "text_compare",
+                        "gt_filename":  gt_file.name,
+                        "asr_filename": asr_file.name,
+                        "timestamp":    now.strftime("%Y-%m-%d %H:%M:%S"),
+                    }
+
+                    st.session_state["eval_text_done"]    = True
+                    st.session_state["eval_text_results"] = results
+                    st.session_state["eval_text_meta"]    = meta
+                    st.rerun()
+
+                except Exception as e:
+                    st.error(f"❌ 比對失敗：{e}")
+    else:
+        st.info("請先上傳標準文稿（Step A）與辨識結果文稿（Step B）。")
+
+
+def _render_eval_results(
+    results: dict,
+    case_name: str,
+    output_dir: Path,
+    timestamp: str,
+    meta: dict = None,
+    save_to_disk: bool = True,
+    key_suffix: str = "",
+):
+    """顯示評測結果：評測資訊 + 整體統計 + 逐檔差異分析 + 下載按鈕。"""
+    import json as _json
+    meta = meta or {}
+    ov   = results["overall"]
+
+    # ── 評測資訊摘要 ──────────────────────────────────────────────────────
+    mode_label = {
+        "audio_asr":    "🎙️ 語音辨識 + 準確率計算",
+        "text_compare": "📄 純文稿比對",
+    }.get(meta.get("mode", ""), "—")
+
+    with st.expander("ℹ️ 評測資訊", expanded=True):
+        info_cols = st.columns(3)
+        info_cols[0].markdown(f"**評測模式**  \n{mode_label}")
+        if meta.get("mode") == "audio_asr":
+            info_cols[1].markdown(f"**辨識模型**  \n{meta.get('model_label','—')}")
+            info_cols[2].markdown(f"**子模型**  \n{meta.get('sub_model','—')}")
+        elif meta.get("mode") == "text_compare":
+            info_cols[1].markdown(f"**標準文稿**  \n{meta.get('gt_filename','—')}")
+            info_cols[2].markdown(f"**辨識文稿**  \n{meta.get('asr_filename','—')}")
+        st.caption(f"評測時間：{meta.get('timestamp','—')}")
+
+    st.divider()
+
+    # ── 整體統計卡 ────────────────────────────────────────────────────────
+    st.subheader("📈 整體統計")
+    m1, m2, m3, m4, m5 = st.columns(5)
+    m1.metric("整體準確率（加權）", f"{ov['micro_accuracy']:.1%}")
+    m2.metric("平均準確率",         f"{ov['mean_accuracy']:.1%}")
+    m3.metric("整體 CER",           f"{ov['micro_cer']:.1%}")
+    m4.metric("總字元數",           f"{ov['total_chars']:,}")
+    m5.metric("比對檔案",           f"{ov['n_files_matched']} / {ov['n_files_total']}")
+
+    # 準確率進度條
+    acc = ov["micro_accuracy"]
+    bar_color = "#4CAF50" if acc >= 0.85 else ("#FF9800" if acc >= 0.65 else "#F44336")
+    st.markdown(
+        f'<div style="background:#222; border-radius:8px; height:18px; margin:8px 0 16px 0;">'
+        f'<div style="background:{bar_color}; border-radius:8px; height:18px; '
+        f'width:{acc*100:.1f}%; transition:width 0.4s;"></div></div>',
+        unsafe_allow_html=True,
+    )
+
+    st.divider()
+
+    # ── 逐檔明細 ─────────────────────────────────────────────────────────
+    st.subheader("🔍 逐檔差異分析")
+
+    per_file = results["per_file"]
+    # 彙整成 DataFrame 概覽表
+    import pandas as pd
+    df_rows = []
+    for r in per_file:
+        df_rows.append({
+            "檔名":     r["stem"],
+            "準確率":   f"{r['accuracy']:.1%}",
+            "CER":      f"{r['cer']:.1%}",
+            "字元數":   r["n_ref"],
+            "替換":     r["sub"],
+            "刪除":     r["del_"],
+            "插入":     r["ins"],
+            "狀態":     "✅" if r["matched"] else "❌ 缺少辨識結果",
+        })
+    st.dataframe(pd.DataFrame(df_rows), use_container_width=True, hide_index=True)
+
+    st.write("")
+
+    # 逐檔展開差異
+    for r in per_file:
+        acc_label = f"{r['accuracy']:.1%}" if r["matched"] else "❌"
+        with st.expander(
+            f"{'✅' if r['matched'] else '❌'}  {r['stem']}　│　準確率 {acc_label}　│　CER {r['cer']:.1%}",
+            expanded=False,
+        ):
+            if r["matched"]:
+                c1, c2, c3 = st.columns(3)
+                c1.metric("準確率", f"{r['accuracy']:.1%}")
+                c2.metric("CER",    f"{r['cer']:.1%}")
+                c3.metric("字元數", r["n_ref"])
+                st.markdown(r["diff_html"], unsafe_allow_html=True)
+            else:
+                st.error(r["diff_html"])
+
+    st.divider()
+
+    # ── 下載區 ───────────────────────────────────────────────────────────
+    st.subheader("⬇️ 下載報告")
+    col_d1, col_d2 = st.columns(2)
+
+    from scripts.cer_engine import generate_text_report
+    report_text = generate_text_report(case_name, results, meta=meta)
+
+    _ts_label = timestamp.replace("-", "").replace(" ", "_").replace(":", "")[:15]
+    _fname    = case_name if case_name != "純文稿比對" else (
+        Path(meta.get("asr_filename", "compare")).stem
+    )
+
+    with col_d1:
+        st.download_button(
+            "📄 下載文字報告 (.txt)",
+            data=report_text.encode("utf-8"),
+            file_name=f"{_fname}_CER報告_{_ts_label}.txt",
+            mime="text/plain",
+            key=f"dl_eval_report{key_suffix}",
+        )
+    with col_d2:
+        summary_payload = {**results["overall"], "meta": meta}
+        st.download_button(
+            "📊 下載 JSON 統計",
+            data=_json.dumps(summary_payload, ensure_ascii=False, indent=2).encode("utf-8"),
+            file_name=f"{_fname}_CER統計_{_ts_label}.json",
+            mime="application/json",
+            key=f"dl_eval_json{key_suffix}",
+        )
+    if save_to_disk and str(output_dir) != ".":
+        st.caption(f"評測結果已儲存至：`{output_dir}`")
+
+
+# ============================================================================
+# 頁面：詞彙表管理
+# ============================================================================
+def render_vocabulary_page():
+    if st.button("← 返回首頁", key="back_home_vocab"):
+        st.session_state["page"] = "home"
+        st.rerun()
+
+    st.title("📚 詞彙表管理")
+    st.caption(f"資料來源：`{VOCABULARY_CSV.relative_to(PROJECT_ROOT)}`")
+    st.divider()
+
+    rows = _load_vocabulary_csv()
+
+    # ── 篩選 ──────────────────────────────────────────────────────────────
+    col_f1, col_f2, col_f3 = st.columns([3, 2, 2])
+    with col_f1:
+        filter_term = st.text_input("搜尋術語 / 說明", placeholder="OCC、疏散…", key="vocab_filter_term")
+    with col_f2:
+        filter_cat = st.selectbox("類別", ["全部"] + _VOCAB_CATEGORIES, key="vocab_filter_cat")
+    with col_f3:
+        filter_alert = st.selectbox("告警等級", ["全部", "0", "1", "2", "3", "4", "5"], key="vocab_filter_alert")
+
+    filtered_indices = list(range(len(rows)))
+    if filter_term.strip():
+        q_lower = filter_term.strip().lower()
+        filtered_indices = [
+            i for i in filtered_indices
+            if q_lower in rows[i].get("term", "").lower()
+            or q_lower in rows[i].get("description", "").lower()
+            or q_lower in rows[i].get("common_error", "").lower()
+        ]
+    if filter_cat != "全部":
+        filtered_indices = [i for i in filtered_indices if rows[i].get("category") == filter_cat]
+    if filter_alert != "全部":
+        filtered_indices = [i for i in filtered_indices if str(rows[i].get("alert_level", "")) == filter_alert]
+
+    filtered = [rows[i] for i in filtered_indices]
+    st.caption(f"共 **{len(filtered)}** 筆 / 總計 **{len(rows)}** 筆")
+
+    # ── 表格（行內編輯） ──────────────────────────────────────────────────
+    if filtered:
+        df = pd.DataFrame(filtered, columns=_VOCAB_COLUMNS)
+        df["boost_value"] = pd.to_numeric(df["boost_value"], errors="coerce").fillna(0).astype(int)
+        df["alert_level"] = pd.to_numeric(df["alert_level"], errors="coerce").fillna(0).astype(int)
+
+        edited_df = st.data_editor(
+            df, use_container_width=True, hide_index=True, num_rows="fixed",
+            column_config={
+                "term":         st.column_config.TextColumn("術語", width="small"),
+                "category":     st.column_config.SelectboxColumn("類別", options=_VOCAB_CATEGORIES, width="small"),
+                "boost_value":  st.column_config.NumberColumn("加權值", min_value=0, max_value=20, step=1, width="small"),
+                "alert_level":  st.column_config.NumberColumn("告警等級", min_value=0, max_value=5, step=1, width="small"),
+                "pinyin":       st.column_config.TextColumn("拼音/讀法"),
+                "common_error": st.column_config.TextColumn("常見錯誤"),
+                "description":  st.column_config.TextColumn("說明"),
+            },
+            key="vocab_editor",
+        )
+        st.caption("💡 直接點擊儲存格即可編輯，完成後點下方「儲存變更」。")
+
+        if st.button("💾 儲存變更", type="primary", key="vocab_save_btn"):
+            for df_idx, row_idx in enumerate(filtered_indices):
+                row = edited_df.iloc[df_idx]
+                rows[row_idx] = {
+                    "term":         str(row["term"]).strip(),
+                    "category":     str(row["category"]),
+                    "boost_value":  str(int(row["boost_value"])),
+                    "alert_level":  str(int(row["alert_level"])),
+                    "pinyin":       str(row["pinyin"]).strip(),
+                    "common_error": str(row["common_error"]).strip(),
+                    "description":  str(row["description"]).strip(),
+                }
+            _save_vocabulary_csv(rows)
+            st.success("✅ 已儲存變更")
+            st.rerun()
+    else:
+        st.info("沒有符合條件的詞條")
+
+    st.divider()
+
+    # ── 新增詞條 ──────────────────────────────────────────────────────────
+    st.subheader("➕ 新增詞條")
+    with st.form("add_vocab_form"):
+        a1, a2, a3, a4 = st.columns([3, 2, 1, 1])
+        new_term  = a1.text_input("術語 *", placeholder="EDRH")
+        new_cat   = a2.selectbox("類別 *", _VOCAB_CATEGORIES)
+        new_boost = a3.number_input("加權值", min_value=0, max_value=20, value=10)
+        new_alert = a4.number_input("告警等級", min_value=0, max_value=5, value=0)
+        b1, b2    = st.columns(2)
+        new_pinyin = b1.text_input("拼音/讀法", placeholder="E-D-R-H")
+        new_error  = b2.text_input("常見錯誤", placeholder="eDR|e d r")
+        new_desc   = st.text_input("說明", placeholder="緊急門釋放把手")
+        submitted  = st.form_submit_button("✅ 新增", type="primary")
+        if submitted:
+            if not new_term.strip():
+                st.warning("術語為必填欄位")
+            elif any(r.get("term", "").strip() == new_term.strip() for r in rows):
+                st.warning(f"術語「{new_term.strip()}」已存在")
+            else:
+                rows.append({
+                    "term": new_term.strip(), "category": new_cat,
+                    "boost_value": str(new_boost), "alert_level": str(new_alert),
+                    "pinyin": new_pinyin.strip(), "common_error": new_error.strip(),
+                    "description": new_desc.strip(),
+                })
+                _save_vocabulary_csv(rows)
+                st.success(f"✅ 已新增詞條：{new_term.strip()}")
+                st.rerun()
+
+    st.divider()
+
+    # ── 刪除詞條 ──────────────────────────────────────────────────────────
+    st.subheader("🗑️ 刪除詞條")
+    if rows:
+        del_options = [r["term"] for r in rows]
+        del_term    = st.selectbox("選擇要刪除的術語", del_options, key="vocab_del_select")
+        if st.button("🗑️ 刪除選定術語", type="secondary", key="vocab_del_btn"):
+            rows_new = [r for r in rows if r.get("term") != del_term]
+            _save_vocabulary_csv(rows_new)
+            st.success(f"✅ 已刪除：{del_term}")
+            st.rerun()
+    else:
+        st.info("詞彙表為空")
+
+    st.divider()
+
+    # ── 下載詞彙表 ────────────────────────────────────────────────────────
+    if rows:
+        buf    = io.StringIO()
+        writer = csv.DictWriter(buf, fieldnames=_VOCAB_COLUMNS, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
+        csv_bytes = ("\ufeff" + buf.getvalue()).encode("utf-8")
+        st.download_button(
+            "⬇️ 下載詞彙表 CSV", data=csv_bytes,
+            file_name=f"master_vocabulary_{datetime.now().strftime('%Y%m%d')}.csv",
+            mime="text/csv",
+        )
+
+
+# ============================================================================
+# 主程式
+# ============================================================================
+def main():
+    init_session_state()
+    setup_credentials()
+
+    page = st.session_state.get("page", "home")
+
+    if page == "home":
+        render_home_page()
+    elif page == "monitor":
+        render_monitor_page()
+    elif page == "speech":
+        render_speech_page()
+    elif page == "running":
+        render_running_page()
+    elif page == "management":
+        render_management_page()
+    elif page == "search":
+        render_search_page()
+    elif page == "stats":
+        render_stats_page()
+    elif page == "vocabulary":
+        render_vocabulary_page()
+    elif page == "evaluation":
+        render_evaluation_page()
+    else:
+        st.session_state["page"] = "home"
+        st.rerun()
+
+
+if __name__ == "__main__":
+    main()

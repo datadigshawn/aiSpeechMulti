@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="7" fill="#1a1d27"/>
+  <!-- 麥克風主體 -->
+  <rect x="13" y="5" width="6" height="12" rx="3" fill="#7eb8f7"/>
+  <!-- 麥克風弧形支架 -->
+  <path d="M9 16 Q9 23 16 23 Q23 23 23 16" stroke="#7eb8f7" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+  <!-- 垂直支柱 -->
+  <line x1="16" y1="23" x2="16" y2="27" stroke="#7eb8f7" stroke-width="1.8" stroke-linecap="round"/>
+  <!-- 底座橫線 -->
+  <line x1="12" y1="27" x2="20" y2="27" stroke="#7eb8f7" stroke-width="1.8" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,9 @@
+欄位說明：
+
+term: 正確術語（繁體中文）
+category: 分類（station_code/equipment/command/emergency/number）
+boost_value: Google STT 加權值（1-20，數字越大越優先辨識）
+alert_level: 告警等級（0=不告警, 1=一般, 2=重要, 3=緊急）
+pinyin: 拼音（用於同音異字比對）
+common_error: 常見辨識錯誤（用途2修正用）
+description: 術語說明

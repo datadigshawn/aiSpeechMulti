@@ -1,0 +1,219 @@
+{
+  "last_updated": "2026-01-12T15:19:11.425160",
+  "api_version": "V2",
+  "models": {
+    "chirp_3": {
+      "display_name": "Chirp 3.0 (最新)",
+      "model_id": "chirp_3",
+      "supported_regions": [
+        "asia-northeast1",
+        "us-central1",
+        "eu"
+      ],
+      "preferred_region": "asia-northeast1",
+      "fallback_regions": [
+        "us-central1",
+        "eu"
+      ],
+      "api_endpoint_format": "{region}-speech.googleapis.com",
+      "status": "GA",
+      "features": {
+        "streaming": true,
+        "sync": true,
+        "batch": true,
+        "diarization": true,
+        "adaptation": true,
+        "auto_language_detect": true,
+        "denoiser": true,
+        "max_phrases": 1000
+      },
+      "description": "最新一代多語言 ASR 模型，支援說話者辨識和自動語言偵測",
+      "supported_languages": [
+        "cmn-Hant-TW",
+        "cmn-Hans-CN",
+        "en-US",
+        "ja-JP",
+        "ko-KR"
+      ]
+    },
+    "chirp_telephony": {
+      "display_name": "Chirp Telephony (電話/無線電專用)",
+      "model_id": "chirp_telephony",
+      "supported_regions": [
+        "us-central1",
+        "asia-southeast1",
+        "europe-west1"
+      ],
+      "preferred_region": "us-central1",
+      "fallback_regions": [
+        "asia-southeast1",
+        "europe-west1"
+      ],
+      "api_endpoint_format": "{region}-speech.googleapis.com",
+      "status": "GA",
+      "features": {
+        "streaming": true,
+        "sync": true,
+        "batch": true,
+        "diarization": false,
+        "adaptation": true,
+        "optimized_for": "8kHz telephony audio"
+      },
+      "description": "針對電話和無線電音訊優化 (8kHz 取樣率)",
+      "notes": "適合捷運無線電通訊辨識"
+    },
+    "chirp_2": {
+      "display_name": "Chirp 2.0",
+      "model_id": "chirp_2",
+      "supported_regions": [
+        "us-central1",
+        "asia-southeast1",
+        "europe-west4"
+      ],
+      "preferred_region": "us-central1",
+      "fallback_regions": [
+        "asia-southeast1",
+        "europe-west4"
+      ],
+      "api_endpoint_format": "{region}-speech.googleapis.com",
+      "status": "GA",
+      "features": {
+        "streaming": true,
+        "sync": true,
+        "batch": true,
+        "translation": true
+      },
+      "description": "Chirp 2.0 版本，支援語音翻譯"
+    },
+    "chirp": {
+      "display_name": "Chirp (Universal)",
+      "model_id": "chirp",
+      "supported_regions": [
+        "us-central1",
+        "europe-west4",
+        "asia-southeast1"
+      ],
+      "preferred_region": "us-central1",
+      "fallback_regions": [
+        "europe-west4",
+        "asia-southeast1"
+      ],
+      "api_endpoint_format": "{region}-speech.googleapis.com",
+      "status": "GA",
+      "features": {
+        "streaming": false,
+        "sync": true,
+        "batch": true
+      },
+      "description": "第一代 Chirp 模型 (Universal Speech Model)",
+      "limitations": [
+        "不支援真正的即時串流",
+        "不支援說話者辨識"
+      ]
+    },
+    "latest_long": {
+      "display_name": "Latest Long",
+      "model_id": "latest_long",
+      "supported_regions": [
+        "us-central1",
+        "europe-west4",
+        "asia-southeast1"
+      ],
+      "preferred_region": "us-central1",
+      "fallback_regions": [
+        "europe-west4",
+        "asia-southeast1"
+      ],
+      "api_endpoint_format": "{region}-speech.googleapis.com",
+      "status": "GA",
+      "features": {
+        "streaming": true,
+        "sync": true,
+        "batch": true,
+        "adaptation": true
+      },
+      "description": "長音訊優化模型"
+    },
+    "latest_short": {
+      "display_name": "Latest Short",
+      "model_id": "latest_short",
+      "supported_regions": [
+        "us-central1",
+        "europe-west4",
+        "asia-southeast1"
+      ],
+      "preferred_region": "us-central1",
+      "fallback_regions": [
+        "europe-west4",
+        "asia-southeast1"
+      ],
+      "api_endpoint_format": "{region}-speech.googleapis.com",
+      "status": "GA",
+      "features": {
+        "streaming": true,
+        "sync": true,
+        "batch": true,
+        "adaptation": true
+      },
+      "description": "短音訊優化模型"
+    },
+    "telephony": {
+      "display_name": "Telephony",
+      "model_id": "telephony",
+      "supported_regions": [
+        "us-central1",
+        "europe-west4",
+        "asia-southeast1"
+      ],
+      "preferred_region": "us-central1",
+      "fallback_regions": [
+        "europe-west4"
+      ],
+      "api_endpoint_format": "{region}-speech.googleapis.com",
+      "status": "GA",
+      "features": {
+        "streaming": true,
+        "sync": true,
+        "batch": true
+      },
+      "description": "傳統電話音訊模型 (8kHz)"
+    }
+  },
+  "region_aliases": {
+    "united-states": "us",
+    "america": "us",
+    "europe": "eu",
+    "taiwan": "us",
+    "asia-east1": "us",
+    "asia": "asia-southeast1",
+    "global": "us"
+  },
+  "model_aliases": {
+    "chirp3": "chirp_3",
+    "chirp-3": "chirp_3",
+    "v3": "chirp_3",
+    "latest": "chirp_3",
+    "radio": "chirp_telephony",
+    "telephony_chirp": "chirp_telephony",
+    "phone": "chirp_telephony",
+    "8khz": "chirp_telephony",
+    "chirp2": "chirp_2",
+    "chirp-2": "chirp_2",
+    "v2": "chirp_2",
+    "universal": "chirp",
+    "default": "chirp_3",
+    "long": "latest_long",
+    "short": "latest_short"
+  },
+  "recommended_for_radio": {
+    "primary_model": "chirp_3",
+    "fallback_model": "chirp_telephony",
+    "reason": "chirp_3 具有內建降噪功能和最佳準確度；chirp_telephony 針對 8kHz 電話音質優化",
+    "configuration": {
+      "region": "us",
+      "language_code": "cmn-Hant-TW",
+      "enable_denoiser": true,
+      "snr_threshold": 20.0
+    }
+  }
+}
