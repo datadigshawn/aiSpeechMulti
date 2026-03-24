@@ -71,6 +71,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 from scripts.models.model_google_stt import GoogleSTTModel
 from scripts.models.model_scribe import ScribeSTTModel, ScribeRealtimeStream
 from utils.logger import get_logger
+from utils.vad_filter import has_speech_in_wav_sr
+from utils.noise_filter import denoise_wav_file
 
 # ── 簡體→繁體中文轉換（opencc s2twp：台灣繁體用詞）─────────────────────────────
 try:
@@ -121,6 +123,14 @@ if DEFAULT_STT_BACKEND not in ("google", "scribe"):
     DEFAULT_STT_BACKEND = "google"
 
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
+
+# ── VAD / 降噪開關（可透過 .env 控制）────────────────────────────────────────
+# USE_VAD=true     → 使用 Silero VAD 篩選，靜音片段直接跳過 STT
+# USE_DENOISE=true → 使用 DeepFilterNet 降噪，在 STT 之前過濾背景噪音
+# VAD_THRESHOLD    → VAD 語音機率門檻（0.0~1.0），預設 0.5
+USE_VAD      = os.getenv("USE_VAD",      "true").lower()  == "true"
+USE_DENOISE  = os.getenv("USE_DENOISE",  "true").lower()  == "true"
+VAD_THRESHOLD = float(os.getenv("VAD_THRESHOLD", "0.5"))
 
 DB_PATH = Path(__file__).parent / "data" / "aiSpeechMulti.db"
 
@@ -435,12 +445,49 @@ async def _send_error(ws: WebSocket, channel_id: str, message: str):
         pass
 
 
+def _preprocess_wav(wav_path: str, channel_id: str = "") -> tuple[str, bool]:
+    """
+    對 WAV 檔案套用降噪與 VAD 前處理。
+
+    處理流程：
+      1. DeepFilterNet 降噪（若 USE_DENOISE=true）
+      2. Silero VAD 語音偵測（若 USE_VAD=true）
+
+    Args:
+        wav_path:   輸入 WAV 檔案路徑（會原地覆寫）
+        channel_id: 用於 log，可空字串
+
+    Returns:
+        (wav_path, should_skip)
+          should_skip=True → VAD 判定無語音，應跳過 STT
+          should_skip=False → 正常送 STT
+    """
+    tag = f"[{channel_id}]" if channel_id else ""
+
+    # ── Step 1: 降噪 ──────────────────────────────────────────────────────────
+    if USE_DENOISE:
+        _, ok = denoise_wav_file(wav_path, output_wav=wav_path, sample_rate=SAMPLE_RATE)
+        if ok:
+            logger.debug(f"{tag}[denoise] 降噪完成")
+        else:
+            logger.debug(f"{tag}[denoise] 降噪不可用，使用原始音訊")
+
+    # ── Step 2: VAD 篩選 ──────────────────────────────────────────────────────
+    if USE_VAD:
+        has_speech = has_speech_in_wav_sr(wav_path, sample_rate=SAMPLE_RATE, threshold=VAD_THRESHOLD)
+        if not has_speech:
+            logger.debug(f"{tag}[vad] 靜音片段，跳過 STT")
+            return wav_path, True   # should_skip = True
+
+    return wav_path, False  # should_skip = False
+
+
 async def _handle_batch_mode(
     ws: WebSocket, channel_id: str, state: "ChannelState", stt
 ) -> None:
     """
     原有批次模式（向下相容）：
-    PCM 累積 15 秒 → STT → 回傳 transcript + 存庫
+    PCM 累積 15 秒 → [降噪] → [VAD] → STT → 回傳 transcript + 存庫
     """
     audio_buf = AudioBuffer()
 
@@ -452,6 +499,13 @@ async def _handle_batch_mode(
             if not wav_path:
                 continue
             try:
+                # ── 前處理：降噪 + VAD ─────────────────────────────────────
+                _, should_skip = await asyncio.to_thread(
+                    _preprocess_wav, wav_path, channel_id
+                )
+                if should_skip:
+                    continue
+
                 result     = await asyncio.to_thread(stt.transcribe_file, wav_path)
                 transcript = result.get("transcript", "").strip()
                 confidence = result.get("confidence", 0.0)
@@ -715,8 +769,15 @@ async def _handle_dual_mode(
 
     # ── Google 批次背景任務 ────────────────────────────────────────────────
     async def _google_batch(wav_path: str):
-        """在背景執行 Google STT 批次辨識，完成後推播 confirmed + 存庫。"""
+        """在背景執行降噪 + VAD + Google STT 批次辨識，完成後推播 confirmed + 存庫。"""
         try:
+            # ── 前處理：降噪 + VAD ─────────────────────────────────────────
+            _, should_skip = await asyncio.to_thread(
+                _preprocess_wav, wav_path, channel_id
+            )
+            if should_skip:
+                return
+
             result     = await asyncio.to_thread(google_stt.transcribe_file, wav_path)
             transcript = result.get("transcript", "").strip()
             confidence = result.get("confidence", 0.0)

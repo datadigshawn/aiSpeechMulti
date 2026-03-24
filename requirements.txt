@@ -27,6 +27,11 @@ librosa                              # 音訊分析與特徵提取
 soundfile                            # 音訊檔案讀寫(即時語音轉換)
 sounddevice                          # 麥克風錄音 / 即時語音輸入 (需要系統 portaudio)
 webrtcvad                            # WebRTC VAD (輕量級語音活動檢測)
+silero-vad                           # Silero VAD (高精度語音活動偵測，PyTorch)
+deepfilternet                        # DeepFilterNet (即時背景噪音過濾)
+# 注意: deepfilternet 編譯需要 Rust/Cargo。初次安裝請先執行:
+#   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+#   source "$HOME/.cargo/env"
 
 # -----------------------------------------------------------------------------
 # 深度學習框架 (Deep Learning)

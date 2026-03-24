@@ -1,0 +1,4 @@
+{
+  "GEMINI_API_KEY": "your-gemini-api-key-here",
+  "GOOGLE_APPLICATION_CREDENTIALS": "utils/google-speech-key.json"
+}
