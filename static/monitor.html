@@ -114,8 +114,27 @@
       margin-top: 5px;
       letter-spacing: .03em;
     }
-    .ch-engine.google { background: #1a2d4a; color: #7eb8f7; }
-    .ch-engine.scribe { background: #2a1a3a; color: #c085f5; }
+    .ch-engine.google        { background: #1a2d4a; color: #7eb8f7; }
+    .ch-engine.scribe        { background: #2a1a3a; color: #c085f5; }
+    .ch-engine.dual          { background: #1a2a1a; color: #6fcf97; }
+    .ch-engine.scribe_rt     { background: #2a1a3a; color: #c085f5; }
+    .ch-engine.google_stream { background: #1a2d4a; color: #7eb8f7; }
+    .ch-engine.batch         { background: #2a2a1a; color: #e2c04a; }
+
+    /* 辨識結果中的來源標籤 */
+    .r-src {
+      font-size: 0.62rem;
+      font-weight: 600;
+      padding: 1px 5px;
+      border-radius: 8px;
+      white-space: nowrap;
+      align-self: flex-start;
+      margin-top: 3px;
+    }
+    .r-src.google { background: #1a2d4a; color: #7eb8f7; }
+    .r-src.scribe_rt, .r-src.scribe { background: #2a1a3a; color: #c085f5; }
+    .r-src.google_stream { background: #1a2d4a; color: #7eb8f7; }
+    .r-src.dual  { background: #1a3a2a; color: #6fcf97; }
 
     /* ── 統計列 ── */
     .stats-row {
@@ -324,11 +343,18 @@ async function pollChannels() {
         document.getElementById('tim-' + id).textContent =
           elapsed < 60 ? `${elapsed}s` : `${Math.floor(elapsed/60)}m${elapsed%60}s`;
 
-        // 辨識引擎徽章
-        const backend = info.stt_backend || 'google';
-        const engLabel = backend === 'scribe' ? '🟣 Scribe' : '🔵 Google';
+        // 串流模式 + 引擎徽章
+        const backend    = info.stt_backend  || 'google';
+        const streamMode = info.stream_mode  || 'batch';
+        const modeLabels = {
+          dual:          '⚡ dual',
+          scribe_rt:     '🟣 scribe_rt',
+          google_stream: '🔵 g_stream',
+          batch:         '🕐 batch',
+        };
+        const modeLabel = modeLabels[streamMode] || streamMode;
         document.getElementById('eng-' + id).innerHTML =
-          `<span class="ch-engine ${backend}">${engLabel}</span>`;
+          `<span class="ch-engine ${streamMode}">${modeLabel}</span>`;
       } else {
         card.classList.remove('active');
         document.getElementById('cnt-' + id).textContent = '0 筆';
@@ -385,9 +411,17 @@ async function pollTranscripts() {
       // 管道顏色 class（只取 ch1–ch5，其他給 default）
       const chClass = CHANNEL_IDS.includes(t.channel_id) ? t.channel_id : '';
 
+      // stt_backend 來源標籤（google / scribe_rt / google_stream…）
+      const srcKey = (t.stt_backend || 'google').toLowerCase().replace(/[^a-z_]/g,'');
+      const srcLabel = srcKey === 'scribe_rt'     ? '🟣 Scribe'
+                     : srcKey === 'google_stream' ? '🔵 G串流'
+                     : srcKey === 'scribe'        ? '🟣 Scribe'
+                     : '🔵 Google';
+
       row.innerHTML =
         `<span class="r-time">${timeStr}</span>` +
         `<span class="r-ch ${chClass}">${t.channel_id}</span>` +
+        `<span class="r-src ${srcKey}">${srcLabel}</span>` +
         `<span class="r-text">${escHtml(t.transcript)}</span>` +
         (confStr ? `<span class="r-conf">${confStr}</span>` : '');
 

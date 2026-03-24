@@ -201,9 +201,29 @@
     }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }
 
-    .entry.transcript { background: #1e2130; }
+    .entry.transcript { background: #1e2130; }          /* Scribe committed / batch 結果 */
+    .entry.confirmed  { background: #162a20; }           /* Google 批次確認（dual 模式）*/
+    .entry.partial    { background: transparent;          /* Scribe 即時中間結果 */
+                        border-left: 2px solid #3a3a5a;
+                        opacity: 0.65; font-style: italic; }
     .entry.error      { background: #2a1820; }
     .entry.system     { background: transparent; color: #556; font-size: 0.82rem; }
+
+    /* 訊息類型標籤 */
+    .type-badge {
+      font-size: 0.62rem;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 8px;
+      white-space: nowrap;
+      align-self: flex-start;
+      margin-top: 3px;
+      letter-spacing: .02em;
+    }
+    .type-badge.scribe-rt  { background: #2a1a3a; color: #c085f5; }
+    .type-badge.google     { background: #1a2d4a; color: #7eb8f7; }
+    .type-badge.partial    { background: #2a2a3a; color: #778; }
+    .type-badge.confirmed  { background: #1a3a2a; color: #6fcf97; }
 
     .entry-time {
       font-size: 0.75rem;
@@ -281,7 +301,7 @@
 <div class="container">
 
   <!-- 標題 -->
-  <h1>🎙️ aiSpeechMulti <span class="version">v1.2</span></h1>
+  <h1>🎙️ aiSpeechMulti <span class="version">v2.0</span></h1>
 
   <!-- 設定卡片 -->
   <div class="card">
@@ -296,10 +316,18 @@
         <option value="ch5">管道 5（ch5）</option>
       </select>
 
-      <label>辨識引擎</label>
-      <select id="engineSelect">
+      <label>串流模式</label>
+      <select id="modeSelect" onchange="onModeChange()">
+        <option value="dual">⚡ dual — Scribe RT 即時 + Google 批次確認（推薦）</option>
+        <option value="scribe_rt">🟣 scribe_rt — 純 Scribe Realtime（最低延遲）</option>
+        <option value="google_stream">🔵 google_stream — Google streaming_recognize()</option>
+        <option value="batch">🕐 batch — 15 秒批次（原有模式）</option>
+      </select>
+
+      <label id="engineLabel">批次引擎</label>
+      <select id="engineSelect" title="batch 模式才有效；dual/scribe_rt/google_stream 固定引擎">
         <option value="google">🔵 Google STT (chirp_3)</option>
-        <option value="scribe">🟣 ElevenLabs Scribe</option>
+        <option value="scribe">🟣 ElevenLabs Scribe v1</option>
       </select>
 
       <label>伺服器</label>
@@ -337,6 +365,7 @@
         <span class="dot" id="connDot"></span>
         <span id="connLabel" style="font-size:.85rem;">未連線</span>
       </div>
+      <div class="stat">模式 <span id="statMode">—</span></div>
       <div class="stat">引擎 <span id="statEngine">—</span></div>
       <div class="stat">取樣率 <span id="statSr">—</span></div>
       <div class="stat">已送辨識 <span id="statChunks">0</span> 段</div>
@@ -350,9 +379,9 @@
       <div class="meter-db" id="meterDb">— dB</div>
     </div>
 
-    <!-- 緩衝進度 -->
-    <div class="buf-wrap">
-      <div class="buf-label">緩衝（15 秒）</div>
+    <!-- 緩衝進度（batch / dual Google確認用；scribe_rt/google_stream 為串流無緩衝） -->
+    <div class="buf-wrap" id="bufWrap">
+      <div class="buf-label" id="bufLabel">緩衝（15 秒 Google確認）</div>
       <div class="buf-bar-bg"><div id="bufBar"></div></div>
       <div class="buf-pct" id="bufPct">0%</div>
     </div>
@@ -493,8 +522,52 @@ function setConnStatus(state) {
 }
 
 // =============================================================================
+// ⑥.5 模式切換 UI 更新
+// =============================================================================
+function onModeChange() {
+  const mode = document.getElementById('modeSelect').value;
+  const engineRow  = document.getElementById('engineSelect');
+  const engineLabel = document.getElementById('engineLabel');
+  const bufWrap    = document.getElementById('bufWrap');
+  const bufLabel   = document.getElementById('bufLabel');
+
+  // batch 模式才顯示批次引擎選單
+  const isBatch = mode === 'batch';
+  engineRow.disabled  = !isBatch;
+  engineRow.style.opacity = isBatch ? '1' : '0.4';
+  engineLabel.style.opacity = isBatch ? '1' : '0.4';
+  engineLabel.title = isBatch ? '' : '僅 batch 模式有效';
+
+  // 緩衝列說明
+  if (mode === 'dual') {
+    bufWrap.style.display = '';
+    bufLabel.textContent  = '緩衝（15 秒，Google 批次確認）';
+  } else if (mode === 'batch') {
+    bufWrap.style.display = '';
+    bufLabel.textContent  = '緩衝（15 秒）';
+  } else {
+    // scribe_rt / google_stream：串流模式，無固定緩衝
+    bufWrap.style.display = 'none';
+  }
+}
+
+// =============================================================================
 // ⑦ 辨識結果顯示
 // =============================================================================
+
+// partial 結果的 DOM 元素（每個管道維護一個，收到新 partial 時更新而非新增行）
+const partialElements = {};
+
+/**
+ * addEntry(type, channelId, text, confidence)
+ *
+ * type:
+ *   "transcript"  — Scribe committed / batch 最終結果（藍底）
+ *   "confirmed"   — Google 批次確認（dual 模式，綠底）
+ *   "partial"     — Scribe 即時中間結果（灰色斜體，原地更新）
+ *   "error"       — 錯誤訊息（紅底）
+ *   "system"      — 系統提示（透明）
+ */
 function addEntry(type, channelId, text, confidence) {
   const area = document.getElementById('transcriptArea');
 
@@ -502,18 +575,52 @@ function addEntry(type, channelId, text, confidence) {
   const hint = document.getElementById('emptyHint');
   if (hint) hint.remove();
 
+  const now     = new Date();
+  const timeStr = now.toTimeString().slice(0, 8);
+
+  // ── partial：原地更新同一個元素 ──────────────────────────────────────────
+  if (type === 'partial') {
+    let el = partialElements[channelId];
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'entry partial';
+      el.dataset.ch = channelId;
+      area.insertBefore(el, area.firstChild);
+      partialElements[channelId] = el;
+    }
+    el.innerHTML =
+      `<span class="entry-time">${timeStr}</span>` +
+      `<span class="type-badge partial">即時</span>` +
+      `<span class="entry-ch">${channelId}</span>` +
+      `<span class="entry-text">${escHtml(text)}</span>`;
+    return;
+  }
+
+  // ── 有 committed/confirmed 時清除對應的 partial 元素 ────────────────────
+  if ((type === 'transcript' || type === 'confirmed') && partialElements[channelId]) {
+    partialElements[channelId].remove();
+    delete partialElements[channelId];
+  }
+
   const entry = document.createElement('div');
   entry.className = 'entry ' + type;
 
-  const now = new Date();
-  const timeStr = now.toTimeString().slice(0, 8);
-
   if (type === 'system') {
-    entry.innerHTML = `<span class="entry-time">${timeStr}</span><span class="entry-text">${text}</span>`;
-  } else {
-    const confStr = confidence !== undefined ? (confidence * 100).toFixed(0) + '%' : '';
     entry.innerHTML =
       `<span class="entry-time">${timeStr}</span>` +
+      `<span class="entry-text">${text}</span>`;
+  } else {
+    const confStr = (confidence && confidence > 0)
+      ? (confidence * 100).toFixed(0) + '%' : '';
+
+    // 類型標籤
+    let typeBadge = '';
+    if (type === 'confirmed')  typeBadge = '<span class="type-badge confirmed">✅ Google</span>';
+    else if (type === 'transcript') typeBadge = '<span class="type-badge scribe-rt">🟣 Scribe</span>';
+
+    entry.innerHTML =
+      `<span class="entry-time">${timeStr}</span>` +
+      typeBadge +
       `<span class="entry-ch">${channelId}</span>` +
       `<span class="entry-text">${escHtml(text)}</span>` +
       (confStr ? `<span class="conf-badge">${confStr}</span>` : '');
@@ -622,7 +729,9 @@ async function startCapture() {
   const channelId = document.getElementById('channelSelect').value;
   const serverUrl = document.getElementById('serverUrl').value.replace(/\/$/, '');
   const engine    = document.getElementById('engineSelect').value;
-  const wsUrl     = `${serverUrl}/ws/stream/${channelId}?backend=${engine}`;
+  const mode      = document.getElementById('modeSelect').value;
+  // mode=batch 時傳 backend；其他模式後端固定引擎，backend 參數供備用
+  const wsUrl     = `${serverUrl}/ws/stream/${channelId}?mode=${mode}&backend=${engine}`;
 
   // ── 1. 取得指定裝置的音訊流 ──────────────────────────────────────────────
   //
@@ -703,15 +812,23 @@ async function startCapture() {
     setConnStatus('connected');
     addEntry('system', channelId, `✅ 已連線 → ${wsUrl}`);
     isRunning = true;
-    // 立即根據選擇顯示引擎（不等伺服器 engine_info）
-    const engineLabel = engine === 'scribe' ? '🟣 ElevenLabs Scribe' : '🔵 Google STT';
-    document.getElementById('statEngine').textContent = engineLabel;
+
+    // 顯示模式資訊
+    const modeLabels = {
+      dual:          '⚡ dual（Scribe RT + Google確認）',
+      scribe_rt:     '🟣 scribe_rt（Scribe Realtime）',
+      google_stream: '🔵 google_stream（Google 串流）',
+      batch:         '🕐 batch（15 秒批次）',
+    };
+    document.getElementById('statMode').textContent = modeLabels[mode] || mode;
+
     const btn = document.getElementById('btnToggle');
     btn.textContent = '■ 停止監聽';
     btn.classList.add('active');
     document.getElementById('channelSelect').disabled = true;
-    document.getElementById('engineSelect').disabled  = true;   // 監聽中鎖定引擎
-    document.getElementById('deviceSelect').disabled  = true;   // 監聽中鎖定裝置
+    document.getElementById('modeSelect').disabled    = true;
+    document.getElementById('engineSelect').disabled  = true;
+    document.getElementById('deviceSelect').disabled  = true;
     document.getElementById('btnScan').disabled       = true;
   };
 
@@ -720,15 +837,34 @@ async function startCapture() {
       const data = JSON.parse(evt.data);
 
       if (data.type === 'engine_info') {
-        // 伺服器確認使用的引擎（後端欄位名稱為 stt_backend）
-        const backend = data.stt_backend || data.backend || 'google';
-        const label = backend === 'scribe' ? '🟣 ElevenLabs Scribe' : '🔵 Google STT';
-        document.getElementById('statEngine').textContent = label;
-        addEntry('system', channelId, `🔧 辨識引擎：${label}`);
+        // 伺服器確認使用的模式與引擎
+        const streamMode = data.stream_mode || mode;
+        const backend    = data.stt_backend || 'google';
+        const modeStr = streamMode === 'dual'
+          ? `dual（Scribe RT=${data.scribe_rt ? '✅' : '❌'} + Google批次）`
+          : streamMode;
+        addEntry('system', channelId, `🔧 模式：${modeStr}`);
+        document.getElementById('statEngine').textContent =
+          streamMode === 'batch'
+            ? (backend === 'scribe' ? '🟣 Scribe v1' : '🔵 Google STT')
+            : modeStr;
+
+      } else if (data.type === 'partial') {
+        // Scribe RT 中間結果（即時字幕，原地更新，不計入筆數）
+        addEntry('partial', data.channel_id, data.text);
+
       } else if (data.type === 'transcript') {
+        // Scribe committed 最終確認
         txCount++;
         document.getElementById('statTx').textContent = txCount;
         addEntry('transcript', data.channel_id, data.text, data.confidence);
+
+      } else if (data.type === 'confirmed') {
+        // Google 批次確認（dual 模式）
+        txCount++;
+        document.getElementById('statTx').textContent = txCount;
+        addEntry('confirmed', data.channel_id, data.text, data.confidence);
+
       } else if (data.type === 'error') {
         addEntry('error', data.channel_id, `⚠️ 伺服器錯誤：${data.message}`);
       }
@@ -817,6 +953,7 @@ function stopCapture(closeWs = true) {
   btn.textContent = '▶ 開始監聽';
   btn.classList.remove('active');
   document.getElementById('channelSelect').disabled = false;
+  document.getElementById('modeSelect').disabled    = false;
   document.getElementById('engineSelect').disabled  = false;
   document.getElementById('deviceSelect').disabled  = false;
   document.getElementById('btnScan').disabled       = false;

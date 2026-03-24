@@ -362,26 +362,36 @@ def render_channel_cards(channels_data: dict | None):
         for ch in channels_data.get("channels", []):
             active_map[ch["id"]] = ch
 
-    # 引擎徽章樣式
-    ENGINE_BADGE = {
-        "google": '<span style="font-size:.65rem;background:#1a2d4a;color:#7eb8f7;'
-                  'border-radius:10px;padding:1px 7px;font-weight:600;">🔵 Google</span>',
-        "scribe": '<span style="font-size:.65rem;background:#2a1a3a;color:#c085f5;'
-                  'border-radius:10px;padding:1px 7px;font-weight:600;">🟣 Scribe</span>',
+    # 串流模式徽章樣式
+    MODE_BADGE = {
+        "dual":          '<span style="font-size:.62rem;background:#1a3a2a;color:#6fcf97;'
+                         'border-radius:10px;padding:1px 7px;font-weight:600;">⚡ dual</span>',
+        "scribe_rt":     '<span style="font-size:.62rem;background:#2a1a3a;color:#c085f5;'
+                         'border-radius:10px;padding:1px 7px;font-weight:600;">🟣 scribe_rt</span>',
+        "google_stream": '<span style="font-size:.62rem;background:#1a2d4a;color:#7eb8f7;'
+                         'border-radius:10px;padding:1px 7px;font-weight:600;">🔵 g_stream</span>',
+        "batch":         '<span style="font-size:.62rem;background:#2a2a1a;color:#e2c04a;'
+                         'border-radius:10px;padding:1px 7px;font-weight:600;">🕐 batch</span>',
+        "google":        '<span style="font-size:.62rem;background:#1a2d4a;color:#7eb8f7;'
+                         'border-radius:10px;padding:1px 7px;font-weight:600;">🔵 Google</span>',
+        "scribe":        '<span style="font-size:.62rem;background:#2a1a3a;color:#c085f5;'
+                         'border-radius:10px;padding:1px 7px;font-weight:600;">🟣 Scribe</span>',
     }
 
     cols = st.columns(5)
     for i, ch_id in enumerate(ALL_CHANNELS):
-        is_active = ch_id in active_map
-        ch_info   = active_map.get(ch_id, {})
-        color     = CH_COLORS.get(ch_id, "#7eb8f7")
-        dot_cls   = "on" if is_active else "off"
-        card_cls  = "active" if is_active else ""
-        status    = "連線中" if is_active else "待機"
-        cnt_txt   = f"{ch_info.get('transcript_count', 0)} 筆" if is_active else "—"
-        last_txt  = ch_info.get("last_text", "") or ""
-        backend   = ch_info.get("stt_backend", "google") if is_active else ""
-        eng_badge = ENGINE_BADGE.get(backend, "") if is_active else ""
+        is_active   = ch_id in active_map
+        ch_info     = active_map.get(ch_id, {})
+        color       = CH_COLORS.get(ch_id, "#7eb8f7")
+        dot_cls     = "on" if is_active else "off"
+        card_cls    = "active" if is_active else ""
+        status      = "連線中" if is_active else "待機"
+        cnt_txt     = f"{ch_info.get('transcript_count', 0)} 筆" if is_active else "—"
+        last_txt    = ch_info.get("last_text", "") or ""
+        stream_mode = ch_info.get("stream_mode", "batch") if is_active else ""
+        # 優先顯示 stream_mode 徽章（比 stt_backend 更具體）
+        badge_key   = stream_mode if stream_mode in MODE_BADGE else ch_info.get("stt_backend", "google")
+        mode_badge  = MODE_BADGE.get(badge_key, "") if is_active else ""
 
         with cols[i]:
             st.markdown(
@@ -390,24 +400,61 @@ def render_channel_cards(channels_data: dict | None):
                 f'  <span class="ch-id" style="color:{color};">{ch_id}</span>'
                 f'  <div class="ch-cnt">{status}　{cnt_txt}</div>'
                 f'  <div class="ch-text">{last_txt if last_txt else "—"}</div>'
-                f'  <div style="margin-top:5px;">{eng_badge}</div>'
+                f'  <div style="margin-top:5px;">{mode_badge}</div>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
 
 
 def render_transcript_feed(tx_data: dict | None, filter_ch: str, show_limit: int):
-    st.markdown("#### 即時辨識結果")
+    # ── 標題列 + 清除按鈕 ──────────────────────────────────────────────────────
+    col_title, col_clear = st.columns([6, 1])
+    with col_title:
+        st.markdown("#### 即時辨識結果")
+    with col_clear:
+        st.markdown("<div style='padding-top:6px;'>", unsafe_allow_html=True)
+        if st.button("🗑 清除顯示", key="btn_clear_feed", use_container_width=True,
+                     help="清除畫面上的辨識記錄顯示（不刪除資料庫）"):
+            # 記下當前最大 ID，之後只顯示比這個 ID 更新的結果
+            if tx_data:
+                txs_all = tx_data.get("transcripts", [])
+                if txs_all:
+                    st.session_state["rt_clear_from_id"] = max(
+                        t.get("id", 0) for t in txs_all
+                    )
+                else:
+                    st.session_state["rt_clear_from_id"] = 0
+            else:
+                st.session_state["rt_clear_from_id"] = 0
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── 資料過濾 ──────────────────────────────────────────────────────────────
     if tx_data is None:
         st.info("等待 FastAPI 回應…")
         return
-    txs = tx_data.get("transcripts", [])
+
+    clear_from_id = st.session_state.get("rt_clear_from_id", 0)
+    txs_raw = tx_data.get("transcripts", [])
+    # 只顯示清除動作之後新產生的記錄
+    txs = [t for t in txs_raw if t.get("id", 0) > clear_from_id]
+
+    # ── 空狀態提示 ────────────────────────────────────────────────────────────
     if not txs:
-        st.markdown(
-            '<div style="color:#445; padding:20px; text-align:center;">尚無辨識記錄</div>',
-            unsafe_allow_html=True,
-        )
+        if clear_from_id > 0:
+            st.markdown(
+                '<div style="color:#445; padding:20px; text-align:center;">'
+                '顯示已清除　等待新辨識結果…</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                '<div style="color:#445; padding:20px; text-align:center;">尚無辨識記錄</div>',
+                unsafe_allow_html=True,
+            )
         return
+
+    # ── 結果列表 ──────────────────────────────────────────────────────────────
     lines = []
     for t in txs:
         ch_id = t.get("channel_id", "?")
@@ -422,7 +469,9 @@ def render_transcript_feed(tx_data: dict | None, filter_ch: str, show_limit: int
             f'</div>'
         )
     st.markdown("\n".join(lines), unsafe_allow_html=True)
-    st.caption(f"顯示最新 {len(txs)} 筆 / 共 {tx_data.get('count', 0)} 筆")
+    total_db = tx_data.get("count", 0)
+    cleared_hint = f"　（已過濾 {total_db - len(txs)} 筆舊記錄）" if clear_from_id > 0 else ""
+    st.caption(f"顯示 {len(txs)} 筆 / DB 共 {total_db} 筆{cleared_hint}")
 
 
 def render_rt_stats(channels_data: dict | None, all_tx: dict | None):
@@ -700,10 +749,14 @@ def render_monitor_page():
         st.stop()
 
     if health:
+        scribe_ok = health.get('scribe_available', False)
+        def_mode  = health.get('default_stream_mode', 'batch')
         st.caption(
+            f"預設模式：{def_mode}　｜　"
             f"模型：{health.get('stt_model', '—')}　｜　"
             f"語言：{health.get('stt_language', '—')}　｜　"
             f"每段：{health.get('chunk_seconds', '—')} 秒　｜　"
+            f"Scribe：{'✅' if scribe_ok else '❌ 未設定 KEY'}　｜　"
             f"管道：{health.get('active_channels', 0)}/{health.get('max_channels', 5)} 路連線中"
         )
 

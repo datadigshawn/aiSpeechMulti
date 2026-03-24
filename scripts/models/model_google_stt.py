@@ -55,7 +55,7 @@ def setup_credentials():
 # 設定認證
 setup_credentials()
 
-from google.cloud.speech_v2 import SpeechClient
+from google.cloud.speech_v2 import SpeechClient, SpeechAsyncClient
 from google.cloud.speech_v2.types import cloud_speech
 from google.api_core.client_options import ClientOptions
 
@@ -682,6 +682,182 @@ class GoogleSTTModel:
                 'error': error_msg
             }
     
+    # =========================================================================
+    # 即時串流辨識（Google STT V2 streaming_recognize）
+    # =========================================================================
+
+    async def stream_recognize(
+        self,
+        audio_queue:    "asyncio.Queue[bytes]",
+        result_queue:   "asyncio.Queue[dict]",
+        stop_event:     "asyncio.Event",
+        max_chunk_bytes: int = 24000,   # ≤25KB；16kHz mono 約 0.75 秒
+        reconnect_secs:  int = 270,     # 4.5 分鐘重連（Google 限制 5 分鐘）
+    ) -> None:
+        """
+        持續從 audio_queue 讀取 PCM bytes，透過 Google STT V2
+        streaming_recognize() 串流辨識，將結果放入 result_queue。
+
+        設計說明：
+            - 使用 SpeechAsyncClient（原生 asyncio，避免 to_thread 包裝）
+            - 第一個 request 只含 config，後續 request 只含音訊（V2 規定）
+            - 自動每 reconnect_secs 秒重連一次（Google 限制單次串流 5 分鐘）
+            - 修復已知 metadata bug：必須手動傳入 x-goog-request-params header
+              （未傳入時 interim_results=True 會導致永久 blocking/timeout）
+
+        Args:
+            audio_queue:     外部傳入 PCM bytes 的 asyncio.Queue
+                             每筆資料為任意長度的 bytes，內部會自動切成 ≤25KB chunk
+            result_queue:    辨識結果輸出 asyncio.Queue，每筆格式：
+                             {
+                                 "type":       "partial" | "final",
+                                 "text":       str,       # 辨識文字
+                                 "confidence": float,     # 信心值（0.0–1.0）
+                             }
+            stop_event:      設定後結束串流（asyncio.Event）
+            max_chunk_bytes: 每個 streaming request 的最大音訊大小（預設 24KB）
+            reconnect_secs:  自動重連間隔秒數（預設 270 秒 = 4.5 分鐘）
+
+        使用方式（在 FastAPI 的 asyncio 環境中）：
+            audio_q  = asyncio.Queue()
+            result_q = asyncio.Queue()
+            stop_ev  = asyncio.Event()
+
+            # 啟動串流辨識任務
+            task = asyncio.create_task(
+                stt.stream_recognize(audio_q, result_q, stop_ev)
+            )
+
+            # 送入音訊
+            await audio_q.put(pcm_bytes)
+
+            # 讀取結果
+            result = await result_q.get()
+            # {"type": "partial", "text": "你好", "confidence": 0.0}
+            # {"type": "final",   "text": "你好世界", "confidence": 0.92}
+
+            # 結束
+            stop_ev.set()
+            await task
+
+        ⚠️  已知問題與解決方案：
+            Bug 1（metadata 缺失）：
+                V2 Python client 不自動注入 x-goog-request-params header，
+                導致 interim_results=True 時串流永久 blocking。
+                → 已修復：metadata 參數手動傳入 recognizer 路徑。
+
+            Bug 2（cmn 系列 CANCELLED）：
+                cmn-Hans-CN 已知串流 CANCELLED，cmn-Hant-TW 存在相同風險。
+                → 建議：串流使用 Chirp 2；Chirp 3 用於批次確認。
+        """
+        import asyncio as _asyncio
+
+        recognizer = (
+            f"projects/{self.project_id}/locations/{self.location}/recognizers/_"
+        )
+        # ── metadata bug 修復：必須手動傳入此 header ──────────────────────────
+        metadata = [("x-goog-request-params", f"recognizer={recognizer}")]
+
+        api_endpoint = f"{self.location}-speech.googleapis.com"
+        client_opts  = ClientOptions(api_endpoint=api_endpoint)
+
+        def _build_config_request() -> cloud_speech.StreamingRecognizeRequest:
+            """建立只含 config 的第一個 request（V2 規定：第一個 request 不含音訊）。"""
+            rec_config = cloud_speech.RecognitionConfig(
+                explicit_decoding_config=cloud_speech.ExplicitDecodingConfig(
+                    encoding=cloud_speech.ExplicitDecodingConfig.AudioEncoding.LINEAR16,
+                    sample_rate_hertz=16000,
+                    audio_channel_count=1,
+                ),
+                language_codes=[self.language_code],
+                model=self.model,
+                features=cloud_speech.RecognitionFeatures(
+                    enable_automatic_punctuation=True,
+                ),
+            )
+            streaming_cfg = cloud_speech.StreamingRecognitionConfig(
+                config=rec_config,
+                streaming_features=cloud_speech.StreamingRecognitionFeatures(
+                    interim_results=True,   # 啟用邊說邊出字；須搭配 metadata 修復
+                ),
+            )
+            return cloud_speech.StreamingRecognizeRequest(
+                recognizer=recognizer,
+                streaming_config=streaming_cfg,
+            )
+
+        async def _request_generator(pending_chunks: list):
+            """
+            非同步 request 產生器：
+                第 1 個 yield → config request（無音訊）
+                後續 yield   → 音訊 request（從 audio_queue 持續取資料）
+            """
+            # ── 第一個 request：config only ──
+            yield _build_config_request()
+
+            # ── 若有前一輪未送完的暫存 chunks ──
+            for chunk in pending_chunks:
+                for i in range(0, len(chunk), max_chunk_bytes):
+                    yield cloud_speech.StreamingRecognizeRequest(
+                        audio=chunk[i : i + max_chunk_bytes]
+                    )
+
+            # ── 持續從佇列讀取並送出音訊 ──
+            deadline = _asyncio.get_event_loop().time() + reconnect_secs
+            while not stop_event.is_set():
+                remaining = deadline - _asyncio.get_event_loop().time()
+                if remaining <= 0:
+                    self.logger.info("🔄 Google STT 串流：達到重連時限，準備重連")
+                    break
+                try:
+                    pcm = await _asyncio.wait_for(
+                        audio_queue.get(), timeout=min(1.0, remaining)
+                    )
+                    for i in range(0, len(pcm), max_chunk_bytes):
+                        yield cloud_speech.StreamingRecognizeRequest(
+                            audio=pcm[i : i + max_chunk_bytes]
+                        )
+                except _asyncio.TimeoutError:
+                    continue
+
+        # ── 主迴圈：自動重連 ────────────────────────────────────────────────
+        pending: list[bytes] = []
+
+        async with SpeechAsyncClient(client_options=client_opts) as async_client:
+            while not stop_event.is_set():
+                try:
+                    responses = await async_client.streaming_recognize(
+                        requests=_request_generator(pending),
+                        metadata=metadata,      # ← metadata bug 修復關鍵
+                    )
+                    pending = []  # 重連成功，清空暫存
+
+                    async for response in responses:
+                        for result in response.results:
+                            if not result.alternatives:
+                                continue
+                            text = result.alternatives[0].transcript.strip()
+                            if not text:
+                                continue
+                            is_final = result.is_final
+                            await result_queue.put({
+                                "type":       "final" if is_final else "partial",
+                                "text":       text,
+                                "confidence": float(
+                                    result.alternatives[0].confidence or 0.0
+                                ),
+                            })
+
+                except Exception as exc:
+                    err_str = str(exc)
+                    self.logger.warning(f"⚠️  Google STT 串流中斷：{err_str}")
+                    if stop_event.is_set():
+                        break
+                    # 短暫等待後重連（避免瞬間過多重連）
+                    await _asyncio.sleep(2.0)
+
+        self.logger.info("✅ Google STT stream_recognize() 已結束")
+
     def _try_fallback_regions(self, audio_file, phrases, enable_word_time_offsets, enable_automatic_punctuation, original_error):
         """
         嘗試使用回退區域

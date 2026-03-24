@@ -1,38 +1,47 @@
 #!/usr/bin/env python3
 """
 aiSpeechMulti - 五路無線電語音即時辨識 API
-版本: 1.2.0 (2026-03-20)
+版本: 2.0.0 (2026-03-24)
 
-架構說明:
+版本歷史:
+    v2.0.0 (2026-03-24): 雙引擎串流架構
+        - 新增 mode 參數：dual / scribe_rt / google_stream / batch
+        - dual 模式：Scribe v2 Realtime（~150ms TTFT）+ Google 批次確認（存 DB）
+        - scribe_rt 模式：純 Scribe v2 Realtime 串流
+        - google_stream 模式：純 Google streaming_recognize()
+        - batch 模式：原有 15 秒批次行為（向下相容）
+    v1.2.0 (2026-03-20): 初始版本（單引擎批次）
+
+架構說明（v2.0 dual 模式）:
     瀏覽器 ×5 (Web Audio API → PCM)
-        │ WebSocket  /ws/stream/{channel_id}?backend=google|scribe
+        │ WebSocket  /ws/stream/{channel_id}?mode=dual&backend=google
         ▼
-    FastAPI (本檔案) — asyncio 管理五路並發
-        │ asyncio.to_thread() — Thread 包裝同步 STT
-        ▼
-    GoogleSTTModel (chirp_3)  ─── 或 ───  ScribeSTTModel (scribe_v1)
-        │                                        │
-        └──────────────┬─────────────────────────┘
-                       ▼
-              SQLite (data/aiSpeechMulti.db)
-                  transcripts 表（含 stt_backend 欄位）
-                       │
-          REST API → Streamlit 儀表板輪詢 (app_dashboard.py)
+    FastAPI — asyncio 管理五路並發
+        ├── Scribe v2 Realtime WebSocket ──→ partial/committed → 即時推播前端
+        │        wss://api.elevenlabs.io/v1/speech-to-text/realtime
+        │        延遲：~150ms TTFT
+        │
+        └── AudioBuffer（15s 批次）──→ GoogleSTTModel.transcribe_file()
+                 ↓ confirmed 結果 → 推播前端 + 存入 SQLite DB
+                 ↓
+             SQLite (data/aiSpeechMulti.db)
+                 ↓
+         REST API → Streamlit 儀表板輪詢 (app_dashboard.py)
 
 端點:
-    WS   /ws/stream/{channel_id}?backend=google|scribe  — 音訊串流
-    GET  /api/channels    — 管道狀態（含各路引擎）
+    WS   /ws/stream/{channel_id}?mode=dual|scribe_rt|google_stream|batch&backend=google|scribe
+    GET  /api/channels    — 管道狀態（含各路引擎與串流模式）
     GET  /api/transcripts — 辨識結果（含 stt_backend 欄位）
     GET  /api/health      — 健康檢查
     GET  /                — 音訊擷取頁面（index.html）
     GET  /monitor         — 五路即時監控頁面（monitor.html）
     GET  /favicon.ico     — 瀏覽器圖示
 
-引擎切換:
-    每條 WebSocket 連線可獨立指定引擎：
-        ws://localhost:8000/ws/stream/ch1?backend=google
-        ws://localhost:8000/ws/stream/ch2?backend=scribe
-    預設值由 .env 的 STT_BACKEND 決定（未指定 query param 時）。
+mode 說明:
+    dual         雙引擎並行（推薦）：Scribe RT 即時顯示 + Google 批次確認存庫
+    scribe_rt    純 Scribe v2 Realtime 串流（~150ms，不存 DB）
+    google_stream 純 Google streaming_recognize()（gRPC 持久連線，自動重連）
+    batch        原有 15 秒批次模式（向下相容預設值）
 """
 
 import asyncio
@@ -60,8 +69,24 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent))
 
 from scripts.models.model_google_stt import GoogleSTTModel
-from scripts.models.model_scribe import ScribeSTTModel
+from scripts.models.model_scribe import ScribeSTTModel, ScribeRealtimeStream
 from utils.logger import get_logger
+
+# ── 簡體→繁體中文轉換（opencc s2twp：台灣繁體用詞）─────────────────────────────
+try:
+    import opencc as _opencc
+    _cc = _opencc.OpenCC("s2twp")   # Simplified → Traditional (Taiwan)
+
+    def _s2t(text: str) -> str:
+        """將 Scribe 回傳的簡體中文轉換為繁體中文（台灣用詞）。"""
+        if not text:
+            return text
+        return _cc.convert(text)
+
+except ImportError:
+    # opencc 未安裝時降級為原文輸出（不中斷服務）
+    def _s2t(text: str) -> str:  # type: ignore[misc]
+        return text
 
 
 # ==============================================================================
@@ -77,6 +102,17 @@ SAMPLE_RATE       = 16000
 CHUNK_SECONDS     = 15
 BYTES_PER_SAMPLE  = 2
 TARGET_BYTES      = SAMPLE_RATE * CHUNK_SECONDS * BYTES_PER_SAMPLE  # 480,000 bytes
+
+# ── 串流模式設定 ───────────────────────────────────────────────────────────────
+# mode 可為：dual / scribe_rt / google_stream / batch
+# dual        = Scribe RT（即時字幕）+ Google 批次（確認存庫） ← 推薦
+# scribe_rt   = 純 Scribe v2 Realtime（最低延遲，不存 DB）
+# google_stream = 純 Google streaming_recognize()（gRPC，自動重連）
+# batch       = 原有 15 秒批次（向下相容）
+VALID_MODES         = {"dual", "scribe_rt", "google_stream", "batch"}
+DEFAULT_STREAM_MODE = os.getenv("STREAM_MODE", "dual").strip().lower()
+if DEFAULT_STREAM_MODE not in VALID_MODES:
+    DEFAULT_STREAM_MODE = "dual"
 
 # 預設 STT 引擎：讀自 .env，未設定時回退 google
 # 每條 WebSocket 連線可透過 ?backend= 覆蓋此預設值
@@ -98,6 +134,7 @@ class ChannelState:
     """單一管道的執行期狀態"""
     channel_id:       str
     stt_backend:      str      = "google"           # "google" | "scribe"
+    stream_mode:      str      = "dual"             # "dual" | "scribe_rt" | "google_stream" | "batch"
     connected_at:     datetime = field(default_factory=datetime.now)
     transcript_count: int      = 0
     last_text:        str      = ""
@@ -119,11 +156,11 @@ class StreamManager:
         active = sum(1 for c in self.channels.values() if c.is_active)
         return active < MAX_CHANNELS
 
-    def add(self, channel_id: str, stt_backend: str = "google") -> ChannelState:
-        state = ChannelState(channel_id=channel_id, stt_backend=stt_backend)
+    def add(self, channel_id: str, stt_backend: str = "google", stream_mode: str = "dual") -> ChannelState:
+        state = ChannelState(channel_id=channel_id, stt_backend=stt_backend, stream_mode=stream_mode)
         self.channels[channel_id] = state
         self.logger.info(
-            f"✅ 管道 [{channel_id}] 連線　引擎={stt_backend}　"
+            f"✅ 管道 [{channel_id}] 連線　引擎={stt_backend}　模式={stream_mode}　"
             f"（目前 {len(self.channels)}/{MAX_CHANNELS} 路）"
         )
         return state
@@ -145,6 +182,7 @@ class StreamManager:
                 {
                     "id":               c.channel_id,
                     "stt_backend":      c.stt_backend,
+                    "stream_mode":      c.stream_mode,
                     "connected_at":     c.connected_at.isoformat(),
                     "transcript_count": c.transcript_count,
                     "last_text":        (c.last_text[:60] + "…")
@@ -325,16 +363,22 @@ logger         = get_logger("app_api")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("=" * 60)
-    logger.info("🚀 aiSpeechMulti API 啟動  v1.2.0")
-    logger.info(f"   最大管道數     : {MAX_CHANNELS} 路")
-    logger.info(f"   預設 STT 引擎  : {DEFAULT_STT_BACKEND}")
-    logger.info(f"   Google STT 模型: {STT_MODEL} / {STT_LOCATION}")
-    logger.info(f"   每段辨識長度   : {CHUNK_SECONDS} 秒")
-    logger.info(f"   資料庫         : {DB_PATH}")
-    logger.info(f"   ElevenLabs Key : {'已設定' if ELEVENLABS_API_KEY else '未設定（Scribe 不可用）'}")
+    logger.info("🚀 aiSpeechMulti API 啟動  v2.0.0")
+    logger.info(f"   最大管道數      : {MAX_CHANNELS} 路")
+    logger.info(f"   預設串流模式    : {DEFAULT_STREAM_MODE}")
+    logger.info(f"   預設 STT 引擎   : {DEFAULT_STT_BACKEND}")
+    logger.info(f"   Google STT 模型 : {STT_MODEL} / {STT_LOCATION}")
+    logger.info(f"   每段批次長度    : {CHUNK_SECONDS} 秒")
+    logger.info(f"   資料庫          : {DB_PATH}")
+    logger.info(f"   ElevenLabs Key  : {'已設定 ✅（dual / scribe_rt 可用）' if ELEVENLABS_API_KEY else '未設定 ❌（dual 降級 batch，scribe_rt 不可用）'}")
     logger.info("=" * 60)
+    logger.info("串流模式:")
+    logger.info("   dual         Scribe RT 即時字幕 + Google 批次確認存庫（推薦）")
+    logger.info("   scribe_rt    純 Scribe v2 Realtime（~150ms TTFT）")
+    logger.info("   google_stream 純 Google streaming_recognize()（gRPC 自動重連）")
+    logger.info("   batch        15 秒批次（向下相容）")
     logger.info("端點列表:")
-    logger.info("   WS  ws://0.0.0.0:8000/ws/stream/{channel_id}?backend=google|scribe")
+    logger.info("   WS  ws://0.0.0.0:8000/ws/stream/{channel_id}?mode=dual&backend=google")
     logger.info("   GET http://0.0.0.0:8000/api/channels")
     logger.info("   GET http://0.0.0.0:8000/api/transcripts")
     logger.info("   GET http://0.0.0.0:8000/api/health")
@@ -343,13 +387,13 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    logger.info("🛑 aiSpeechMulti API 關閉")
+    logger.info("🛑 aiSpeechMulti API 關閉  v2.0.0")
 
 
 app = FastAPI(
     title="aiSpeechMulti API",
-    description="五路無線電語音即時辨識系統（支援 Google STT / ElevenLabs Scribe）",
-    version="1.2.0",
+    description="五路無線電語音即時辨識系統（dual/scribe_rt/google_stream/batch 四模式）",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -375,29 +419,446 @@ async def favicon():
 
 
 # ==============================================================================
-# ⑦ WebSocket 端點 — 核心串流邏輯
+# ⑦ 串流模式 Handler（各模式實作）
+# ==============================================================================
+
+async def _send_error(ws: WebSocket, channel_id: str, message: str):
+    """安全地推送 error 訊息給前端（忽略推送失敗）。"""
+    try:
+        await ws.send_json({
+            "type":       "error",
+            "channel_id": channel_id,
+            "message":    message,
+            "timestamp":  datetime.now().isoformat(),
+        })
+    except Exception:
+        pass
+
+
+async def _handle_batch_mode(
+    ws: WebSocket, channel_id: str, state: "ChannelState", stt
+) -> None:
+    """
+    原有批次模式（向下相容）：
+    PCM 累積 15 秒 → STT → 回傳 transcript + 存庫
+    """
+    audio_buf = AudioBuffer()
+
+    async for message in ws.iter_bytes():
+        audio_buf.append(message)
+
+        if audio_buf.is_ready():
+            wav_path = audio_buf.flush_to_wav()
+            if not wav_path:
+                continue
+            try:
+                result     = await asyncio.to_thread(stt.transcribe_file, wav_path)
+                transcript = result.get("transcript", "").strip()
+                confidence = result.get("confidence", 0.0)
+
+                if transcript:
+                    await ws.send_json({
+                        "type":        "transcript",
+                        "channel_id":  channel_id,
+                        "text":        transcript,
+                        "confidence":  round(confidence, 4),
+                        "stt_backend": state.stt_backend,
+                        "timestamp":   datetime.now().isoformat(),
+                    })
+                    database.save(channel_id, transcript, confidence, state.stt_backend)
+                    state.transcript_count += 1
+                    state.last_text         = transcript
+                    logger.debug(f"[{channel_id}][batch] {transcript[:60]}")
+                elif result.get("error"):
+                    logger.warning(f"[{channel_id}][batch] STT 錯誤：{result['error']}")
+
+            except Exception as exc:
+                logger.error(f"[{channel_id}][batch] 辨識例外：{exc}")
+                await _send_error(ws, channel_id, str(exc))
+            finally:
+                if os.path.exists(wav_path):
+                    os.unlink(wav_path)
+
+
+async def _handle_scribe_rt_mode(
+    ws: WebSocket, channel_id: str, state: "ChannelState"
+) -> None:
+    """
+    純 Scribe v2 Realtime 串流模式：
+    PCM → Scribe WebSocket → partial/committed → 推播前端 + 存庫
+
+    修正（v2.0.1）：
+        - language_code="" → 讓 Scribe 自動偵測語言（原 "zho" 可能不被支援）
+        - ping_interval=None → 避免 ElevenLabs 不回應 ping 導致 ~50s 斷線
+        - asyncio.wait(FIRST_COMPLETED) → 任一端斷線立即取消另一任務
+    """
+    scribe = ScribeRealtimeStream(
+        api_key=ELEVENLABS_API_KEY,
+        language_code="",       # 空字串 = Scribe 自動偵測（比 "zho" 更穩定）
+        sample_rate=SAMPLE_RATE,
+        vad_silence_secs=0.6,   # 降低靜音門檻：0.6s 靜音即提交（原 1.5s 太慢）
+    )
+
+    try:
+        session_id = await scribe.connect()
+        logger.info(f"[{channel_id}][scribe_rt] 已連線　session={session_id}")
+    except ConnectionError as exc:
+        logger.error(f"[{channel_id}][scribe_rt] 連線失敗：{exc}")
+        await _send_error(ws, channel_id, f"Scribe RT 連線失敗：{exc}")
+        return
+
+    await ws.send_json({
+        "type":        "engine_info",
+        "channel_id":  channel_id,
+        "stt_backend": "scribe_rt",
+        "stream_mode": "scribe_rt",
+        "session_id":  session_id,
+        "timestamp":   datetime.now().isoformat(),
+    })
+
+    async def _task_browser_to_scribe():
+        """接收瀏覽器 PCM → 轉發給 Scribe。"""
+        async for pcm in ws.iter_bytes():
+            try:
+                await scribe.send_audio(pcm)
+            except Exception as exc:
+                logger.warning(f"[{channel_id}][scribe_rt] 送音訊失敗：{exc}")
+                break
+
+    async def _task_scribe_to_browser():
+        """接收 Scribe 結果 → 推播前端 + 存庫。"""
+        while scribe.is_connected:
+            try:
+                msg   = await scribe.receive()
+                text  = msg.get("text", "").strip()
+                mtype = msg.get("type", "")
+
+                if mtype == "partial" and text:
+                    tw = _s2t(text)
+                    await ws.send_json({
+                        "type":        "partial",
+                        "channel_id":  channel_id,
+                        "text":        tw,
+                        "stt_backend": "scribe_rt",
+                        "timestamp":   datetime.now().isoformat(),
+                    })
+
+                elif mtype == "committed" and text:
+                    tw = _s2t(text)
+                    await ws.send_json({
+                        "type":        "transcript",
+                        "channel_id":  channel_id,
+                        "text":        tw,
+                        "confidence":  0.0,
+                        "stt_backend": "scribe_rt",
+                        "timestamp":   datetime.now().isoformat(),
+                    })
+                    database.save(channel_id, tw, 0.0, "scribe_rt")
+                    state.transcript_count += 1
+                    state.last_text         = tw
+                    logger.debug(f"[{channel_id}][scribe_rt] committed→DB: {tw[:60]}")
+
+                elif mtype == "session_terminated":
+                    logger.info(f"[{channel_id}][scribe_rt] session 結束")
+                    break
+
+                elif mtype == "unknown":
+                    # 記錄所有未預期訊息（診斷用）
+                    raw_type = msg.get("raw", {}).get("message_type", "?")
+                    logger.info(f"[{channel_id}][scribe_rt] 收到未知訊息 raw_type={raw_type}　text={text[:40]}")
+
+            except (ConnectionError, RuntimeError) as exc:
+                logger.warning(f"[{channel_id}][scribe_rt] 接收中斷：{exc}")
+                break
+
+    # ── asyncio.wait(FIRST_COMPLETED)：任一端斷線立即取消另一任務 ────────────
+    # 優於 asyncio.gather()：gather 在 Scribe 斷線後仍等待音訊任務，
+    # 導致 FastAPI WebSocket 空轉直到 uvicorn keepalive 超時。
+    task_b2s = asyncio.create_task(_task_browser_to_scribe(), name=f"b2s_{channel_id}")
+    task_s2b = asyncio.create_task(_task_scribe_to_browser(), name=f"s2b_{channel_id}")
+
+    try:
+        done, pending = await asyncio.wait(
+            [task_b2s, task_s2b],
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        # 取消尚未完成的任務（例如 Scribe 斷線後取消音訊接收任務）
+        for t in pending:
+            t.cancel()
+            try:
+                await t
+            except (asyncio.CancelledError, Exception):
+                pass
+    finally:
+        await scribe.close()
+
+
+async def _handle_google_stream_mode(
+    ws: WebSocket, channel_id: str, state: "ChannelState", stt: "GoogleSTTModel"
+) -> None:
+    """
+    純 Google streaming_recognize() 串流模式：
+    PCM → gRPC streaming → partial/final → 推播前端 + final 存庫
+    自動每 4.5 分鐘重連（Google 限制 5 分鐘）。
+    """
+    audio_q  = asyncio.Queue(maxsize=100)
+    result_q = asyncio.Queue()
+    stop_ev  = asyncio.Event()
+
+    await ws.send_json({
+        "type":        "engine_info",
+        "channel_id":  channel_id,
+        "stt_backend": "google_stream",
+        "stream_mode": "google_stream",
+        "timestamp":   datetime.now().isoformat(),
+    })
+
+    async def _task_browser_to_queue():
+        """接收瀏覽器 PCM → 放入 audio_q。"""
+        async for pcm in ws.iter_bytes():
+            try:
+                audio_q.put_nowait(pcm)
+            except asyncio.QueueFull:
+                logger.warning(f"[{channel_id}][google_stream] audio_q 已滿，丟棄 chunk")
+        stop_ev.set()   # 瀏覽器斷線時通知串流結束
+
+    async def _task_stream_recognize():
+        """驅動 GoogleSTTModel.stream_recognize()。"""
+        await stt.stream_recognize(audio_q, result_q, stop_ev)
+
+    async def _task_result_to_browser():
+        """從 result_q 取辨識結果 → 推播前端。"""
+        while not stop_ev.is_set() or not result_q.empty():
+            try:
+                result = await asyncio.wait_for(result_q.get(), timeout=1.0)
+            except asyncio.TimeoutError:
+                continue
+
+            text       = result.get("text", "").strip()
+            is_final   = result.get("type") == "final"
+            confidence = result.get("confidence", 0.0)
+
+            if not text:
+                continue
+
+            # 推播前端
+            await ws.send_json({
+                "type":        "transcript" if is_final else "partial",
+                "channel_id":  channel_id,
+                "text":        text,
+                "confidence":  round(confidence, 4),
+                "stt_backend": "google_stream",
+                "timestamp":   datetime.now().isoformat(),
+            })
+
+            # 僅 final 存庫 + 更新狀態
+            if is_final:
+                database.save(channel_id, text, confidence, "google_stream")
+                state.transcript_count += 1
+                state.last_text         = text
+                logger.debug(f"[{channel_id}][google_stream] final: {text[:60]}")
+
+    await asyncio.gather(
+        _task_browser_to_queue(),
+        _task_stream_recognize(),
+        _task_result_to_browser(),
+    )
+
+
+async def _handle_dual_mode(
+    ws: WebSocket, channel_id: str, state: "ChannelState", google_stt: "GoogleSTTModel"
+) -> None:
+    """
+    雙引擎並行模式（推薦）：
+        Scribe v2 Realtime  → partial/committed 即時推播前端（~150ms TTFT）
+        Google STT 批次      → confirmed 結果存庫 + 推播前端（每 15 秒一次）
+
+    若 Scribe RT 連線失敗，自動回退為純 Google 批次模式。
+
+    前端收到三種訊息類型：
+        {"type": "partial",   ...}  — Scribe 中間結果（可能仍會修正）
+        {"type": "transcript",...}  — Scribe committed 最終確認
+        {"type": "confirmed", ...}  — Google 批次確認（繁體中文，存入 DB）
+    """
+    scribe    = ScribeRealtimeStream(
+        api_key=ELEVENLABS_API_KEY,
+        language_code="",       # 空字串 = Scribe 自動偵測（比 "zho" 更穩定）
+        sample_rate=SAMPLE_RATE,
+        vad_silence_secs=0.6,   # 0.6s 靜音即提交（原 1.5s 太慢）
+    )
+    audio_buf = AudioBuffer()
+
+    # ── 嘗試連線 Scribe RT ───────────────────────────────────────────────────
+    scribe_ok = False
+    try:
+        session_id = await scribe.connect()
+        scribe_ok  = True
+        logger.info(f"[{channel_id}][dual] Scribe RT 已連線　session={session_id}")
+    except ConnectionError as exc:
+        logger.warning(f"[{channel_id}][dual] Scribe RT 連線失敗，回退純批次：{exc}")
+
+    # 告知前端雙引擎狀態
+    await ws.send_json({
+        "type":         "engine_info",
+        "channel_id":   channel_id,
+        "stt_backend":  "dual",
+        "stream_mode":  "dual",
+        "scribe_rt":    scribe_ok,
+        "google_batch": True,
+        "timestamp":    datetime.now().isoformat(),
+    })
+
+    # ── 若 Scribe 不可用，回退批次模式 ───────────────────────────────────────
+    if not scribe_ok:
+        await _handle_batch_mode(ws, channel_id, state, google_stt)
+        return
+
+    # ── Google 批次背景任務 ────────────────────────────────────────────────
+    async def _google_batch(wav_path: str):
+        """在背景執行 Google STT 批次辨識，完成後推播 confirmed + 存庫。"""
+        try:
+            result     = await asyncio.to_thread(google_stt.transcribe_file, wav_path)
+            transcript = result.get("transcript", "").strip()
+            confidence = result.get("confidence", 0.0)
+
+            if transcript:
+                await ws.send_json({
+                    "type":        "confirmed",
+                    "channel_id":  channel_id,
+                    "text":        transcript,
+                    "confidence":  round(confidence, 4),
+                    "stt_backend": "google",
+                    "timestamp":   datetime.now().isoformat(),
+                })
+                database.save(channel_id, transcript, confidence, "google")
+                state.transcript_count += 1
+                state.last_text         = transcript
+                logger.debug(f"[{channel_id}][dual/google] confirmed: {transcript[:60]}")
+            elif result.get("error"):
+                logger.warning(f"[{channel_id}][dual/google] STT 錯誤：{result['error']}")
+
+        except Exception as exc:
+            logger.error(f"[{channel_id}][dual/google] 批次例外：{exc}")
+        finally:
+            if os.path.exists(wav_path):
+                os.unlink(wav_path)
+
+    # ── Task A：瀏覽器 PCM → Scribe RT + AudioBuffer ─────────────────────
+    async def _task_browser_to_both():
+        async for pcm in ws.iter_bytes():
+            # → Scribe RT（即時）
+            if scribe.is_connected:
+                try:
+                    await scribe.send_audio(pcm)
+                except Exception as exc:
+                    logger.warning(f"[{channel_id}][dual] Scribe 送音訊失敗：{exc}")
+
+            # → AudioBuffer（Google 批次）
+            audio_buf.append(pcm)
+            if audio_buf.is_ready():
+                wav_path = audio_buf.flush_to_wav()
+                if wav_path:
+                    asyncio.create_task(_google_batch(wav_path))
+
+    # ── Task B：Scribe RT → 前端 ──────────────────────────────────────────
+    async def _task_scribe_to_browser():
+        while scribe.is_connected:
+            try:
+                msg  = await scribe.receive()
+                text = msg.get("text", "").strip()
+                mtype = msg.get("type", "")
+
+                if mtype == "partial" and text:
+                    tw = _s2t(text)
+                    await ws.send_json({
+                        "type":        "partial",
+                        "channel_id":  channel_id,
+                        "text":        tw,
+                        "stt_backend": "scribe_rt",
+                        "timestamp":   datetime.now().isoformat(),
+                    })
+
+                elif mtype == "committed" and text:
+                    tw = _s2t(text)
+                    await ws.send_json({
+                        "type":        "transcript",
+                        "channel_id":  channel_id,
+                        "text":        tw,
+                        "confidence":  0.0,
+                        "stt_backend": "scribe_rt",
+                        "timestamp":   datetime.now().isoformat(),
+                    })
+                    database.save(channel_id, tw, 0.0, "scribe_rt")
+                    state.transcript_count += 1
+                    state.last_text         = tw
+                    logger.debug(f"[{channel_id}][dual/scribe] committed→DB: {tw[:60]}")
+
+                elif mtype == "session_terminated":
+                    logger.info(f"[{channel_id}][dual/scribe] session 結束")
+                    break
+
+                elif mtype == "unknown":
+                    raw_type = msg.get("raw", {}).get("message_type", "?")
+                    logger.info(f"[{channel_id}][dual/scribe] 未知訊息 raw_type={raw_type}")
+
+            except (ConnectionError, RuntimeError) as exc:
+                logger.warning(f"[{channel_id}][dual/scribe] 接收中斷：{exc}")
+                break
+
+    # ── 任一端斷線立即取消另一任務（Scribe 斷線後不讓 Google 批次任務孤立） ──
+    task_b2b = asyncio.create_task(_task_browser_to_both(), name=f"b2b_{channel_id}")
+    task_s2b = asyncio.create_task(_task_scribe_to_browser(), name=f"s2b_{channel_id}")
+
+    try:
+        done, pending = await asyncio.wait(
+            [task_b2b, task_s2b],
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        for t in pending:
+            t.cancel()
+            try:
+                await t
+            except (asyncio.CancelledError, Exception):
+                pass
+    finally:
+        await scribe.close()
+        audio_buf.clear()
+
+
+# ==============================================================================
+# ⑧ WebSocket 端點 — 依 mode 分派至對應 Handler
 # ==============================================================================
 
 @app.websocket("/ws/stream/{channel_id}")
 async def audio_stream(
     ws:         WebSocket,
     channel_id: str,
-    backend:    str = Query(default=None, description="STT 引擎：google 或 scribe"),
+    backend: str = Query(default=None,  description="STT 引擎：google | scribe（batch 模式用）"),
+    mode:    str = Query(default=None,  description="串流模式：dual | scribe_rt | google_stream | batch"),
 ):
     """
-    接收瀏覽器 PCM 音訊 → 累積 15 秒 → 送 STT → 回傳辨識文字。
+    五路無線電語音串流端點（v2.0 多模式）。
 
-    query param:
-        backend=google   使用 Google chirp_3（預設）
-        backend=scribe   使用 ElevenLabs Scribe v1
+    query params:
+        mode=dual          雙引擎（推薦）：Scribe RT 即時字幕 + Google 批次確認存庫
+        mode=scribe_rt     純 Scribe v2 Realtime（最低延遲）
+        mode=google_stream 純 Google streaming_recognize()
+        mode=batch         原有 15 秒批次（向下相容）
+        backend=google     batch 模式用的引擎選擇（google | scribe）
 
-    若未指定 backend，使用 .env 的 STT_BACKEND 設定值。
-    五路管道可各自指定不同引擎，互不影響。
+    前端訊息類型：
+        engine_info  — 連線成功，說明實際使用的引擎與模式
+        partial      — 中間結果（Scribe RT），文字可能仍會修正
+        transcript   — Scribe committed 最終確認（低延遲）
+        confirmed    — Google 批次確認（繁體中文準確，存入 DB）
+        error        — 錯誤訊息
     """
-    # 未指定時用環境變數預設值
-    if backend is None:
-        backend = DEFAULT_STT_BACKEND
-    backend = backend.strip().lower()
+    # ── 參數正規化 ────────────────────────────────────────────────────────────
+    mode = (mode or DEFAULT_STREAM_MODE).strip().lower()
+    if mode not in VALID_MODES:
+        mode = DEFAULT_STREAM_MODE
+
+    backend = (backend or DEFAULT_STT_BACKEND).strip().lower()
     if backend not in ("google", "scribe"):
         backend = "google"
 
@@ -406,99 +867,57 @@ async def audio_stream(
         await ws.close(code=4003, reason=f"管道已滿（上限 {MAX_CHANNELS} 路）")
         return
 
-    # ── Scribe 可用性檢查 ─────────────────────────────────────────────────────
-    if backend == "scribe" and not ELEVENLABS_API_KEY:
-        await ws.close(code=4004, reason="ELEVENLABS_API_KEY 未設定，Scribe 不可用")
-        return
+    # ── ElevenLabs Key 檢查（需要 Scribe 的模式）─────────────────────────────
+    needs_scribe = mode in ("dual", "scribe_rt")
+    if needs_scribe and not ELEVENLABS_API_KEY:
+        if mode == "scribe_rt":
+            await ws.close(code=4004, reason="ELEVENLABS_API_KEY 未設定，scribe_rt 不可用")
+            return
+        else:
+            # dual 模式：無 key 時自動降級為 batch
+            logger.warning(f"[{channel_id}] ELEVENLABS_API_KEY 未設定，dual 降級為 batch")
+            mode = "batch"
 
     await ws.accept()
-    state     = stream_manager.add(channel_id, stt_backend=backend)
-    audio_buf = AudioBuffer()
-    stt       = create_stt_model(backend)
+    state = stream_manager.add(channel_id, stt_backend=backend, stream_mode=mode)
+    logger.info(f"🎙️ [{channel_id}] 連線　mode={mode}　backend={backend}")
 
-    logger.info(f"🎙️ 管道 [{channel_id}] 開始接收音訊　引擎={backend}")
+    # ── batch / scribe（v1）模式：建立 STT 模型 ───────────────────────────────
+    stt = create_stt_model(backend) if mode == "batch" else None
 
-    # 告知前端實際使用的引擎
-    await ws.send_json({
-        "type":        "engine_info",
-        "channel_id":  channel_id,
-        "stt_backend": backend,
-        "timestamp":   datetime.now().isoformat(),
-    })
+    # dual / google_stream 需要 Google STT 實例
+    google_stt = (
+        create_stt_model("google")
+        if mode in ("dual", "google_stream")
+        else None
+    )
+
+    # 若 batch 模式，通知前端引擎資訊
+    if mode == "batch":
+        await ws.send_json({
+            "type":        "engine_info",
+            "channel_id":  channel_id,
+            "stt_backend": backend,
+            "stream_mode": "batch",
+            "timestamp":   datetime.now().isoformat(),
+        })
 
     try:
-        async for message in ws.iter_bytes():
-
-            # ① 累積 PCM
-            audio_buf.append(message)
-
-            # ② 達到 15 秒 → 送辨識
-            if audio_buf.is_ready():
-                wav_path = audio_buf.flush_to_wav()
-                if not wav_path:
-                    continue
-
-                try:
-                    # ③ Thread 包裝：同步 STT → 非阻塞
-                    result = await asyncio.to_thread(
-                        stt.transcribe_file, wav_path
-                    )
-
-                    transcript = result.get("transcript", "").strip()
-                    confidence = result.get("confidence", 0.0)
-
-                    if transcript:
-                        # ④ 回傳前端
-                        await ws.send_json({
-                            "type":        "transcript",
-                            "channel_id":  channel_id,
-                            "text":        transcript,
-                            "confidence":  round(confidence, 4),
-                            "stt_backend": backend,
-                            "timestamp":   datetime.now().isoformat(),
-                        })
-
-                        # ⑤ 存庫（含引擎資訊）
-                        database.save(channel_id, transcript, confidence, backend)
-
-                        # ⑥ 更新管道狀態
-                        state.transcript_count += 1
-                        state.last_text         = transcript
-
-                        logger.debug(
-                            f"管道 [{channel_id}][{backend}] 辨識完成：{transcript[:60]}"
-                        )
-
-                    elif result.get("error"):
-                        logger.warning(
-                            f"管道 [{channel_id}][{backend}] STT 錯誤：{result['error']}"
-                        )
-
-                except Exception as exc:
-                    logger.error(f"管道 [{channel_id}] 辨識例外：{exc}")
-                    try:
-                        await ws.send_json({
-                            "type":       "error",
-                            "channel_id": channel_id,
-                            "message":    str(exc),
-                            "timestamp":  datetime.now().isoformat(),
-                        })
-                    except Exception:
-                        pass
-
-                finally:
-                    if os.path.exists(wav_path):
-                        os.unlink(wav_path)
+        if mode == "dual":
+            await _handle_dual_mode(ws, channel_id, state, google_stt)
+        elif mode == "scribe_rt":
+            await _handle_scribe_rt_mode(ws, channel_id, state)
+        elif mode == "google_stream":
+            await _handle_google_stream_mode(ws, channel_id, state, google_stt)
+        else:
+            await _handle_batch_mode(ws, channel_id, state, stt)
 
     except WebSocketDisconnect:
-        logger.info(f"管道 [{channel_id}] 正常斷線")
-
+        logger.info(f"[{channel_id}] 正常斷線")
     except Exception as exc:
-        logger.error(f"管道 [{channel_id}] 異常中斷：{exc}")
-
+        logger.error(f"[{channel_id}] 異常中斷：{exc}")
     finally:
         stream_manager.remove(channel_id)
-        audio_buf.clear()
 
 
 # ==============================================================================
@@ -531,18 +950,91 @@ async def get_transcripts(
     }
 
 
+@app.get("/api/test_scribe", summary="Scribe RT 連線診斷（伺服器端直接測試）")
+async def test_scribe_rt():
+    """
+    從伺服器端直接連線 ElevenLabs Scribe v2 Realtime，
+    送 2 秒合成音訊 + 1 秒靜音，回傳 Scribe 的原始回應。
+    用於診斷 Scribe 連線與 API Key 是否正常。
+    """
+    import base64, math, struct
+
+    if not ELEVENLABS_API_KEY:
+        return {"ok": False, "error": "ELEVENLABS_API_KEY 未設定"}
+
+    def _gen_audio(duration_ms: int, freq: int = 300, srate: int = 16000) -> bytes:
+        n = srate * duration_ms // 1000
+        return struct.pack("<" + "h" * n,
+                           *[int(20000 * math.sin(2 * math.pi * freq * i / srate))
+                             for i in range(n)])
+
+    try:
+        scribe = ScribeRealtimeStream(
+            api_key=ELEVENLABS_API_KEY,
+            language_code="",
+            sample_rate=16000,
+            vad_silence_secs=0.6,
+        )
+        session_id = await scribe.connect()
+    except Exception as exc:
+        return {"ok": False, "error": f"Scribe 連線失敗：{exc}"}
+
+    messages = []
+    try:
+        # 送 2 秒音訊 + 1 秒靜音
+        for audio in [_gen_audio(2000), bytes(16000 * 2)]:
+            chunk_size = 3200  # 100ms
+            for i in range(0, len(audio), chunk_size):
+                await scribe.send_audio(audio[i:i + chunk_size])
+                await asyncio.sleep(0.02)
+
+        # 收集 4 秒內的回應
+        deadline = asyncio.get_event_loop().time() + 4.0
+        while asyncio.get_event_loop().time() < deadline:
+            remaining = deadline - asyncio.get_event_loop().time()
+            try:
+                msg = await asyncio.wait_for(scribe.receive(), timeout=remaining)
+                messages.append(msg)
+                if msg["type"] == "session_terminated":
+                    break
+            except asyncio.TimeoutError:
+                break
+
+    except Exception as exc:
+        return {"ok": False, "session_id": session_id,
+                "error": f"測試過程異常：{exc}", "messages": messages}
+    finally:
+        await scribe.close()
+
+    return {
+        "ok":         True,
+        "session_id": session_id,
+        "message_count": len(messages),
+        "messages":   [{"type": m["type"], "text": m.get("text", ""), "raw_type": m.get("raw", {}).get("message_type", "")} for m in messages],
+        "note":       "text 為空=Scribe 運作正常但音訊非語音；有文字=完整正常",
+    }
+
+
 @app.get("/api/health", summary="健康檢查")
 async def health_check():
     return {
-        "status":           "ok",
-        "active_channels":  len(stream_manager.channels),
-        "max_channels":     MAX_CHANNELS,
-        "default_backend":  DEFAULT_STT_BACKEND,
-        "stt_model":        STT_MODEL,
-        "stt_language":     STT_LANGUAGE,
-        "chunk_seconds":    CHUNK_SECONDS,
-        "scribe_available": bool(ELEVENLABS_API_KEY),
-        "timestamp":        datetime.now().isoformat(),
+        "status":             "ok",
+        "version":            "2.0.0",
+        "active_channels":    len(stream_manager.channels),
+        "max_channels":       MAX_CHANNELS,
+        "default_stream_mode": DEFAULT_STREAM_MODE,
+        "default_backend":    DEFAULT_STT_BACKEND,
+        "stt_model":          STT_MODEL,
+        "stt_language":       STT_LANGUAGE,
+        "chunk_seconds":      CHUNK_SECONDS,
+        "scribe_available":   bool(ELEVENLABS_API_KEY),
+        "modes_available": {
+            "dual":          bool(ELEVENLABS_API_KEY),
+            "scribe_rt":     bool(ELEVENLABS_API_KEY),
+            "google_stream": True,
+            "batch":         True,
+        },
+        "timestamp":          datetime.now().isoformat(),
     }
 
 
@@ -558,4 +1050,7 @@ if __name__ == "__main__":
         port=8000,
         reload=False,
         log_level="info",
+        # ws_ping_interval / ws_ping_timeout 確保長時間串流連線不被切斷
+        ws_ping_interval=20,
+        ws_ping_timeout=30,
     )
