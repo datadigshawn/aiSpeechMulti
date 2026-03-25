@@ -1191,6 +1191,9 @@ def render_running_page():
     event_name     = st.session_state.get("event_name", "").strip()
     uploaded_files = st.session_state.get("uploaded_files") or []
     server_files   = st.session_state.get("server_files") or []
+    use_vad        = st.session_state.get("preproc_vad",     False)
+    use_denoise    = st.session_state.get("preproc_denoise", False)
+    vad_threshold  = float(st.session_state.get("preproc_vad_thr", 0.5))
 
     model_label = {v: k for k, v in MODEL_OPTIONS.items()}.get(model_type, model_type)
 
@@ -1199,9 +1202,13 @@ def render_running_page():
         st.rerun()
 
     st.title("執行語音辨識")
-    vocab_badge = "🟢 詞彙優化：開啟" if use_vocabulary else "⚫ 詞彙優化：關閉"
-    merge_badge = f"　　🔵 彙整輸出：{event_name}" if (merge_results and event_name) else ""
-    st.write(f"模型：**{model_label}**　　子模型：`{sub_model}`　　{vocab_badge}{merge_badge}")
+    vocab_badge   = "🟢 詞彙優化：開啟" if use_vocabulary else "⚫ 詞彙優化：關閉"
+    merge_badge   = f"　　🔵 彙整輸出：{event_name}" if (merge_results and event_name) else ""
+    _preproc_parts = []
+    if use_vad:     _preproc_parts.append(f"VAD({vad_threshold:.2f})")
+    if use_denoise: _preproc_parts.append("降噪")
+    preproc_badge = f"　　🔧 前處理：{'+'.join(_preproc_parts)}" if _preproc_parts else ""
+    st.write(f"模型：**{model_label}**　　子模型：`{sub_model}`　　{vocab_badge}{merge_badge}{preproc_badge}")
     st.divider()
 
     # ── 準備音檔清單 ──────────────────────────────────────────────────────
@@ -1295,17 +1302,70 @@ def render_running_page():
 
         status_msg.empty()
 
+        # ── 匯入前處理工具（懶載入，避免未安裝時整頁崩潰）─────────────────
+        _denoise_fn  = None
+        _vad_fn      = None
+        if use_denoise:
+            try:
+                from utils.noise_filter import denoise_wav_file as _denoise_fn
+            except ImportError:
+                st.warning("⚠️ DeepFilterNet 未安裝，降噪功能略過（pip install deepfilternet）")
+                use_denoise = False
+        if use_vad:
+            try:
+                from utils.vad_filter import has_speech_in_wav_sr as _vad_fn
+            except ImportError:
+                st.warning("⚠️ Silero VAD 未安裝，VAD 功能略過（pip install silero-vad）")
+                use_vad = False
+
         for i, audio_file in enumerate(audio_paths):
             audio_file = Path(audio_file)
             progress_bar.progress(i / total, text=f"辨識中：{audio_file.name}  ({i + 1}/{total})")
             try:
+                # ── 音訊前處理（降噪 → VAD）─────────────────────────────────
+                preproc_file = audio_file   # 預設使用原始檔
+                _skipped     = False
+
+                if (use_denoise or use_vad) and audio_file.suffix.lower() == ".wav":
+                    import shutil as _shutil
+                    import tempfile as _tempfile
+                    # 複製到暫存檔，避免修改原始音檔
+                    _tmp_fd, _tmp_path = _tempfile.mkstemp(suffix=".wav", prefix="preproc_")
+                    os.close(_tmp_fd)
+                    _shutil.copy2(str(audio_file), _tmp_path)
+                    preproc_file = Path(_tmp_path)
+
+                    if use_denoise and _denoise_fn:
+                        _, _ok = _denoise_fn(str(preproc_file), output_wav=str(preproc_file))
+                        if not _ok:
+                            st.caption(f"　　ℹ️ {audio_file.name}：降噪模組不可用，使用原始音訊")
+
+                    if use_vad and _vad_fn:
+                        _has_speech = _vad_fn(str(preproc_file), threshold=vad_threshold)
+                        if not _has_speech:
+                            st.info(f"🔇 {audio_file.name}　→ VAD 判定無語音，略過 STT")
+                            all_results.append({
+                                "filename": audio_file.name,
+                                "transcript": "",
+                                "status": "skipped_vad",
+                            })
+                            preproc_file.unlink(missing_ok=True)
+                            _skipped = True
+
+                if _skipped:
+                    continue
+
                 if model_type == "whisper":
-                    raw_text = whisper_transcribe(str(audio_file), model_size=sub_model)
+                    raw_text = whisper_transcribe(str(preproc_file), model_size=sub_model)
                     result   = {"transcript": raw_text}
                 elif model_type == "google_stt":
-                    result = transcribe_google_stt_with_vad(engine, audio_file, output_dir)
+                    result = transcribe_google_stt_with_vad(engine, preproc_file, output_dir)
                 else:
-                    result = engine.transcribe_file(audio_file)
+                    result = engine.transcribe_file(preproc_file)
+
+                # 暫存檔清理
+                if preproc_file != audio_file:
+                    preproc_file.unlink(missing_ok=True)
 
                 transcript = result.get("transcript", "")
                 if use_vocabulary:
@@ -1388,6 +1448,8 @@ def render_running_page():
                     transcript=result.get("transcript", ""),
                     status=result.get("status", "success"),
                     error_message=result.get("error"),
+                    use_vad=use_vad,
+                    use_denoise=use_denoise,
                 )
 
             db.close()

@@ -69,8 +69,10 @@ _DDL_STATEMENTS = [
         audio_file_id   INTEGER REFERENCES audio_files(id) ON DELETE CASCADE,
         event_id        INTEGER REFERENCES events(id) ON DELETE CASCADE,
         transcript      TEXT,
-        status          TEXT DEFAULT 'success',
+        status          TEXT    DEFAULT 'success',
         error_message   TEXT,
+        use_vad         INTEGER DEFAULT 0,
+        use_denoise     INTEGER DEFAULT 0,
         created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """,
@@ -153,6 +155,14 @@ class DBManager:
         """建立所有資料表與索引（冪等操作）。"""
         for stmt in _DDL_STATEMENTS:
             self._conn.execute(stmt)
+        # 相容舊版資料庫：欄位不存在時自動補上
+        for col, default in [("use_vad", "0"), ("use_denoise", "0")]:
+            try:
+                self._conn.execute(
+                    f"ALTER TABLE transcriptions ADD COLUMN {col} INTEGER DEFAULT {default}"
+                )
+            except Exception:
+                pass  # 欄位已存在，忽略
         self._conn.commit()
 
     # ── 事件 ────────────────────────────────────────────────────────────────
@@ -248,6 +258,8 @@ class DBManager:
         transcript: str,
         status: str = "success",
         error_message: Optional[str] = None,
+        use_vad: bool = False,
+        use_denoise: bool = False,
     ) -> int:
         """
         儲存一筆辨識結果，並同步更新 FTS5 全文搜尋索引。
@@ -258,6 +270,8 @@ class DBManager:
             transcript:     辨識文字（後處理後）
             status:         "success" | "error"
             error_message:  錯誤訊息（status="error" 時使用）
+            use_vad:        本次辨識是否開啟 Silero VAD 前處理
+            use_denoise:    本次辨識是否開啟 DeepFilterNet 降噪前處理
 
         Returns:
             int: 新插入的 transcriptions.id
@@ -265,10 +279,11 @@ class DBManager:
         cur = self._conn.execute(
             """
             INSERT INTO transcriptions
-                (audio_file_id, event_id, transcript, status, error_message)
-            VALUES (?, ?, ?, ?, ?)
+                (audio_file_id, event_id, transcript, status, error_message, use_vad, use_denoise)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (audio_file_id, event_id, transcript, status, error_message),
+            (audio_file_id, event_id, transcript, status, error_message,
+             int(use_vad), int(use_denoise)),
         )
         trans_id = cur.lastrowid
 

@@ -275,14 +275,21 @@ class Database:
                     transcript   TEXT    NOT NULL,
                     confidence   REAL    DEFAULT 0.0,
                     stt_backend  TEXT    DEFAULT 'google',
+                    use_vad      INTEGER DEFAULT 0,
+                    use_denoise  INTEGER DEFAULT 0,
                     created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             """)
-            # 相容舊版資料庫：若 stt_backend 欄位不存在則自動新增
-            try:
-                conn.execute("ALTER TABLE transcripts ADD COLUMN stt_backend TEXT DEFAULT 'google'")
-            except Exception:
-                pass  # 欄位已存在，忽略
+            # 相容舊版資料庫：欄位不存在時自動補上
+            for col, default in [
+                ("stt_backend", "'google'"),
+                ("use_vad",     "0"),
+                ("use_denoise", "0"),
+            ]:
+                try:
+                    conn.execute(f"ALTER TABLE transcripts ADD COLUMN {col} TEXT DEFAULT {default}")
+                except Exception:
+                    pass  # 欄位已存在，忽略
             conn.execute("CREATE INDEX IF NOT EXISTS idx_ch ON transcripts(channel_id)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_ts ON transcripts(created_at)")
             conn.commit()
@@ -293,13 +300,17 @@ class Database:
         transcript:  str,
         confidence:  float = 0.0,
         stt_backend: str   = "google",
+        use_vad:     bool  = False,
+        use_denoise: bool  = False,
     ):
         with sqlite3.connect(self.db_path, timeout=10) as conn:
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute(
-                "INSERT INTO transcripts (channel_id, transcript, confidence, stt_backend) "
-                "VALUES (?, ?, ?, ?)",
-                (channel_id, transcript, confidence, stt_backend),
+                "INSERT INTO transcripts "
+                "(channel_id, transcript, confidence, stt_backend, use_vad, use_denoise) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (channel_id, transcript, confidence, stt_backend,
+                 int(use_vad), int(use_denoise)),
             )
             conn.commit()
 
@@ -312,14 +323,14 @@ class Database:
         with sqlite3.connect(self.db_path) as conn:
             if channel_id:
                 rows = conn.execute(
-                    "SELECT id, channel_id, transcript, confidence, stt_backend, created_at "
+                    "SELECT id, channel_id, transcript, confidence, stt_backend, use_vad, use_denoise, created_at "
                     "FROM transcripts WHERE channel_id = ? "
                     "ORDER BY created_at DESC LIMIT ? OFFSET ?",
                     (channel_id, limit, offset),
                 ).fetchall()
             else:
                 rows = conn.execute(
-                    "SELECT id, channel_id, transcript, confidence, stt_backend, created_at "
+                    "SELECT id, channel_id, transcript, confidence, stt_backend, use_vad, use_denoise, created_at "
                     "FROM transcripts "
                     "ORDER BY created_at DESC LIMIT ? OFFSET ?",
                     (limit, offset),
@@ -332,7 +343,9 @@ class Database:
                 "transcript":  r[2],
                 "confidence":  r[3],
                 "stt_backend": r[4] or "google",
-                "created_at":  r[5],
+                "use_vad":     bool(r[5]),
+                "use_denoise": bool(r[6]),
+                "created_at":  r[7],
             }
             for r in rows
         ]
@@ -530,7 +543,9 @@ async def _handle_batch_mode(
                         "stt_backend": state.stt_backend,
                         "timestamp":   datetime.now().isoformat(),
                     })
-                    database.save(channel_id, transcript, confidence, state.stt_backend)
+                    database.save(channel_id, transcript, confidence, state.stt_backend,
+                                  use_vad=_audio_settings["use_vad"],
+                                  use_denoise=_audio_settings["use_denoise"])
                     state.transcript_count += 1
                     state.last_text         = transcript
                     logger.debug(f"[{channel_id}][batch] {transcript[:60]}")
@@ -618,7 +633,8 @@ async def _handle_scribe_rt_mode(
                         "stt_backend": "scribe_rt",
                         "timestamp":   datetime.now().isoformat(),
                     })
-                    database.save(channel_id, tw, 0.0, "scribe_rt")
+                    database.save(channel_id, tw, 0.0, "scribe_rt",
+                                  use_vad=False, use_denoise=False)  # scribe_rt 串流不套用前處理
                     state.transcript_count += 1
                     state.last_text         = tw
                     logger.debug(f"[{channel_id}][scribe_rt] committed→DB: {tw[:60]}")
@@ -718,7 +734,8 @@ async def _handle_google_stream_mode(
 
             # 僅 final 存庫 + 更新狀態
             if is_final:
-                database.save(channel_id, text, confidence, "google_stream")
+                database.save(channel_id, text, confidence, "google_stream",
+                              use_vad=False, use_denoise=False)  # google_stream 串流不套用前處理
                 state.transcript_count += 1
                 state.last_text         = text
                 logger.debug(f"[{channel_id}][google_stream] final: {text[:60]}")
@@ -802,7 +819,9 @@ async def _handle_dual_mode(
                     "stt_backend": "google",
                     "timestamp":   datetime.now().isoformat(),
                 })
-                database.save(channel_id, transcript, confidence, "google")
+                database.save(channel_id, transcript, confidence, "google",
+                              use_vad=_audio_settings["use_vad"],
+                              use_denoise=_audio_settings["use_denoise"])
                 state.transcript_count += 1
                 state.last_text         = transcript
                 logger.debug(f"[{channel_id}][dual/google] confirmed: {transcript[:60]}")
@@ -860,7 +879,8 @@ async def _handle_dual_mode(
                         "stt_backend": "scribe_rt",
                         "timestamp":   datetime.now().isoformat(),
                     })
-                    database.save(channel_id, tw, 0.0, "scribe_rt")
+                    database.save(channel_id, tw, 0.0, "scribe_rt",
+                                  use_vad=False, use_denoise=False)  # scribe_rt 串流不套用前處理
                     state.transcript_count += 1
                     state.last_text         = tw
                     logger.debug(f"[{channel_id}][dual/scribe] committed→DB: {tw[:60]}")
