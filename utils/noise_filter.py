@@ -97,7 +97,13 @@ def _load_df_model() -> bool:
             _df_available = True
             logger.info("✅ DeepFilterNet 模型載入完成")
 
+        except ImportError as e:
+            # 套件未安裝 → 不永久快取，下次再試（安裝後不需重啟）
+            _df_available = None
+            logger.warning(f"⚠️  DeepFilterNet 未安裝（{e}），可執行 pip install deepfilternet 後重試")
+
         except Exception as e:
+            # 套件存在但模型載入失敗 → 永久快取 False（避免反覆嘗試耗時）
             _df_available = False
             logger.warning(
                 f"⚠️  DeepFilterNet 模型載入失敗，降噪功能將被停用：{e}"
