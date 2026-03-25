@@ -281,15 +281,20 @@ class Database:
                 )
             """)
             # 相容舊版資料庫：欄位不存在時自動補上
-            for col, default in [
-                ("stt_backend", "'google'"),
-                ("use_vad",     "0"),
-                ("use_denoise", "0"),
-            ]:
+            try:
+                conn.execute("ALTER TABLE transcripts ADD COLUMN stt_backend TEXT DEFAULT 'google'")
+            except Exception:
+                pass
+            for col in ("use_vad", "use_denoise"):
                 try:
-                    conn.execute(f"ALTER TABLE transcripts ADD COLUMN {col} TEXT DEFAULT {default}")
+                    conn.execute(f"ALTER TABLE transcripts ADD COLUMN {col} INTEGER DEFAULT 0")
                 except Exception:
                     pass  # 欄位已存在，忽略
+            # 修正既有資料庫中 TEXT 型態的 "0"/"1" → INTEGER
+            conn.execute("UPDATE transcripts SET use_vad=0     WHERE use_vad     IS NULL OR use_vad     = ''")
+            conn.execute("UPDATE transcripts SET use_denoise=0 WHERE use_denoise IS NULL OR use_denoise = ''")
+            conn.execute("UPDATE transcripts SET use_vad=CAST(use_vad AS INTEGER), "
+                         "use_denoise=CAST(use_denoise AS INTEGER)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_ch ON transcripts(channel_id)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_ts ON transcripts(created_at)")
             conn.commit()
@@ -343,8 +348,8 @@ class Database:
                 "transcript":  r[2],
                 "confidence":  r[3],
                 "stt_backend": r[4] or "google",
-                "use_vad":     bool(r[5]),
-                "use_denoise": bool(r[6]),
+                "use_vad":     bool(int(r[5] or 0)),
+                "use_denoise": bool(int(r[6] or 0)),
                 "created_at":  r[7],
             }
             for r in rows

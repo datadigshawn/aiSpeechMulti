@@ -156,13 +156,17 @@ class DBManager:
         for stmt in _DDL_STATEMENTS:
             self._conn.execute(stmt)
         # 相容舊版資料庫：欄位不存在時自動補上
-        for col, default in [("use_vad", "0"), ("use_denoise", "0")]:
+        for col in ("use_vad", "use_denoise"):
             try:
                 self._conn.execute(
-                    f"ALTER TABLE transcriptions ADD COLUMN {col} INTEGER DEFAULT {default}"
+                    f"ALTER TABLE transcriptions ADD COLUMN {col} INTEGER DEFAULT 0"
                 )
             except Exception:
                 pass  # 欄位已存在，忽略
+        # 修正既有資料庫中 TEXT 型態的 "0"/"1" → INTEGER
+        self._conn.execute("UPDATE transcriptions SET use_vad=CAST(use_vad AS INTEGER), "
+                           "use_denoise=CAST(use_denoise AS INTEGER) "
+                           "WHERE typeof(use_vad)='text' OR typeof(use_denoise)='text'")
         self._conn.commit()
 
     # ── 事件 ────────────────────────────────────────────────────────────────
