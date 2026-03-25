@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-CER 計算引擎（字元錯誤率 / 準確率評測）
-=========================================
+CER / WER 計算引擎（字元錯誤率 / 詞錯誤率 / 準確率評測）
+==========================================================
 提供：
   - 文字前處理正規化
-  - CER / WER 計算（優先使用 jiwer，fallback 用 difflib 標準庫）
+  - CER（字元錯誤率）：優先使用 jiwer，fallback 用 difflib
+  - WER（詞錯誤率）  ：jieba 分詞 + jiwer，fallback 用 difflib
   - 差異分析 HTML（字元級高亮顯示）
-  - 逐檔與整體批次評測
+  - 逐檔與整體批次評測（同時輸出 CER 與 WER）
 
 使用方式（獨立測試）：
     python scripts/cer_engine.py --ref ground_truth/sample.txt --hyp asr_output/sample.txt
@@ -24,6 +25,13 @@ try:
     JIWER_OK = True
 except ImportError:
     JIWER_OK = False
+
+try:
+    import jieba
+    jieba.setLogLevel(60)   # 關閉 jieba 初始化 log
+    JIEBA_OK = True
+except ImportError:
+    JIEBA_OK = False
 
 
 # ============================================================================
@@ -211,6 +219,85 @@ def calculate_cer(reference: str, hypothesis: str) -> Dict:
 
 
 # ============================================================================
+# WER（詞錯誤率）計算
+# ============================================================================
+
+def _tokenize(text: str) -> List[str]:
+    """
+    將正規化後的文字分詞。
+    優先使用 jieba（中文精確模式），未安裝時依空白切分（英文適用）。
+    """
+    norm = normalize_text(text)
+    if not norm:
+        return []
+    if JIEBA_OK:
+        return [w for w in jieba.cut(norm) if w.strip()]
+    # fallback：按字元切（效果等同 CER）
+    return list(norm)
+
+
+def calculate_wer(reference: str, hypothesis: str) -> Dict:
+    """
+    計算 WER（詞錯誤率）。
+    以 jieba 分詞後用 jiwer.process_words() 計算；
+    未安裝 jieba 時退回字元級（等同 CER）。
+
+    回傳 dict：
+      wer       : float  0.0~1.0
+      accuracy  : float  0.0~1.0  (= 1 - wer)
+      n_ref     : int    reference 詞數
+      sub       : int    替換錯誤數
+      del_      : int    刪除錯誤數
+      ins       : int    插入錯誤數
+      n_errors  : int    sub + del_ + ins
+      engine    : str    "jiwer+jieba" / "jiwer" / "difflib"
+      tokenizer : str    "jieba" / "char"
+    """
+    ref_tokens = _tokenize(reference)
+    hyp_tokens = _tokenize(hypothesis)
+    n = len(ref_tokens)
+    tokenizer = "jieba" if JIEBA_OK else "char"
+
+    if n == 0:
+        return {
+            "wer": 0.0, "accuracy": 1.0, "n_ref": 0,
+            "sub": 0, "del_": 0, "ins": 0, "n_errors": 0,
+            "engine": "none", "tokenizer": tokenizer,
+        }
+
+    if JIWER_OK:
+        try:
+            out = jiwer.process_words(
+                " ".join(ref_tokens),
+                " ".join(hyp_tokens),
+            )
+            sub  = out.substitutions
+            del_ = out.deletions
+            ins  = out.insertions
+            engine = "jiwer+jieba" if JIEBA_OK else "jiwer"
+        except Exception:
+            sub, del_, ins = _levenshtein_edits(ref_tokens, hyp_tokens)
+            engine = "difflib"
+    else:
+        sub, del_, ins = _levenshtein_edits(ref_tokens, hyp_tokens)
+        engine = "difflib"
+
+    n_errors = sub + del_ + ins
+    wer      = n_errors / n
+    return {
+        "wer":       round(min(wer, 1.0), 6),
+        "accuracy":  round(max(0.0, 1.0 - wer), 6),
+        "n_ref":     n,
+        "sub":       sub,
+        "del_":      del_,
+        "ins":       ins,
+        "n_errors":  n_errors,
+        "engine":    engine,
+        "tokenizer": tokenizer,
+    }
+
+
+# ============================================================================
 # 差異分析 HTML
 # ============================================================================
 
@@ -282,7 +369,7 @@ def evaluate_case(
     asr_output_dir:   Path,
 ) -> Dict:
     """
-    逐檔計算 CER，彙整整體統計。
+    逐檔計算 CER 與 WER，彙整整體統計。
 
     ground_truth_dir : experiments/{case}/ground_truth/
     asr_output_dir   : experiments/{case}/asr_output/
@@ -292,31 +379,31 @@ def evaluate_case(
       "per_file": [
           {
             "stem": str,
-            "gt_text": str,
-            "asr_text": str,
-            "cer": float,
-            "accuracy": float,
-            "n_ref": int,
-            "sub": int, "del_": int, "ins": int,
-            "n_errors": int,
+            "gt_text": str, "asr_text": str,
+            # CER
+            "cer": float, "accuracy": float,
+            "n_ref": int, "sub": int, "del_": int, "ins": int, "n_errors": int,
+            # WER
+            "wer": float, "wer_accuracy": float,
+            "n_words": int, "wer_sub": int, "wer_del": int, "wer_ins": int,
             "diff_html": str,
-            "matched": bool,   # 是否找到對應的 asr 輸出
-          },
-          ...
+            "matched": bool,
+          }, ...
       ],
       "overall": {
-          "mean_cer": float,
-          "mean_accuracy": float,
-          "total_chars": int,
-          "total_errors": int,
-          "micro_cer": float,      # 加權 CER（總錯誤 / 總字數）
-          "micro_accuracy": float,
-          "n_files_matched": int,
-          "n_files_total": int,
+          # CER
+          "mean_cer": float, "mean_accuracy": float,
+          "total_chars": int, "total_errors": int,
+          "micro_cer": float, "micro_accuracy": float,
+          # WER
+          "mean_wer": float, "mean_wer_accuracy": float,
+          "total_words": int, "total_wer_errors": int,
+          "micro_wer": float, "micro_wer_accuracy": float,
+          "wer_tokenizer": str,
+          "n_files_matched": int, "n_files_total": int,
       }
     }
     """
-    # 掃描 .txt 與 .csv 標準文稿
     gt_files = sorted(
         f for f in ground_truth_dir.iterdir()
         if f.suffix.lower() in {".txt", ".csv"}
@@ -327,7 +414,6 @@ def evaluate_case(
         stem    = gt_file.stem
         gt_text = read_transcript_file(gt_file)
 
-        # 找對應 ASR 輸出（優先 .csv，其次 .txt）
         asr_file = None
         for ext in (".csv", ".txt"):
             candidate = asr_output_dir / f"{stem}{ext}"
@@ -336,12 +422,16 @@ def evaluate_case(
                 break
 
         if asr_file is None:
+            n_chars = len(normalize_text(gt_text))
+            n_words = len(_tokenize(gt_text))
             per_file_results.append({
                 "stem": stem, "gt_text": gt_text, "asr_text": "",
                 "cer": 1.0, "accuracy": 0.0,
-                "n_ref": len(normalize_text(gt_text)),
-                "sub": 0, "del_": len(normalize_text(gt_text)), "ins": 0,
-                "n_errors": len(normalize_text(gt_text)),
+                "n_ref": n_chars,
+                "sub": 0, "del_": n_chars, "ins": 0, "n_errors": n_chars,
+                "wer": 1.0, "wer_accuracy": 0.0,
+                "n_words": n_words,
+                "wer_sub": 0, "wer_del": n_words, "wer_ins": 0,
                 "diff_html": (
                     f"<span style='color:#f88;'>⚠️ 找不到辨識結果：{stem}.csv / {stem}.txt</span>"
                 ),
@@ -349,49 +439,78 @@ def evaluate_case(
             })
             continue
 
-        asr_text = read_transcript_file(asr_file)
-        cer_info = calculate_cer(gt_text, asr_text)
+        asr_text  = read_transcript_file(asr_file)
+        cer_info  = calculate_cer(gt_text, asr_text)
+        wer_info  = calculate_wer(gt_text, asr_text)
         diff_html = build_diff_html(gt_text, asr_text)
 
         per_file_results.append({
-            "stem":      stem,
-            "gt_text":   gt_text,
-            "asr_text":  asr_text,
-            "cer":       cer_info["cer"],
-            "accuracy":  cer_info["accuracy"],
-            "n_ref":     cer_info["n_ref"],
-            "sub":       cer_info["sub"],
-            "del_":      cer_info["del_"],
-            "ins":       cer_info["ins"],
-            "n_errors":  cer_info["n_errors"],
-            "diff_html": diff_html,
-            "matched":   True,
+            "stem":         stem,
+            "gt_text":      gt_text,
+            "asr_text":     asr_text,
+            # CER
+            "cer":          cer_info["cer"],
+            "accuracy":     cer_info["accuracy"],
+            "n_ref":        cer_info["n_ref"],
+            "sub":          cer_info["sub"],
+            "del_":         cer_info["del_"],
+            "ins":          cer_info["ins"],
+            "n_errors":     cer_info["n_errors"],
+            # WER
+            "wer":          wer_info["wer"],
+            "wer_accuracy": wer_info["accuracy"],
+            "n_words":      wer_info["n_ref"],
+            "wer_sub":      wer_info["sub"],
+            "wer_del":      wer_info["del_"],
+            "wer_ins":      wer_info["ins"],
+            "wer_tokenizer": wer_info["tokenizer"],
+            "diff_html":    diff_html,
+            "matched":      True,
         })
 
     # 整體統計
-    matched  = [r for r in per_file_results if r["matched"]]
-    n_total  = len(per_file_results)
+    matched   = [r for r in per_file_results if r["matched"]]
+    n_total   = len(per_file_results)
     n_matched = len(matched)
 
     if matched:
+        # CER
         mean_cer      = sum(r["cer"]      for r in matched) / n_matched
         mean_accuracy = sum(r["accuracy"] for r in matched) / n_matched
         total_chars   = sum(r["n_ref"]    for r in matched)
         total_errors  = sum(r["n_errors"] for r in matched)
         micro_cer     = total_errors / total_chars if total_chars > 0 else 0.0
+        # WER
+        mean_wer          = sum(r["wer"]          for r in matched) / n_matched
+        mean_wer_accuracy = sum(r["wer_accuracy"] for r in matched) / n_matched
+        total_words       = sum(r["n_words"]  for r in matched)
+        total_wer_errors  = sum(r["wer_sub"] + r["wer_del"] + r["wer_ins"] for r in matched)
+        micro_wer         = total_wer_errors / total_words if total_words > 0 else 0.0
+        wer_tokenizer     = matched[0].get("wer_tokenizer", "char")
     else:
         mean_cer = mean_accuracy = micro_cer = 0.0
-        total_chars = total_errors = 0
+        mean_wer = mean_wer_accuracy = micro_wer = 0.0
+        total_chars = total_errors = total_words = total_wer_errors = 0
+        wer_tokenizer = "char"
 
     overall = {
-        "mean_cer":       round(mean_cer, 6),
-        "mean_accuracy":  round(mean_accuracy, 6),
-        "total_chars":    total_chars,
-        "total_errors":   total_errors,
-        "micro_cer":      round(micro_cer, 6),
-        "micro_accuracy": round(max(0.0, 1.0 - micro_cer), 6),
-        "n_files_matched": n_matched,
-        "n_files_total":   n_total,
+        # CER
+        "mean_cer":           round(mean_cer, 6),
+        "mean_accuracy":      round(mean_accuracy, 6),
+        "total_chars":        total_chars,
+        "total_errors":       total_errors,
+        "micro_cer":          round(micro_cer, 6),
+        "micro_accuracy":     round(max(0.0, 1.0 - micro_cer), 6),
+        # WER
+        "mean_wer":           round(mean_wer, 6),
+        "mean_wer_accuracy":  round(mean_wer_accuracy, 6),
+        "total_words":        total_words,
+        "total_wer_errors":   total_wer_errors,
+        "micro_wer":          round(micro_wer, 6),
+        "micro_wer_accuracy": round(max(0.0, 1.0 - micro_wer), 6),
+        "wer_tokenizer":      wer_tokenizer,
+        "n_files_matched":    n_matched,
+        "n_files_total":      n_total,
     }
 
     return {"per_file": per_file_results, "overall": overall}
@@ -443,17 +562,28 @@ def generate_text_report(case_name: str, results: Dict, meta: Optional[Dict] = N
             f"  辨識文稿   ：{meta.get('asr_filename', '—')}",
         ]
 
+    tk = ov.get("wer_tokenizer", "jieba")
     lines += [
         f"  評測時間   ：{eval_ts}",
         "",
         "【整體統計】",
-        f"  比對檔案數  ：{ov['n_files_matched']} / {ov['n_files_total']}",
-        f"  整體準確率  ：{ov['micro_accuracy']:.1%}  (micro，加權)",
-        f"  平均準確率  ：{ov['mean_accuracy']:.1%}  (macro，各檔平均)",
-        f"  整體 CER    ：{ov['micro_cer']:.1%}",
-        f"  平均 CER    ：{ov['mean_cer']:.1%}",
-        f"  總字元數    ：{ov['total_chars']}",
-        f"  總錯誤數    ：{ov['total_errors']}",
+        f"  比對檔案數   ：{ov['n_files_matched']} / {ov['n_files_total']}",
+        "",
+        "  ─── CER（字元錯誤率）───────────────────",
+        f"  整體準確率   ：{ov['micro_accuracy']:.1%}  (micro，加權)",
+        f"  平均準確率   ：{ov['mean_accuracy']:.1%}  (macro，各檔平均)",
+        f"  整體 CER     ：{ov['micro_cer']:.1%}",
+        f"  平均 CER     ：{ov['mean_cer']:.1%}",
+        f"  總字元數     ：{ov['total_chars']}",
+        f"  總字元錯誤數 ：{ov['total_errors']}",
+        "",
+        f"  ─── WER（詞錯誤率，分詞器：{tk}）─────",
+        f"  整體 WER 準確率：{ov.get('micro_wer_accuracy', 0):.1%}  (micro，加權)",
+        f"  平均 WER 準確率：{ov.get('mean_wer_accuracy', 0):.1%}  (macro，各檔平均)",
+        f"  整體 WER       ：{ov.get('micro_wer', 0):.1%}",
+        f"  平均 WER       ：{ov.get('mean_wer', 0):.1%}",
+        f"  總詞數         ：{ov.get('total_words', 0)}",
+        f"  總詞錯誤數     ：{ov.get('total_wer_errors', 0)}",
         "",
         "─" * 60,
         "【逐檔明細】",
@@ -463,8 +593,9 @@ def generate_text_report(case_name: str, results: Dict, meta: Optional[Dict] = N
         if r["matched"]:
             lines.append(
                 f"  [{r['accuracy']:.1%}]  {r['stem']}"
-                f"　CER={r['cer']:.1%}"
-                f"  N={r['n_ref']} 替換={r['sub']} 刪除={r['del_']} 插入={r['ins']}"
+                f"　CER={r['cer']:.1%}  WER={r.get('wer', 0):.1%}"
+                f"  字元N={r['n_ref']} 詞N={r.get('n_words',0)}"
+                f"  替換={r['sub']} 刪除={r['del_']} 插入={r['ins']}"
             )
             lines.append(f"    標準：{r['gt_text'][:80]}{'...' if len(r['gt_text'])>80 else ''}")
             lines.append(f"    辨識：{r['asr_text'][:80]}{'...' if len(r['asr_text'])>80 else ''}")

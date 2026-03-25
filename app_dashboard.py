@@ -2565,6 +2565,9 @@ def _render_eval_results(
 
     # ── 整體統計卡 ────────────────────────────────────────────────────────
     st.subheader("📈 整體統計")
+
+    # CER 區塊
+    st.markdown("**CER 字元錯誤率**")
     m1, m2, m3, m4, m5 = st.columns(5)
     m1.metric("整體準確率（加權）", f"{ov['micro_accuracy']:.1%}")
     m2.metric("平均準確率",         f"{ov['mean_accuracy']:.1%}")
@@ -2572,15 +2575,37 @@ def _render_eval_results(
     m4.metric("總字元數",           f"{ov['total_chars']:,}")
     m5.metric("比對檔案",           f"{ov['n_files_matched']} / {ov['n_files_total']}")
 
-    # 準確率進度條
+    # CER 準確率進度條
     acc = ov["micro_accuracy"]
     bar_color = "#4CAF50" if acc >= 0.85 else ("#FF9800" if acc >= 0.65 else "#F44336")
     st.markdown(
-        f'<div style="background:#222; border-radius:8px; height:18px; margin:8px 0 16px 0;">'
+        f'<div style="background:#222; border-radius:8px; height:18px; margin:4px 0 12px 0;">'
         f'<div style="background:{bar_color}; border-radius:8px; height:18px; '
         f'width:{acc*100:.1f}%; transition:width 0.4s;"></div></div>',
         unsafe_allow_html=True,
     )
+
+    # WER 區塊（若有資料）
+    if ov.get("total_words", 0) > 0:
+        st.markdown("**WER 詞錯誤率**"
+                    + (f"　　<span style='color:#777; font-size:0.85em;'>分詞器：{ov.get('wer_tokenizer','jieba')}</span>"
+                       if ov.get("wer_tokenizer") else ""),
+                    unsafe_allow_html=True)
+        w1, w2, w3, w4, w5 = st.columns(5)
+        w1.metric("整體 WER 準確率（加權）", f"{ov.get('micro_wer_accuracy', 0):.1%}")
+        w2.metric("平均 WER 準確率",         f"{ov.get('mean_wer_accuracy', 0):.1%}")
+        w3.metric("整體 WER",               f"{ov.get('micro_wer', 0):.1%}")
+        w4.metric("總詞數",                 f"{ov.get('total_words', 0):,}")
+        w5.metric("總詞錯誤數",             f"{ov.get('total_wer_errors', 0):,}")
+
+        wer_acc = ov.get("micro_wer_accuracy", 0)
+        wbar_color = "#4CAF50" if wer_acc >= 0.85 else ("#FF9800" if wer_acc >= 0.65 else "#F44336")
+        st.markdown(
+            f'<div style="background:#222; border-radius:8px; height:18px; margin:4px 0 12px 0;">'
+            f'<div style="background:{wbar_color}; border-radius:8px; height:18px; '
+            f'width:{wer_acc*100:.1f}%; transition:width 0.4s;"></div></div>',
+            unsafe_allow_html=True,
+        )
 
     st.divider()
 
@@ -2593,14 +2618,17 @@ def _render_eval_results(
     df_rows = []
     for r in per_file:
         df_rows.append({
-            "檔名":     r["stem"],
-            "準確率":   f"{r['accuracy']:.1%}",
-            "CER":      f"{r['cer']:.1%}",
-            "字元數":   r["n_ref"],
-            "替換":     r["sub"],
-            "刪除":     r["del_"],
-            "插入":     r["ins"],
-            "狀態":     "✅" if r["matched"] else "❌ 缺少辨識結果",
+            "檔名":       r["stem"],
+            "CER 準確率": f"{r['accuracy']:.1%}",
+            "CER":        f"{r['cer']:.1%}",
+            "WER 準確率": f"{r.get('wer_accuracy', 0):.1%}" if r["matched"] else "—",
+            "WER":        f"{r.get('wer', 0):.1%}"          if r["matched"] else "—",
+            "字元數":     r["n_ref"],
+            "詞數":       r.get("n_words", 0),
+            "替換":       r["sub"],
+            "刪除":       r["del_"],
+            "插入":       r["ins"],
+            "狀態":       "✅" if r["matched"] else "❌ 缺少辨識結果",
         })
     st.dataframe(pd.DataFrame(df_rows), use_container_width=True, hide_index=True)
 
@@ -2610,14 +2638,18 @@ def _render_eval_results(
     for r in per_file:
         acc_label = f"{r['accuracy']:.1%}" if r["matched"] else "❌"
         with st.expander(
-            f"{'✅' if r['matched'] else '❌'}  {r['stem']}　│　準確率 {acc_label}　│　CER {r['cer']:.1%}",
+            f"{'✅' if r['matched'] else '❌'}  {r['stem']}　│　"
+            f"CER準確率 {acc_label}　│　CER {r['cer']:.1%}"
+            + (f"　│　WER {r.get('wer', 0):.1%}" if r["matched"] else ""),
             expanded=False,
         ):
             if r["matched"]:
-                c1, c2, c3 = st.columns(3)
-                c1.metric("準確率", f"{r['accuracy']:.1%}")
-                c2.metric("CER",    f"{r['cer']:.1%}")
-                c3.metric("字元數", r["n_ref"])
+                c1, c2, c3, c4, c5 = st.columns(5)
+                c1.metric("CER 準確率", f"{r['accuracy']:.1%}")
+                c2.metric("CER",        f"{r['cer']:.1%}")
+                c3.metric("WER 準確率", f"{r.get('wer_accuracy', 0):.1%}")
+                c4.metric("WER",        f"{r.get('wer', 0):.1%}")
+                c5.metric("詞數",       r.get("n_words", 0))
                 st.markdown(r["diff_html"], unsafe_allow_html=True)
             else:
                 st.error(r["diff_html"])
