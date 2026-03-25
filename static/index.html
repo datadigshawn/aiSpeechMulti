@@ -827,7 +827,7 @@ const partialElements = {};
  *   "error"       — 錯誤訊息（紅底）
  *   "system"      — 系統提示（透明）
  */
-function addEntry(type, channelId, text, confidence) {
+function addEntry(type, channelId, text, confidence, backend) {
   const area = document.getElementById('transcriptArea');
 
   // 移除空白提示
@@ -872,10 +872,18 @@ function addEntry(type, channelId, text, confidence) {
     const confStr = (confidence && confidence > 0)
       ? (confidence * 100).toFixed(0) + '%' : '';
 
-    // 類型標籤
+    // 類型標籤：根據 stt_backend 顯示正確引擎名稱
     let typeBadge = '';
-    if (type === 'confirmed')  typeBadge = '<span class="type-badge confirmed">✅ Google</span>';
-    else if (type === 'transcript') typeBadge = '<span class="type-badge scribe-rt">🟣 Scribe</span>';
+    if (type === 'confirmed') {
+      typeBadge = '<span class="type-badge confirmed">✅ Google</span>';
+    } else if (type === 'transcript') {
+      // stt_backend 區分 google_stream 與 scribe_rt
+      if (backend === 'google_stream') {
+        typeBadge = '<span class="type-badge confirmed">🔵 Google</span>';
+      } else {
+        typeBadge = '<span class="type-badge scribe-rt">🟣 Scribe</span>';
+      }
+    }
 
     entry.innerHTML =
       `<span class="entry-time">${timeStr}</span>` +
@@ -1110,19 +1118,19 @@ async function startCapture() {
 
       } else if (data.type === 'partial') {
         // Scribe RT 中間結果（即時字幕，原地更新，不計入筆數）
-        addEntry('partial', data.channel_id, data.text);
+        addEntry('partial', data.channel_id, data.text, 0, data.stt_backend);
 
       } else if (data.type === 'transcript') {
-        // Scribe committed 最終確認
+        // Scribe committed 或 google_stream final
         txCount++;
         document.getElementById('statTx').textContent = txCount;
-        addEntry('transcript', data.channel_id, data.text, data.confidence);
+        addEntry('transcript', data.channel_id, data.text, data.confidence, data.stt_backend);
 
       } else if (data.type === 'confirmed') {
-        // Google 批次確認（dual 模式）
+        // Google 批次確認（batch / dual 模式）
         txCount++;
         document.getElementById('statTx').textContent = txCount;
-        addEntry('confirmed', data.channel_id, data.text, data.confidence);
+        addEntry('confirmed', data.channel_id, data.text, data.confidence, data.stt_backend);
 
       } else if (data.type === 'error') {
         addEntry('error', data.channel_id, `⚠️ 伺服器錯誤：${data.message}`);
