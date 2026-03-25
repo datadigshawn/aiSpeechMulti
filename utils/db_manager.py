@@ -528,7 +528,8 @@ class DBManager:
             list[sqlite3.Row]: event_id, event_name, event_date, model_type,
                                sub_model, hazard_level, notes, event_created_at,
                                original_filename, recorded_at, file_size,
-                               transcript, transcription_status
+                               transcript, transcription_status,
+                               use_vad, use_denoise
         """
         return self._conn.execute(
             """
@@ -545,7 +546,9 @@ class DBManager:
                 a.recorded_at,
                 a.file_size,
                 t.transcript,
-                t.status          AS transcription_status
+                t.status          AS transcription_status,
+                CASE WHEN t.use_vad     = 1 THEN '是' ELSE '否' END AS use_vad,
+                CASE WHEN t.use_denoise = 1 THEN '是' ELSE '否' END AS use_denoise
             FROM events e
             LEFT JOIN audio_files   a ON a.event_id     = e.id
             LEFT JOIN transcriptions t ON t.audio_file_id = a.id

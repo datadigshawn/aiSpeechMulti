@@ -331,10 +331,17 @@ def ch_badge(channel_id: str) -> str:
 
 
 def build_rt_csv(transcripts: list[dict]) -> bytes:
-    df = pd.DataFrame(transcripts, columns=["id", "channel_id", "transcript", "confidence", "stt_backend", "created_at"])
+    df = pd.DataFrame(transcripts, columns=[
+        "id", "channel_id", "transcript", "confidence",
+        "stt_backend", "use_vad", "use_denoise", "created_at",
+    ])
+    df["use_vad"]     = df["use_vad"].map({True: "是", False: "否", 1: "是", 0: "否"}).fillna("否")
+    df["use_denoise"] = df["use_denoise"].map({True: "是", False: "否", 1: "是", 0: "否"}).fillna("否")
     df = df.rename(columns={
         "id": "序號", "channel_id": "管道", "transcript": "辨識文字",
-        "confidence": "信心值", "stt_backend": "辨識引擎", "created_at": "時間",
+        "confidence": "信心值", "stt_backend": "辨識引擎",
+        "use_vad": "VAD靜音過濾", "use_denoise": "DeepFilter降噪",
+        "created_at": "時間",
     })
     buf = io.BytesIO()
     df.to_csv(buf, index=False, encoding="utf-8-sig")
@@ -1855,6 +1862,7 @@ def render_stats_page():
                     "hazard_level", "notes", "event_created_at",
                     "original_filename", "recorded_at", "file_size",
                     "transcript", "transcription_status",
+                    "use_vad", "use_denoise",
                 ]
                 csv_bytes = _make_csv_bytes(export_rows, fieldnames)
                 ts = datetime.now().strftime("%Y%m%d_%H%M%S")
