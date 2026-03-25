@@ -187,8 +187,11 @@ def init_session_state():
         "uploaded_files": [],
         "server_files":   [],
         "results":        [],
-        "use_vocabulary": True,
-        "merge_results":  False,
+        "use_vocabulary":  True,
+        "merge_results":   False,
+        "preproc_vad":     False,
+        "preproc_denoise": False,
+        "preproc_vad_thr": 0.5,
         "event_name":     "",
         "last_event_id":  None,
         "search_query":   "",
@@ -890,9 +893,96 @@ def render_speech_page():
     else:
         st.caption("⚫ 詞彙優化已關閉，辨識結果將保留原始 ASR 輸出")
 
-    # ── Step 5：彙整輸出 ─────────────────────────────────────────────────
+    # ── Step 5：音訊前處理 ──────────────────────────────────────────────────
     st.write("")
-    st.subheader("Step 5　彙整輸出")
+    st.subheader("Step 5　音訊前處理")
+
+    # 從 API 取得目前設定
+    _preproc_defaults = {"use_vad": False, "use_denoise": False, "vad_threshold": 0.5}
+    _preproc_avail    = {"vad": True, "denoise": True}
+    try:
+        _resp = requests.get(f"{API_BASE}/api/settings", timeout=2)
+        if _resp.ok:
+            _preproc_defaults = _resp.json().get("settings", _preproc_defaults)
+            _preproc_avail    = _resp.json().get("availability", _preproc_avail)
+    except Exception:
+        pass
+
+    col_vad, col_denoise = st.columns(2)
+    with col_vad:
+        _vad_help = (
+            "**Silero VAD** — 過濾靜噪/靜音片段，防止 STT 在無聲段產生幻覺文字。\n\n"
+            "**無線電建議：開啟**（靜噪雜音是主要干擾源）"
+        )
+        if not _preproc_avail.get("vad", True):
+            st.toggle("🔇 VAD 靜音過濾", value=False, disabled=True,
+                      key="preproc_vad", help="Silero VAD 未安裝：pip install silero-vad")
+            st.caption("⚠️ Silero VAD 未安裝")
+        else:
+            use_vad = st.toggle(
+                "🔇 VAD 靜音過濾",
+                value=st.session_state.get("preproc_vad", _preproc_defaults.get("use_vad", False)),
+                key="preproc_vad",
+                help=_vad_help,
+            )
+            if use_vad:
+                vad_threshold = st.slider(
+                    "靈敏度門檻（愈高愈嚴格）",
+                    min_value=0.10, max_value=0.90, step=0.05,
+                    value=float(st.session_state.get("preproc_vad_thr",
+                                _preproc_defaults.get("vad_threshold", 0.5))),
+                    key="preproc_vad_thr",
+                    format="%.2f",
+                )
+            else:
+                vad_threshold = float(_preproc_defaults.get("vad_threshold", 0.5))
+
+    with col_denoise:
+        _denoise_help = (
+            "**DeepFilterNet** — AI 背景降噪。\n\n"
+            "**無線電注意**：無線電為窄頻壓縮音質，降噪效果有限，"
+            "建議**開/關各辨識一次**比較準確率後再決定。"
+        )
+        if not _preproc_avail.get("denoise", True):
+            st.toggle("🎚️ DeepFilterNet 降噪", value=False, disabled=True,
+                      key="preproc_denoise", help="DeepFilterNet 未安裝：pip install deepfilternet")
+            st.caption("⚠️ DeepFilterNet 未安裝")
+        else:
+            use_denoise = st.toggle(
+                "🎚️ DeepFilterNet 降噪",
+                value=st.session_state.get("preproc_denoise",
+                                           _preproc_defaults.get("use_denoise", False)),
+                key="preproc_denoise",
+                help=_denoise_help,
+            )
+
+    # 當 toggle 改變時推送到 API（讓 index.html 即時語音也同步）
+    _new_vad     = st.session_state.get("preproc_vad",     False)
+    _new_denoise = st.session_state.get("preproc_denoise", False)
+    _new_thr     = float(st.session_state.get("preproc_vad_thr", 0.5))
+    if (_new_vad     != _preproc_defaults.get("use_vad",       False) or
+        _new_denoise != _preproc_defaults.get("use_denoise",   False) or
+        abs(_new_thr  - _preproc_defaults.get("vad_threshold", 0.5)) > 0.001):
+        try:
+            requests.post(f"{API_BASE}/api/settings", json={
+                "use_vad":       _new_vad,
+                "use_denoise":   _new_denoise,
+                "vad_threshold": _new_thr,
+            }, timeout=2)
+        except Exception:
+            pass
+
+    if _new_vad or _new_denoise:
+        _active = []
+        if _new_vad:     _active.append(f"VAD（門檻 {_new_thr:.2f}）")
+        if _new_denoise: _active.append("DeepFilterNet 降噪")
+        st.caption(f"✅ 已啟用：{' + '.join(_active)}")
+    else:
+        st.caption("⚫ 前處理關閉，直接送 STT（原始音訊）")
+
+    # ── Step 6：彙整輸出 ─────────────────────────────────────────────────
+    st.write("")
+    st.subheader("Step 6　彙整輸出")
     merge_results = st.checkbox(
         "將辨識結果彙整到單一檔案",
         value=st.session_state.get("merge_results", False),

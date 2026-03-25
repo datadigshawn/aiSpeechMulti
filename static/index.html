@@ -295,6 +295,105 @@
       margin-top: 80px;
       line-height: 2;
     }
+
+    /* ── 音訊前處理 toggle ── */
+    .preproc-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .preproc-item {
+      background: #13151f;
+      border: 1px solid #2a2d3e;
+      border-radius: 8px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .preproc-item.active { border-color: #2ea043; }
+    .preproc-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .preproc-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #d0d8ef;
+    }
+    .preproc-desc {
+      font-size: 0.75rem;
+      color: #556;
+      line-height: 1.5;
+    }
+    .preproc-status {
+      font-size: 0.7rem;
+      border-radius: 10px;
+      padding: 2px 8px;
+      font-weight: 700;
+      letter-spacing: .02em;
+    }
+    .preproc-status.on  { background: #1a3a1a; color: #6fcf97; }
+    .preproc-status.off { background: #2a2d3e; color: #556; }
+    .preproc-status.unavail { background: #2a1a1a; color: #c9414a; }
+
+    /* Toggle switch */
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 42px;
+      height: 22px;
+      flex-shrink: 0;
+    }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background: #2a2d3e;
+      border-radius: 22px;
+      transition: .2s;
+    }
+    .toggle-slider:before {
+      content: "";
+      position: absolute;
+      width: 16px; height: 16px;
+      left: 3px; top: 3px;
+      background: #778;
+      border-radius: 50%;
+      transition: .2s;
+    }
+    input:checked + .toggle-slider { background: #2ea043; }
+    input:checked + .toggle-slider:before { transform: translateX(20px); background: #fff; }
+    input:disabled + .toggle-slider { opacity: 0.4; cursor: not-allowed; }
+
+    /* VAD 門檻滑桿 */
+    .threshold-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 4px;
+    }
+    .threshold-row label { font-size: 0.78rem; color: #778; white-space: nowrap; }
+    #vadThreshold {
+      flex: 1;
+      accent-color: #2ea043;
+      cursor: pointer;
+    }
+    #vadThresholdVal {
+      font-size: 0.78rem;
+      color: #7eb8f7;
+      width: 30px;
+      text-align: right;
+      font-weight: 600;
+    }
+    .preproc-msg {
+      font-size: 0.72rem;
+      color: #e3a03c;
+      margin-top: 2px;
+      min-height: 14px;
+    }
   </style>
 </head>
 <body>
@@ -352,6 +451,54 @@
     <div id="deviceHint" class="device-hint">
       首次使用請點擊「掃描裝置」，瀏覽器會請求麥克風權限後列出所有音訊輸入裝置。<br>
       每個分頁可選擇不同裝置（如不同無線電接收器的虛擬音訊輸入）。
+    </div>
+  </div>
+
+  <!-- 音訊前處理卡片 -->
+  <div class="card">
+    <div class="card-title">音訊前處理</div>
+    <div class="preproc-grid">
+
+      <!-- VAD -->
+      <div class="preproc-item" id="vadItem">
+        <div class="preproc-header">
+          <span class="preproc-title">🔇 VAD 靜音過濾</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="vadToggle" onchange="onPreprocChange()" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="preproc-desc">
+          Silero VAD — 過濾靜噪片段，防止 STT 幻覺。<br>
+          <b>無線電建議：開啟</b>
+        </div>
+        <div class="threshold-row" id="vadThresholdRow">
+          <label>靈敏度門檻</label>
+          <input type="range" id="vadThreshold" min="0.1" max="0.9" step="0.05"
+                 value="0.5" oninput="onThresholdInput()" onchange="onPreprocChange()" />
+          <span id="vadThresholdVal">0.50</span>
+        </div>
+        <div class="preproc-msg" id="vadMsg"></div>
+        <span class="preproc-status off" id="vadStatus">關閉</span>
+      </div>
+
+      <!-- DeepFilterNet -->
+      <div class="preproc-item" id="denoiseItem">
+        <div class="preproc-header">
+          <span class="preproc-title">🎚️ DeepFilterNet 降噪</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="denoiseToggle" onchange="onPreprocChange()" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="preproc-desc">
+          背景噪音過濾。無線電窄頻音質可能<br>
+          效果有限，建議測試比較後再決定。
+        </div>
+        <div class="preproc-msg" id="denoiseMsg"></div>
+        <span class="preproc-status off" id="denoiseStatus">關閉</span>
+      </div>
+
     </div>
   </div>
 
@@ -426,6 +573,118 @@ let txCount        = 0;
 // 緩衝追蹤（純顯示用，真正的緩衝在 app_api.py）
 const TARGET_BYTES = TARGET_SAMPLE_RATE * CHUNK_SECONDS * 2;  // 16-bit = 2 bytes
 let bytesSent      = 0;
+
+// =============================================================================
+// ① 音訊前處理設定（VAD / 降噪）
+// =============================================================================
+
+const API_BASE_HTTP = window.location.origin;   // e.g. http://localhost:8000
+
+/** 頁面載入時從伺服器同步目前設定 */
+async function loadPreprocSettings() {
+  try {
+    const res  = await fetch(`${API_BASE_HTTP}/api/settings`);
+    const data = await res.json();
+    const s    = data.settings   ?? {};
+    const av   = data.availability ?? {};
+
+    // 套用 VAD
+    const vadCk = document.getElementById('vadToggle');
+    vadCk.checked  = !!s.use_vad;
+    if (!av.vad) {
+      vadCk.disabled = true;
+      document.getElementById('vadMsg').textContent = '⚠ Silero VAD 未安裝（pip install silero-vad）';
+    }
+    document.getElementById('vadThreshold').value = s.vad_threshold ?? 0.5;
+    document.getElementById('vadThresholdVal').textContent = (s.vad_threshold ?? 0.5).toFixed(2);
+
+    // 套用降噪
+    const dnCk = document.getElementById('denoiseToggle');
+    dnCk.checked  = !!s.use_denoise;
+    if (!av.denoise) {
+      dnCk.disabled = true;
+      document.getElementById('denoiseMsg').textContent = '⚠ DeepFilterNet 未安裝（pip install deepfilternet）';
+    }
+
+    updatePreprocUI();
+  } catch (e) {
+    console.warn('[preproc] 無法載入設定：', e);
+  }
+}
+
+/** toggle / slider 變動時推送到伺服器 */
+async function onPreprocChange() {
+  const useVad     = document.getElementById('vadToggle').checked;
+  const useDenoise = document.getElementById('denoiseToggle').checked;
+  const threshold  = parseFloat(document.getElementById('vadThreshold').value);
+
+  updatePreprocUI();
+
+  try {
+    const res  = await fetch(`${API_BASE_HTTP}/api/settings`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ use_vad: useVad, use_denoise: useDenoise, vad_threshold: threshold }),
+    });
+    const data = await res.json();
+    if (!data.ok) console.warn('[preproc] 設定更新失敗', data);
+  } catch (e) {
+    console.warn('[preproc] 設定推送失敗：', e);
+  }
+}
+
+/** 滑桿拖動時即時更新數值顯示（不推送 API，放開時才推） */
+function onThresholdInput() {
+  const v = parseFloat(document.getElementById('vadThreshold').value);
+  document.getElementById('vadThresholdVal').textContent = v.toFixed(2);
+}
+
+/** 根據 checkbox 狀態更新卡片外觀 */
+function updatePreprocUI() {
+  const vadOn     = document.getElementById('vadToggle').checked;
+  const denoiseOn = document.getElementById('denoiseToggle').checked;
+  const vadDisabled = document.getElementById('vadToggle').disabled;
+  const dnDisabled  = document.getElementById('denoiseToggle').disabled;
+
+  // VAD 卡片
+  const vadItem   = document.getElementById('vadItem');
+  const vadStatus = document.getElementById('vadStatus');
+  const vadThrRow = document.getElementById('vadThresholdRow');
+  if (vadDisabled) {
+    vadItem.classList.remove('active');
+    vadStatus.className = 'preproc-status unavail';
+    vadStatus.textContent = '未安裝';
+  } else if (vadOn) {
+    vadItem.classList.add('active');
+    vadStatus.className = 'preproc-status on';
+    vadStatus.textContent = '開啟';
+  } else {
+    vadItem.classList.remove('active');
+    vadStatus.className = 'preproc-status off';
+    vadStatus.textContent = '關閉';
+  }
+  vadThrRow.style.opacity = (vadOn && !vadDisabled) ? '1' : '0.35';
+
+  // 降噪卡片
+  const dnItem   = document.getElementById('denoiseItem');
+  const dnStatus = document.getElementById('denoiseStatus');
+  if (dnDisabled) {
+    dnItem.classList.remove('active');
+    dnStatus.className = 'preproc-status unavail';
+    dnStatus.textContent = '未安裝';
+  } else if (denoiseOn) {
+    dnItem.classList.add('active');
+    dnStatus.className = 'preproc-status on';
+    dnStatus.textContent = '開啟';
+  } else {
+    dnItem.classList.remove('active');
+    dnStatus.className = 'preproc-status off';
+    dnStatus.textContent = '關閉';
+  }
+}
+
+// 頁面載入後同步設定
+window.addEventListener('DOMContentLoaded', loadPreprocSettings);
 
 // =============================================================================
 // ① 工具函式：Float32 → Int16 PCM

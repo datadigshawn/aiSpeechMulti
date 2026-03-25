@@ -60,6 +60,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 # ── 載入 .env ──────────────────────────────────────────────────────────────────
 load_dotenv()
@@ -124,13 +125,19 @@ if DEFAULT_STT_BACKEND not in ("google", "scribe"):
 
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
 
-# ── VAD / 降噪開關（可透過 .env 控制）────────────────────────────────────────
-# USE_VAD=true     → 使用 Silero VAD 篩選，靜音片段直接跳過 STT
-# USE_DENOISE=true → 使用 DeepFilterNet 降噪，在 STT 之前過濾背景噪音
-# VAD_THRESHOLD    → VAD 語音機率門檻（0.0~1.0），預設 0.5
-USE_VAD      = os.getenv("USE_VAD",      "true").lower()  == "true"
-USE_DENOISE  = os.getenv("USE_DENOISE",  "true").lower()  == "true"
-VAD_THRESHOLD = float(os.getenv("VAD_THRESHOLD", "0.5"))
+# ── VAD / 降噪開關（執行期可透過 POST /api/settings 動態調整）──────────────
+# .env 初始值：USE_VAD / USE_DENOISE / VAD_THRESHOLD
+# 無線電建議：USE_VAD=true（過濾靜噪）, USE_DENOISE=false（窄頻音質不適合）
+_audio_settings: dict = {
+    "use_vad":       os.getenv("USE_VAD",     "false").lower() == "true",
+    "use_denoise":   os.getenv("USE_DENOISE", "false").lower() == "true",
+    "vad_threshold": float(os.getenv("VAD_THRESHOLD", "0.5")),
+}
+
+# 向下相容的模組層級變數（供舊程式碼讀取，實際判斷改用 _audio_settings）
+USE_VAD       = _audio_settings["use_vad"]
+USE_DENOISE   = _audio_settings["use_denoise"]
+VAD_THRESHOLD = _audio_settings["vad_threshold"]
 
 DB_PATH = Path(__file__).parent / "data" / "aiSpeechMulti.db"
 
@@ -465,7 +472,7 @@ def _preprocess_wav(wav_path: str, channel_id: str = "") -> tuple[str, bool]:
     tag = f"[{channel_id}]" if channel_id else ""
 
     # ── Step 1: 降噪 ──────────────────────────────────────────────────────────
-    if USE_DENOISE:
+    if _audio_settings["use_denoise"]:
         _, ok = denoise_wav_file(wav_path, output_wav=wav_path, sample_rate=SAMPLE_RATE)
         if ok:
             logger.debug(f"{tag}[denoise] 降噪完成")
@@ -473,8 +480,12 @@ def _preprocess_wav(wav_path: str, channel_id: str = "") -> tuple[str, bool]:
             logger.debug(f"{tag}[denoise] 降噪不可用，使用原始音訊")
 
     # ── Step 2: VAD 篩選 ──────────────────────────────────────────────────────
-    if USE_VAD:
-        has_speech = has_speech_in_wav_sr(wav_path, sample_rate=SAMPLE_RATE, threshold=VAD_THRESHOLD)
+    if _audio_settings["use_vad"]:
+        has_speech = has_speech_in_wav_sr(
+            wav_path,
+            sample_rate=SAMPLE_RATE,
+            threshold=_audio_settings["vad_threshold"],
+        )
         if not has_speech:
             logger.debug(f"{tag}[vad] 靜音片段，跳過 STT")
             return wav_path, True   # should_skip = True
@@ -1100,7 +1111,69 @@ async def health_check():
 
 
 # ==============================================================================
-# ⑨ 直接執行入口
+# ⑨ 音訊前處理設定 API（VAD / 降噪動態開關）
+# ==============================================================================
+
+class AudioSettingsBody(BaseModel):
+    """PATCH /api/settings 的請求主體（所有欄位可選）"""
+    use_vad:       Optional[bool]  = None
+    use_denoise:   Optional[bool]  = None
+    vad_threshold: Optional[float] = None
+
+
+@app.get("/api/settings", summary="查詢音訊前處理設定")
+async def get_audio_settings():
+    """
+    回傳目前 VAD 與降噪的開關狀態，以及各模組是否可用。
+    前端可用此端點在頁面載入時同步顯示目前設定。
+    """
+    try:
+        from utils.vad_filter    import is_available as vad_available
+    except Exception:
+        vad_available = lambda: False
+    try:
+        from utils.noise_filter  import is_available as denoise_available
+    except Exception:
+        denoise_available = lambda: False
+
+    return {
+        "ok": True,
+        "settings": dict(_audio_settings),
+        "availability": {
+            "vad":     vad_available(),
+            "denoise": denoise_available(),
+        },
+    }
+
+
+@app.post("/api/settings", summary="更新音訊前處理設定")
+async def update_audio_settings(body: AudioSettingsBody):
+    """
+    動態切換 VAD / 降噪開關，無須重啟伺服器。
+    僅提供要修改的欄位即可，未提供的欄位保持不變。
+
+    - **use_vad**：Silero VAD 靜音過濾（無線電建議開啟）
+    - **use_denoise**：DeepFilterNet 降噪（無線電窄頻建議測試後決定）
+    - **vad_threshold**：語音機率門檻 0.0～1.0（預設 0.5，值愈高愈嚴格）
+    """
+    if body.use_vad is not None:
+        _audio_settings["use_vad"] = body.use_vad
+    if body.use_denoise is not None:
+        _audio_settings["use_denoise"] = body.use_denoise
+    if body.vad_threshold is not None:
+        _audio_settings["vad_threshold"] = max(0.0, min(1.0, body.vad_threshold))
+
+    logger.info(
+        f"[settings] 音訊前處理更新 → "
+        f"VAD={'ON' if _audio_settings['use_vad'] else 'OFF'}  "
+        f"降噪={'ON' if _audio_settings['use_denoise'] else 'OFF'}  "
+        f"VAD門檻={_audio_settings['vad_threshold']}"
+    )
+    return {"ok": True, "settings": dict(_audio_settings)}
+
+
+# ==============================================================================
+# ⑩ 直接執行入口
 # ==============================================================================
 
 if __name__ == "__main__":

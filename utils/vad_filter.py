@@ -17,6 +17,15 @@ _vad_model = None
 _vad_lock = None
 
 
+def is_available() -> bool:
+    """回傳 Silero VAD 是否可用（silero-vad 套件已安裝且可載入）。"""
+    try:
+        from silero_vad import load_silero_vad  # noqa: F401
+        return True
+    except Exception:
+        return False
+
+
 def _get_lock():
     """延遲初始化 threading.Lock（避免 import 時副作用）。"""
     global _vad_lock
