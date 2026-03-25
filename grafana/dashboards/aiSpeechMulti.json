@@ -1,0 +1,638 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "id": null,
+  "uid": "aiSpeechMulti-main",
+  "title": "aiSpeechMulti 語音辨識監控",
+  "tags": ["speech", "asr", "aiSpeechMulti"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "panels": [
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "📊 整體統計",
+      "type": "row"
+    },
+
+    {
+      "id": 1,
+      "title": "總辨識筆數",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "aiSpeechMulti-sqlite" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQueryText": "SELECT COUNT(*) as value FROM transcripts",
+          "queryType": "table",
+          "timeColumns": []
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "blue" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": []
+      }
+    },
+
+    {
+      "id": 2,
+      "title": "今日辨識筆數",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "aiSpeechMulti-sqlite" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQueryText": "SELECT COUNT(*) as value FROM transcripts WHERE date(created_at) = date('now')",
+          "queryType": "table",
+          "timeColumns": []
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "green" },
+          "unit": "short"
+        },
+        "overrides": []
+      }
+    },
+
+    {
+      "id": 3,
+      "title": "活躍管道數",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "aiSpeechMulti-sqlite" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQueryText": "SELECT COUNT(DISTINCT channel_id) as value FROM transcripts",
+          "queryType": "table",
+          "timeColumns": []
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "purple" },
+          "unit": "short"
+        },
+        "overrides": []
+      }
+    },
+
+    {
+      "id": 4,
+      "title": "關鍵字總數",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "aiSpeechMulti-sqlite" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQueryText": "SELECT COUNT(*) as value FROM keywords",
+          "queryType": "table",
+          "timeColumns": []
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "orange" },
+          "unit": "short"
+        },
+        "overrides": []
+      }
+    },
+
+    {
+      "id": 5,
+      "title": "最高危害等級",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "aiSpeechMulti-sqlite" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQueryText": "SELECT MAX(hazard_level) as value FROM keywords",
+          "queryType": "table",
+          "timeColumns": []
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "text": {}
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 2 },
+              { "color": "orange", "value": 3 },
+              { "color": "red", "value": 5 }
+            ]
+          },
+          "color": { "mode": "thresholds" },
+          "unit": "short",
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "L0 正常" }, "1": { "text": "L1 低" }, "2": { "text": "L2 注意" }, "3": { "text": "L3 警告" }, "4": { "text": "L4 高危" }, "5": { "text": "L5 緊急" } } }
+          ]
+        },
+        "overrides": []
+      }
+    },
+
+    {
+      "id": 6,
+      "title": "評測事件數",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "aiSpeechMulti-sqlite" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQueryText": "SELECT COUNT(*) as value FROM events",
+          "queryType": "table",
+          "timeColumns": []
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "text" },
+          "unit": "short"
+        },
+        "overrides": []
+      }
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "id": 101,
+      "title": "📈 辨識量趨勢",
+      "type": "row"
+    },
+
+    {
+      "id": 10,
+      "title": "辨識量趨勢（每分鐘）",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 6 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "aiSpeechMulti-sqlite" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQueryText": "SELECT strftime('%Y-%m-%dT%H:%M:00', created_at) as time, COUNT(*) as \"辨識筆數\" FROM transcripts GROUP BY strftime('%Y-%m-%dT%H:%M', created_at) ORDER BY time ASC",
+          "queryType": "time series",
+          "timeColumns": ["time"]
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "none" },
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      }
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+      "id": 102,
+      "title": "🔍 引擎與管道分析",
+      "type": "row"
+    },
+
+    {
+      "id": 20,
+      "title": "各引擎辨識量",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 15 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "aiSpeechMulti-sqlite" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQueryText": "SELECT stt_backend as \"引擎\", COUNT(*) as \"筆數\" FROM transcripts GROUP BY stt_backend ORDER BY 筆數 DESC",
+          "queryType": "table",
+          "timeColumns": []
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "pieType": "pie",
+        "tooltip": { "mode": "single", "sort": "none" },
+        "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "values": ["value", "percent"] },
+        "displayLabels": ["name", "percent"]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "hideFrom": { "legend": false, "tooltip": false, "viz": false } }
+        },
+        "overrides": []
+      }
+    },
+
+    {
+      "id": 21,
+      "title": "各管道辨識量",
+      "type": "barchart",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 15 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "aiSpeechMulti-sqlite" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQueryText": "SELECT channel_id as \"管道\", COUNT(*) as \"辨識筆數\" FROM transcripts GROUP BY channel_id ORDER BY 辨識筆數 DESC",
+          "queryType": "table",
+          "timeColumns": []
+        }
+      ],
+      "options": {
+        "barRadius": 0.1,
+        "barWidth": 0.7,
+        "colorByField": "管道",
+        "fillOpacity": 80,
+        "gradientMode": "none",
+        "groupWidth": 0.7,
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "orientation": "vertical",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": { "mode": "single", "sort": "none" },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 100
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineWidth": 1
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      }
+    },
+
+    {
+      "id": 22,
+      "title": "VAD / 降噪使用組合",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 15 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "aiSpeechMulti-sqlite" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQueryText": "SELECT CASE WHEN use_vad=1 AND use_denoise=1 THEN 'VAD+降噪 開啟' WHEN use_vad=1 AND use_denoise=0 THEN '僅 VAD' WHEN use_vad=0 AND use_denoise=1 THEN '僅降噪' ELSE '全部關閉' END as \"設定\", COUNT(*) as \"筆數\" FROM transcripts GROUP BY use_vad, use_denoise",
+          "queryType": "table",
+          "timeColumns": []
+        }
+      ],
+      "options": {
+        "pieType": "donut",
+        "tooltip": { "mode": "single", "sort": "none" },
+        "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "values": ["value", "percent"] },
+        "displayLabels": ["name", "percent"]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "hideFrom": { "legend": false, "tooltip": false, "viz": false } }
+        },
+        "overrides": []
+      }
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+      "id": 103,
+      "title": "⚠️ 關鍵字危害分析",
+      "type": "row"
+    },
+
+    {
+      "id": 30,
+      "title": "關鍵字危害等級分佈",
+      "type": "barchart",
+      "gridPos": { "h": 8, "w": 10, "x": 0, "y": 24 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "aiSpeechMulti-sqlite" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQueryText": "SELECT CASE hazard_level WHEN 0 THEN 'L0 一般' WHEN 1 THEN 'L1 低' WHEN 2 THEN 'L2 注意' WHEN 3 THEN 'L3 警告' WHEN 4 THEN 'L4 高危' WHEN 5 THEN 'L5 緊急' ELSE 'L'||hazard_level END as \"等級\", COUNT(*) as \"關鍵字數\" FROM keywords GROUP BY hazard_level ORDER BY hazard_level ASC",
+          "queryType": "table",
+          "timeColumns": []
+        }
+      ],
+      "options": {
+        "barRadius": 0.1,
+        "barWidth": 0.7,
+        "fillOpacity": 80,
+        "gradientMode": "none",
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": false },
+        "orientation": "vertical",
+        "showValue": "always",
+        "stacking": "none",
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "fillOpacity": 80, "lineWidth": 1 },
+          "unit": "short"
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "L5 緊急" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] },
+          { "matcher": { "id": "byName", "options": "L4 高危" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }] }
+        ]
+      }
+    },
+
+    {
+      "id": 31,
+      "title": "關鍵字列表（含危害等級）",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 14, "x": 10, "y": 24 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "aiSpeechMulti-sqlite" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQueryText": "SELECT k.keyword as \"關鍵字\", k.hazard_level as \"危害等級\", k.source as \"來源\", e.event_name as \"所屬事件\", k.created_at as \"建立時間\" FROM keywords k LEFT JOIN events e ON k.event_id = e.id ORDER BY k.hazard_level DESC, k.id ASC",
+          "queryType": "table",
+          "timeColumns": []
+        }
+      ],
+      "options": {
+        "footer": { "show": false },
+        "showHeader": true,
+        "sortBy": [{ "displayName": "危害等級", "desc": true }],
+        "cellHeight": "sm"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "center",
+            "cellOptions": { "type": "auto" },
+            "inspect": false,
+            "minWidth": 50
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "危害等級" },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": { "type": "color-background", "mode": "basic" }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": null },
+                    { "color": "#EAB839", "value": 2 },
+                    { "color": "orange", "value": 3 },
+                    { "color": "dark-orange", "value": 4 },
+                    { "color": "red", "value": 5 }
+                  ]
+                }
+              },
+              { "id": "color", "value": { "mode": "thresholds" } },
+              {
+                "id": "mappings",
+                "value": [
+                  { "type": "value", "options": {
+                    "0": { "text": "L0 一般" },
+                    "1": { "text": "L1 低" },
+                    "2": { "text": "L2 注意" },
+                    "3": { "text": "L3 警告" },
+                    "4": { "text": "L4 高危" },
+                    "5": { "text": "L5 緊急" }
+                  }}
+                ]
+              },
+              { "id": "custom.width", "value": 100 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "關鍵字" },
+            "properties": [
+              { "id": "custom.width", "value": 120 },
+              { "id": "custom.align", "value": "left" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "所屬事件" },
+            "properties": [{ "id": "custom.width", "value": 240 }]
+          }
+        ]
+      }
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 32 },
+      "id": 104,
+      "title": "🎙️ 最近辨識記錄",
+      "type": "row"
+    },
+
+    {
+      "id": 40,
+      "title": "最近辨識記錄（即時，每30秒自動更新）",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 33 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "aiSpeechMulti-sqlite" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQueryText": "SELECT t.created_at as \"時間\", t.channel_id as \"管道\", t.stt_backend as \"引擎\", CASE t.use_vad WHEN 1 THEN '✅' ELSE '—' END as \"VAD\", CASE t.use_denoise WHEN 1 THEN '✅' ELSE '—' END as \"降噪\", ROUND(t.confidence, 2) as \"信心值\", t.transcript as \"辨識文字\" FROM transcripts t ORDER BY t.id DESC LIMIT 50",
+          "queryType": "table",
+          "timeColumns": []
+        }
+      ],
+      "options": {
+        "footer": { "show": false },
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left",
+            "cellOptions": { "type": "auto" },
+            "inspect": false
+          }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "時間" }, "properties": [{ "id": "custom.width", "value": 160 }] },
+          { "matcher": { "id": "byName", "options": "管道" }, "properties": [{ "id": "custom.width", "value": 70 }, { "id": "custom.align", "value": "center" }] },
+          { "matcher": { "id": "byName", "options": "引擎" }, "properties": [{ "id": "custom.width", "value": 120 }, { "id": "custom.align", "value": "center" }] },
+          { "matcher": { "id": "byName", "options": "VAD" },  "properties": [{ "id": "custom.width", "value": 50 },  { "id": "custom.align", "value": "center" }] },
+          { "matcher": { "id": "byName", "options": "降噪" }, "properties": [{ "id": "custom.width", "value": 50 },  { "id": "custom.align", "value": "center" }] },
+          { "matcher": { "id": "byName", "options": "信心值" }, "properties": [{ "id": "custom.width", "value": 70 }, { "id": "custom.align", "value": "center" }] },
+          {
+            "matcher": { "id": "byName", "options": "辨識文字" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "auto", "wrapText": true } }
+            ]
+          }
+        ]
+      }
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 43 },
+      "id": 105,
+      "title": "📁 檔案辨識評測記錄",
+      "type": "row"
+    },
+
+    {
+      "id": 50,
+      "title": "辨識評測事件列表",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 44 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "aiSpeechMulti-sqlite" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQueryText": "SELECT e.id as \"#\", e.event_name as \"事件名稱\", e.event_date as \"日期\", e.model_type as \"辨識引擎\", e.sub_model as \"子模型\", COUNT(t.id) as \"辨識筆數\", e.created_at as \"建立時間\" FROM events e LEFT JOIN transcriptions t ON t.event_id = e.id GROUP BY e.id ORDER BY e.id DESC",
+          "queryType": "table",
+          "timeColumns": []
+        }
+      ],
+      "options": { "footer": { "show": false }, "showHeader": true, "cellHeight": "sm" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "align": "left", "cellOptions": { "type": "auto" } }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "#" },     "properties": [{ "id": "custom.width", "value": 40 }] },
+          { "matcher": { "id": "byName", "options": "辨識引擎" }, "properties": [{ "id": "custom.width", "value": 110 }] },
+          { "matcher": { "id": "byName", "options": "辨識筆數" }, "properties": [{ "id": "custom.width", "value": 80 }, { "id": "custom.align", "value": "center" }] }
+        ]
+      }
+    },
+
+    {
+      "id": 51,
+      "title": "各引擎評測次數",
+      "type": "barchart",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 44 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "aiSpeechMulti-sqlite" },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQueryText": "SELECT COALESCE(model_type, '未指定') as \"引擎\", COUNT(*) as \"事件數\" FROM events GROUP BY model_type ORDER BY 事件數 DESC",
+          "queryType": "table",
+          "timeColumns": []
+        }
+      ],
+      "options": {
+        "barRadius": 0.1,
+        "barWidth": 0.6,
+        "fillOpacity": 80,
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": false },
+        "orientation": "horizontal",
+        "showValue": "always",
+        "stacking": "none",
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "fillOpacity": 80, "lineWidth": 1 },
+          "unit": "short"
+        },
+        "overrides": []
+      }
+    }
+
+  ]
+}

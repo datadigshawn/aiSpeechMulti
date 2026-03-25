@@ -619,32 +619,52 @@ def compare_two_texts(
     { "per_file": [...], "overall": {...} }
     """
     cer_info  = calculate_cer(gt_text, asr_text)
+    wer_info  = calculate_wer(gt_text, asr_text)
     diff_html = build_diff_html(gt_text, asr_text)
 
     per_file = [{
-        "stem":      asr_name,
-        "gt_text":   gt_text,
-        "asr_text":  asr_text,
-        "cer":       cer_info["cer"],
-        "accuracy":  cer_info["accuracy"],
-        "n_ref":     cer_info["n_ref"],
-        "sub":       cer_info["sub"],
-        "del_":      cer_info["del_"],
-        "ins":       cer_info["ins"],
-        "n_errors":  cer_info["n_errors"],
-        "diff_html": diff_html,
-        "matched":   True,
+        "stem":         asr_name,
+        "gt_text":      gt_text,
+        "asr_text":     asr_text,
+        # CER
+        "cer":          cer_info["cer"],
+        "accuracy":     cer_info["accuracy"],
+        "n_ref":        cer_info["n_ref"],
+        "sub":          cer_info["sub"],
+        "del_":         cer_info["del_"],
+        "ins":          cer_info["ins"],
+        "n_errors":     cer_info["n_errors"],
+        # WER
+        "wer":          wer_info["wer"],
+        "wer_accuracy": wer_info["accuracy"],
+        "n_words":      wer_info["n_ref"],
+        "wer_sub":      wer_info["sub"],
+        "wer_del":      wer_info["del_"],
+        "wer_ins":      wer_info["ins"],
+        "wer_tokenizer": wer_info["tokenizer"],
+        "diff_html":    diff_html,
+        "matched":      True,
     }]
 
+    total_wer_errors = wer_info["sub"] + wer_info["del_"] + wer_info["ins"]
     overall = {
-        "mean_cer":       cer_info["cer"],
-        "mean_accuracy":  cer_info["accuracy"],
-        "total_chars":    cer_info["n_ref"],
-        "total_errors":   cer_info["n_errors"],
-        "micro_cer":      cer_info["cer"],
-        "micro_accuracy": cer_info["accuracy"],
-        "n_files_matched": 1,
-        "n_files_total":   1,
+        # CER
+        "mean_cer":           cer_info["cer"],
+        "mean_accuracy":      cer_info["accuracy"],
+        "total_chars":        cer_info["n_ref"],
+        "total_errors":       cer_info["n_errors"],
+        "micro_cer":          cer_info["cer"],
+        "micro_accuracy":     cer_info["accuracy"],
+        # WER
+        "mean_wer":           wer_info["wer"],
+        "mean_wer_accuracy":  wer_info["accuracy"],
+        "total_words":        wer_info["n_ref"],
+        "total_wer_errors":   total_wer_errors,
+        "micro_wer":          wer_info["wer"],
+        "micro_wer_accuracy": wer_info["accuracy"],
+        "wer_tokenizer":      wer_info["tokenizer"],
+        "n_files_matched":    1,
+        "n_files_total":      1,
     }
 
     return {"per_file": per_file, "overall": overall}
