@@ -1115,6 +1115,40 @@ async def test_scribe_rt():
     }
 
 
+@app.get("/display", include_in_schema=False)
+async def display_page():
+    """文字投放顯示頁面（適合延伸螢幕全螢幕展示）"""
+    return FileResponse("static/display.html")
+
+
+@app.get("/api/keywords", summary="取得關鍵字清單（供顯示頁關鍵字比對）")
+async def get_keywords():
+    """
+    從 aiSpeechMulti.db 取出所有關鍵字，供 display.html 即時比對。
+    回傳格式：[{keyword, hazard_level, source, event_id, event_name}]
+    """
+    try:
+        from utils.db_manager import DBManager as _DBM
+        _db = _DBM(DB_PATH)
+        rows = _db.get_all_keywords()
+        _db.close()
+        return {
+            "ok": True,
+            "keywords": [
+                {
+                    "keyword":      r[1],
+                    "hazard_level": r[2],
+                    "source":       r[3],
+                    "event_id":     r[4],
+                    "event_name":   r[5],
+                }
+                for r in rows
+            ],
+        }
+    except Exception as exc:
+        return {"ok": False, "keywords": [], "error": str(exc)}
+
+
 @app.get("/api/health", summary="健康檢查")
 async def health_check():
     return {

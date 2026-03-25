@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>即時語音辨識投放</title>
+<style>
+  /* ── 全局 ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0d0d0d;
+    --bg2:       #161616;
+    --border:    #2a2a2a;
+    --text:      #e8e8e8;
+    --text-dim:  #666;
+    --accent:    #4a9eff;
+    --partial:   #556;
+    --l5: #ff2222;
+    --l4: #ff6600;
+    --l3: #ffaa00;
+    --l2: #aadd00;
+    --l1: #44cc88;
+    --l0: #aaaaaa;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans TC', 'Microsoft JhengHei', 'PingFang TC', sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── 頂部工具列 ── */
+  #toolbar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    flex-wrap: wrap;
+    transition: opacity 0.4s;
+  }
+  #toolbar.hidden { opacity: 0; pointer-events: none; }
+
+  #toolbar label { color: var(--text-dim); }
+  #toolbar select, #toolbar input[type=range] {
+    background: #222; border: 1px solid #333; color: var(--text);
+    border-radius: 4px; padding: 3px 8px; font-size: 13px;
+  }
+  #toolbar select { cursor: pointer; }
+
+  .tb-group { display: flex; align-items: center; gap: 6px; }
+  .tb-sep { width: 1px; height: 20px; background: var(--border); }
+
+  #btnHideBar {
+    margin-left: auto;
+    background: #333; border: none; color: var(--text-dim);
+    border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 12px;
+  }
+  #btnHideBar:hover { background: #444; color: var(--text); }
+
+  #btnShowBar {
+    position: fixed; top: 8px; right: 8px; z-index: 100;
+    background: rgba(50,50,50,0.6); border: 1px solid #444;
+    color: #888; border-radius: 4px; padding: 4px 10px;
+    cursor: pointer; font-size: 11px; display: none;
+  }
+  #btnShowBar:hover { background: rgba(80,80,80,0.8); color: var(--text); }
+
+  /* ── 主顯示區 ── */
+  #displayArea {
+    flex: 1;
+    overflow-y: auto;
+    padding: 28px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  #displayArea::-webkit-scrollbar { width: 4px; }
+  #displayArea::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+  /* ── 空白提示 ── */
+  #emptyHint {
+    margin: auto;
+    color: var(--text-dim);
+    font-size: 20px;
+    text-align: center;
+    line-height: 2;
+  }
+
+  /* ── 每筆辨識記錄 ── */
+  .entry {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; } }
+
+  .entry-meta {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    min-width: 64px;
+  }
+  .entry-time {
+    color: var(--text-dim);
+    font-size: 0.75em;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .entry-ch {
+    font-size: 0.7em;
+    background: #1e2e4a;
+    color: var(--accent);
+    border-radius: 3px;
+    padding: 1px 5px;
+    white-space: nowrap;
+  }
+  .entry-badge {
+    font-size: 0.65em;
+    border-radius: 3px;
+    padding: 1px 5px;
+    white-space: nowrap;
+  }
+  .badge-scribe { background: #2a1a3a; color: #c085f5; }
+  .badge-google { background: #1a2d4a; color: #7eb8f7; }
+
+  .entry-text {
+    flex: 1;
+    line-height: 1.6;
+    word-break: break-all;
+  }
+
+  /* partial（即時字幕）*/
+  .entry.partial .entry-text {
+    color: var(--partial);
+    font-style: italic;
+  }
+
+  /* ── 關鍵字高亮 ── */
+  .kw-hit {
+    font-weight: 700;
+    border-radius: 3px;
+    padding: 0 2px;
+  }
+  .kw-l5 { color: var(--l5); font-size: 1.5em; text-shadow: 0 0 12px rgba(255,34,34,0.5); }
+  .kw-l4 { color: var(--l4); font-size: 1.5em; text-shadow: 0 0 10px rgba(255,102,0,0.4); }
+  .kw-l3 { color: var(--l3); font-size: 1.5em; }
+  .kw-l2 { color: var(--l2); font-size: 1.5em; }
+  .kw-l1 { color: var(--l1); }
+  .kw-l0 { color: var(--l0); }
+
+  /* ── 告警橫幅 ── */
+  #alertBanner {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    padding: 12px 24px;
+    font-size: 18px;
+    font-weight: 700;
+    text-align: center;
+    z-index: 200;
+    animation: flashBanner 0.5s ease infinite alternate;
+  }
+  @keyframes flashBanner {
+    from { opacity: 1; }
+    to   { opacity: 0.6; }
+  }
+  #alertBanner.level-5 { background: #7a0000; color: #ff6666; border-bottom: 2px solid #ff2222; }
+  #alertBanner.level-4 { background: #5a2500; color: #ffaa44; border-bottom: 2px solid #ff6600; }
+  #alertBanner.level-3 { background: #4a3a00; color: #ffdd66; border-bottom: 2px solid #ffaa00; }
+
+  /* ── 狀態列 ── */
+  #statusBar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 6px 16px;
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  #statusDot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #555; flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  #statusDot.ok { background: #44cc88; box-shadow: 0 0 6px #44cc88; }
+  #statusDot.err { background: #ff4444; }
+
+  .kw-legend {
+    display: flex; align-items: center; gap: 10px; margin-left: auto;
+  }
+  .kw-dot {
+    display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+  }
+</style>
+</head>
+<body>
+
+<!-- 頂部工具列 -->
+<div id="toolbar">
+  <div class="tb-group">
+    <label>管道</label>
+    <select id="chSel">
+      <option value="">全部</option>
+      <option value="ch1">ch1</option>
+      <option value="ch2">ch2</option>
+      <option value="ch3">ch3</option>
+      <option value="ch4">ch4</option>
+      <option value="ch5">ch5</option>
+    </select>
+  </div>
+
+  <div class="tb-sep"></div>
+
+  <div class="tb-group">
+    <label>字體大小</label>
+    <input type="range" id="fontSize" min="18" max="72" value="32" step="2">
+    <span id="fontSizeVal">32px</span>
+  </div>
+
+  <div class="tb-sep"></div>
+
+  <div class="tb-group">
+    <label>顯示筆數</label>
+    <select id="maxRows">
+      <option value="3">3 筆</option>
+      <option value="5" selected>5 筆</option>
+      <option value="10">10 筆</option>
+      <option value="20">20 筆</option>
+    </select>
+  </div>
+
+  <div class="tb-sep"></div>
+
+  <div class="tb-group">
+    <label>
+      <input type="checkbox" id="chkPartial" checked> 顯示即時字幕
+    </label>
+  </div>
+
+  <div class="tb-sep"></div>
+
+  <div class="tb-group">
+    <label>
+      <input type="checkbox" id="chkAlert" checked> 高危告警橫幅（L≥3）
+    </label>
+  </div>
+
+  <div class="tb-sep"></div>
+
+  <div class="tb-group">
+    <label>API</label>
+    <input type="text" id="apiBase" value="http://localhost:8000"
+           style="width:180px; background:#222; border:1px solid #333;
+                  color:#ccc; padding:3px 8px; border-radius:4px; font-size:12px;">
+    <button onclick="reloadKeywords()" style="background:#2a4a2a; border:1px solid #3a6a3a;
+      color:#8f8; padding:3px 10px; border-radius:4px; cursor:pointer; font-size:12px;">
+      🔄 重載關鍵字
+    </button>
+  </div>
+
+  <button id="btnHideBar" onclick="hideToolbar()">隱藏工具列 ▲</button>
+</div>
+
+<button id="btnShowBar" onclick="showToolbar()">⚙ 工具列</button>
+
+<!-- 告警橫幅 -->
+<div id="alertBanner"></div>
+
+<!-- 主顯示區 -->
+<div id="displayArea">
+  <div id="emptyHint">尚無辨識結果<br><span style="font-size:0.7em; color:#444">等待語音輸入…</span></div>
+</div>
+
+<!-- 狀態列 -->
+<div id="statusBar">
+  <div id="statusDot"></div>
+  <span id="statusTxt">初始化中…</span>
+  <span id="kwCount" style="color:#555">關鍵字：載入中</span>
+  <span id="lastUpdate" style="color:#555"></span>
+  <div class="kw-legend">
+    <span class="kw-dot" style="background:var(--l5)"></span><span>L5 緊急</span>
+    <span class="kw-dot" style="background:var(--l4)"></span><span>L4 高危</span>
+    <span class="kw-dot" style="background:var(--l3)"></span><span>L3 警戒</span>
+    <span class="kw-dot" style="background:var(--l2)"></span><span>L2 注意</span>
+    <span class="kw-dot" style="background:var(--l1)"></span><span>L1 一般</span>
+  </div>
+</div>
+
+<script>
+// =============================================================================
+// 狀態
+// =============================================================================
+let keywords      = [];   // [{keyword, hazard_level}]
+let lastId        = 0;    // 最後拉到的 transcript id
+let partialMap    = {};   // channel_id → partial element
+let alertTimer    = null;
+let pollTimer     = null;
+
+const displayArea = document.getElementById('displayArea');
+const alertBanner = document.getElementById('alertBanner');
+
+// =============================================================================
+// 工具列控制
+// =============================================================================
+function hideToolbar() {
+  document.getElementById('toolbar').classList.add('hidden');
+  document.getElementById('btnShowBar').style.display = 'block';
+}
+function showToolbar() {
+  document.getElementById('toolbar').classList.remove('hidden');
+  document.getElementById('btnShowBar').style.display = 'none';
+}
+
+document.getElementById('fontSize').addEventListener('input', function() {
+  document.getElementById('fontSizeVal').textContent = this.value + 'px';
+  displayArea.style.fontSize = this.value + 'px';
+});
+displayArea.style.fontSize = '32px';
+
+// =============================================================================
+// 關鍵字載入與比對
+// =============================================================================
+async function reloadKeywords() {
+  const base = document.getElementById('apiBase').value.replace(/\/$/, '');
+  try {
+    const res  = await fetch(`${base}/api/keywords`);
+    const data = await res.json();
+    if (data.ok) {
+      keywords = data.keywords.sort((a, b) => b.keyword.length - a.keyword.length);
+      document.getElementById('kwCount').textContent =
+        `關鍵字：${keywords.length} 筆（共 ${new Set(keywords.map(k=>k.keyword)).size} 詞）`;
+      setStatus('ok', `已連線　關鍵字 ${keywords.length} 筆`);
+    }
+  } catch (e) {
+    setStatus('err', `關鍵字載入失敗：${e.message}`);
+  }
+}
+
+/** 在文字中標記關鍵字，回傳 HTML 字串 */
+function highlightKeywords(text) {
+  if (!keywords.length) return escHtml(text);
+
+  // 用 placeholder 避免重複替換
+  const parts   = [escHtml(text)];
+  const results = [];
+
+  let html = escHtml(text);
+  // 從長到短依序替換，用唯一 placeholder 避免二次處理
+  const used = [];
+  for (const kw of keywords) {
+    const safe = escHtml(kw.keyword);
+    const lv   = Math.max(0, Math.min(5, kw.hazard_level));
+    const re   = new RegExp(safe.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+    if (re.test(html)) {
+      html = html.replace(re,
+        `<span class="kw-hit kw-l${lv}">${safe}</span>`);
+      used.push(kw);
+    }
+  }
+
+  return { html, hits: used };
+}
+
+// =============================================================================
+// 告警橫幅
+// =============================================================================
+function showAlert(hits) {
+  const maxLv = Math.max(...hits.map(h => h.hazard_level));
+  if (maxLv < 3) return;
+
+  const words  = hits.filter(h => h.hazard_level === maxLv).map(h => h.keyword).join('　');
+  alertBanner.textContent   = `⚠ 偵測到關鍵字：${words}`;
+  alertBanner.className     = `level-${maxLv}`;
+  alertBanner.style.display = 'block';
+
+  if (alertTimer) clearTimeout(alertTimer);
+  alertTimer = setTimeout(() => {
+    alertBanner.style.display = 'none';
+  }, 6000);
+}
+
+// =============================================================================
+// 新增顯示列
+// =============================================================================
+function addEntry({ id, channel_id, transcript, stt_backend, created_at, is_partial }) {
+  const showPartial = document.getElementById('chkPartial').checked;
+  if (is_partial && !showPartial) return;
+
+  // 移除空白提示
+  const hint = document.getElementById('emptyHint');
+  if (hint) hint.remove();
+
+  // partial：原地更新
+  if (is_partial) {
+    let el = partialMap[channel_id];
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'entry partial';
+      displayArea.insertBefore(el, displayArea.firstChild);
+      partialMap[channel_id] = el;
+    }
+    el.innerHTML = buildEntryHTML(channel_id, transcript, stt_backend, created_at, true);
+    return;
+  }
+
+  // 有正式結果 → 移除 partial
+  if (partialMap[channel_id]) {
+    partialMap[channel_id].remove();
+    delete partialMap[channel_id];
+  }
+
+  const { html: hlHtml, hits } = highlightKeywords(transcript);
+
+  const el = document.createElement('div');
+  el.className = 'entry';
+  el.dataset.id = id;
+  el.innerHTML = buildEntryHTML(channel_id, hlHtml, stt_backend, created_at, false);
+  displayArea.insertBefore(el, displayArea.firstChild);
+
+  // 告警橫幅
+  if (hits.length && document.getElementById('chkAlert').checked) {
+    showAlert(hits);
+  }
+
+  // 超過最大筆數時裁剪（不計 partial）
+  trimEntries();
+}
+
+function buildEntryHTML(ch, htmlText, backend, ts, isPartial) {
+  const timeStr = ts ? ts.slice(11, 19) : new Date().toTimeString().slice(0, 8);
+  const badgeCls = (backend === 'scribe_rt') ? 'badge-scribe' : 'badge-google';
+  const badgeTxt = (backend === 'scribe_rt') ? '🟣 Scribe' :
+                   (backend === 'google_stream') ? '🔵 Google' : '✅ Google';
+  return `
+    <div class="entry-meta">
+      <span class="entry-time">${timeStr}</span>
+      <span class="entry-ch">${ch}</span>
+      ${!isPartial ? `<span class="entry-badge ${badgeCls}">${badgeTxt}</span>` : ''}
+    </div>
+    <div class="entry-text">${htmlText}</div>
+  `;
+}
+
+function trimEntries() {
+  const max    = parseInt(document.getElementById('maxRows').value, 10);
+  const all    = [...displayArea.querySelectorAll('.entry:not(.partial)')];
+  while (all.length > max) {
+    all[all.length - 1].remove();
+    all.pop();
+  }
+}
+
+// =============================================================================
+// 輪詢 /api/transcripts
+// =============================================================================
+async function pollTranscripts() {
+  const base = document.getElementById('apiBase').value.replace(/\/$/, '');
+  const ch   = document.getElementById('chSel').value;
+  const limit = parseInt(document.getElementById('maxRows').value, 10) + 2;
+
+  try {
+    const url  = `${base}/api/transcripts?limit=${limit}` + (ch ? `&channel_id=${ch}` : '');
+    const res  = await fetch(url);
+    const data = await res.json();
+
+    if (data.transcripts && data.transcripts.length) {
+      const newItems = data.transcripts.filter(t => t.id > lastId);
+      if (newItems.length) {
+        // 由舊到新依序加入
+        [...newItems].reverse().forEach(t => {
+          addEntry({
+            id:          t.id,
+            channel_id:  t.channel_id,
+            transcript:  t.transcript,
+            stt_backend: t.stt_backend,
+            created_at:  t.created_at,
+            is_partial:  false,
+          });
+        });
+        lastId = Math.max(...data.transcripts.map(t => t.id));
+      }
+    }
+
+    setStatus('ok', `已連線　上次更新 ${new Date().toTimeString().slice(0, 8)}`);
+  } catch (e) {
+    setStatus('err', `連線失敗：${e.message}`);
+  }
+}
+
+// =============================================================================
+// 即時 partial：透過 SSE 或輪詢 /api/channels 取得
+// =============================================================================
+async function pollPartial() {
+  const base = document.getElementById('apiBase').value.replace(/\/$/, '');
+  const ch   = document.getElementById('chSel').value;
+  if (!document.getElementById('chkPartial').checked) return;
+
+  try {
+    const res  = await fetch(`${base}/api/channels`);
+    const data = await res.json();
+    if (!data.channels) return;
+
+    for (const c of data.channels) {
+      if (ch && c.channel_id !== ch) continue;
+      if (c.is_recording && c.last_text) {
+        addEntry({
+          id:          null,
+          channel_id:  c.channel_id,
+          transcript:  c.last_text,
+          stt_backend: c.stt_backend || '',
+          created_at:  null,
+          is_partial:  true,
+        });
+      }
+    }
+  } catch (_) {}
+}
+
+// =============================================================================
+// 狀態列
+// =============================================================================
+function setStatus(state, msg) {
+  const dot = document.getElementById('statusDot');
+  dot.className = state === 'ok' ? 'ok' : 'err';
+  document.getElementById('statusTxt').textContent = msg;
+}
+
+// =============================================================================
+// 初始化
+// =============================================================================
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+async function init() {
+  await reloadKeywords();
+
+  // 先拉最新 N 筆歷史
+  const base  = document.getElementById('apiBase').value.replace(/\/$/, '');
+  const ch    = document.getElementById('chSel').value;
+  const limit = parseInt(document.getElementById('maxRows').value, 10);
+  try {
+    const url  = `${base}/api/transcripts?limit=${limit}` + (ch ? `&channel_id=${ch}` : '');
+    const res  = await fetch(url);
+    const data = await res.json();
+    if (data.transcripts && data.transcripts.length) {
+      data.transcripts.forEach(t => {
+        addEntry({
+          id: t.id, channel_id: t.channel_id, transcript: t.transcript,
+          stt_backend: t.stt_backend, created_at: t.created_at, is_partial: false,
+        });
+      });
+      lastId = Math.max(...data.transcripts.map(t => t.id));
+    }
+  } catch (_) {}
+
+  // 啟動輪詢
+  pollTimer = setInterval(pollTranscripts, 2000);
+  setInterval(pollPartial, 1500);
+  setInterval(reloadKeywords, 60000);  // 每分鐘重載關鍵字
+}
+
+// 管道切換時重置
+document.getElementById('chSel').addEventListener('change', () => {
+  displayArea.innerHTML = '<div id="emptyHint">切換管道中…</div>';
+  lastId    = 0;
+  partialMap = {};
+  init();
+});
+
+init();
+</script>
+</body>
+</html>
