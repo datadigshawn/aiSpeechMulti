@@ -639,7 +639,8 @@ async def _handle_scribe_rt_mode(
                         "timestamp":   datetime.now().isoformat(),
                     })
                     database.save(channel_id, tw, 0.0, "scribe_rt",
-                                  use_vad=False, use_denoise=False)  # scribe_rt 串流不套用前處理
+                                  use_vad=_audio_settings["use_vad"],
+                                  use_denoise=_audio_settings["use_denoise"])
                     state.transcript_count += 1
                     state.last_text         = tw
                     logger.debug(f"[{channel_id}][scribe_rt] committed→DB: {tw[:60]}")
@@ -740,7 +741,8 @@ async def _handle_google_stream_mode(
             # 僅 final 存庫 + 更新狀態
             if is_final:
                 database.save(channel_id, text, confidence, "google_stream",
-                              use_vad=False, use_denoise=False)  # google_stream 串流不套用前處理
+                              use_vad=_audio_settings["use_vad"],
+                              use_denoise=_audio_settings["use_denoise"])
                 state.transcript_count += 1
                 state.last_text         = text
                 logger.debug(f"[{channel_id}][google_stream] final: {text[:60]}")
@@ -885,7 +887,8 @@ async def _handle_dual_mode(
                         "timestamp":   datetime.now().isoformat(),
                     })
                     database.save(channel_id, tw, 0.0, "scribe_rt",
-                                  use_vad=False, use_denoise=False)  # scribe_rt 串流不套用前處理
+                                  use_vad=_audio_settings["use_vad"],
+                                  use_denoise=_audio_settings["use_denoise"])
                     state.transcript_count += 1
                     state.last_text         = tw
                     logger.debug(f"[{channel_id}][dual/scribe] committed→DB: {tw[:60]}")
