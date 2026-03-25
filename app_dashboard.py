@@ -1630,6 +1630,23 @@ def render_management_page():
         else:
             st.caption("尚無手動關鍵字")
 
+    # ── CSV 下載 ──────────────────────────────────────────────────────────
+    st.write("")
+    if keywords:
+        import io as _io
+        _kw_buf = _io.StringIO()
+        _kw_writer = csv.writer(_kw_buf)
+        _kw_writer.writerow(["keyword", "hazard_level", "source"])
+        for kw in keywords:
+            _kw_writer.writerow([kw["keyword"], kw["hazard_level"], kw["source"]])
+        st.download_button(
+            label=f"⬇️ 下載關鍵字 CSV（{len(keywords)} 筆）",
+            data=_kw_buf.getvalue().encode("utf-8-sig"),
+            file_name=f"keywords_event{event_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv",
+            key=f"dl_kw_{event_id}",
+        )
+
     st.write("")
     with st.expander("＋ 手動新增關鍵字"):
         add_col1, add_col2, add_col3 = st.columns([3, 2, 1])
@@ -1645,11 +1662,125 @@ def render_management_page():
             st.write("")
             if st.button("＋ 新增", key=f"add_kw_{event_id}", use_container_width=True):
                 if new_kw.strip():
-                    db.add_keyword(event_id=event_id, keyword=new_kw.strip(), source="manual", hazard_level=new_kw_hazard)
-                    st.success(f"✅ 已新增關鍵字：{new_kw.strip()}")
-                    st.rerun()
+                    _kw_text = new_kw.strip()
+                    _existing = db.find_keyword_in_event(event_id, _kw_text)
+                    if _existing and _existing["hazard_level"] == new_kw_hazard:
+                        st.warning(f"⚠️ 關鍵字「{_kw_text}」已存在（L{_existing['hazard_level']}），未重複新增")
+                    elif _existing:
+                        st.warning(
+                            f"⚠️ 關鍵字「{_kw_text}」已存在但危害等級不同"
+                            f"（現有 L{_existing['hazard_level']} → 新設 L{new_kw_hazard}）"
+                            f"，請至列表刪除後再新增，或確認等級設定。"
+                        )
+                    else:
+                        db.add_keyword(event_id=event_id, keyword=_kw_text, source="manual", hazard_level=new_kw_hazard)
+                        st.success(f"✅ 已新增關鍵字：{_kw_text}")
+                        st.rerun()
                 else:
                     st.warning("請輸入關鍵字")
+
+    # ── CSV 上傳匯入 ──────────────────────────────────────────────────────
+    with st.expander("📤 從 CSV 匯入關鍵字"):
+        st.caption("格式：`keyword,hazard_level,source`（source 可省略，預設 manual）")
+        uploaded_kw_csv = st.file_uploader(
+            "選擇關鍵字 CSV 檔案",
+            type=["csv"],
+            key=f"upload_kw_{event_id}",
+            help="請上傳符合下載格式的 CSV 檔（UTF-8 或 UTF-8 BOM）",
+        )
+        if uploaded_kw_csv is not None:
+            try:
+                import io as _io
+                _raw = uploaded_kw_csv.read().decode("utf-8-sig").strip()
+                _reader = csv.DictReader(_io.StringIO(_raw))
+
+                # 驗證必要欄位
+                if "keyword" not in (_reader.fieldnames or []):
+                    st.error("❌ CSV 格式錯誤：缺少 `keyword` 欄位")
+                else:
+                    _rows = [r for r in _reader if r.get("keyword", "").strip()]
+
+                    if not _rows:
+                        st.warning("⚠️ CSV 內容為空，無可匯入的關鍵字")
+                    else:
+                        # ── 逐筆分析：分成三類 ───────────────────────────
+                        _to_import   = []   # 可直接匯入
+                        _exact_dup   = []   # 完全重複（同詞同等級）→ 跳過
+                        _conflict    = []   # 同詞不同等級 → 警告
+
+                        for _r in _rows:
+                            _kw  = _r["keyword"].strip()
+                            try:
+                                _lv = int(_r.get("hazard_level", 0))
+                                _lv = max(0, min(5, _lv))
+                            except (ValueError, TypeError):
+                                _lv = 0
+                            _src = _r.get("source", "manual").strip() or "manual"
+
+                            _ex = db.find_keyword_in_event(event_id, _kw)
+                            if _ex is None:
+                                _to_import.append({"keyword": _kw, "hazard_level": _lv, "source": _src})
+                            elif _ex["hazard_level"] == _lv:
+                                _exact_dup.append(_kw)
+                            else:
+                                _conflict.append({
+                                    "keyword": _kw,
+                                    "existing_level": _ex["hazard_level"],
+                                    "new_level": _lv,
+                                    "source": _src,
+                                })
+
+                        # ── 顯示預覽 ─────────────────────────────────────
+                        _c1, _c2, _c3 = st.columns(3)
+                        _c1.metric("可匯入", f"{len(_to_import)} 筆", delta=None)
+                        _c2.metric("完全重複（略過）", f"{len(_exact_dup)} 筆")
+                        _c3.metric("等級衝突（警告）", f"{len(_conflict)} 筆",
+                                   delta="需確認" if _conflict else None,
+                                   delta_color="inverse" if _conflict else "off")
+
+                        if _exact_dup:
+                            st.info(f"ℹ️ 以下關鍵字已存在且等級相同，匯入時將自動跳過：\n"
+                                    + "、".join(f"`{k}`" for k in _exact_dup))
+
+                        if _conflict:
+                            st.warning("⚠️ **等級衝突關鍵字**（已存在但危害等級不同）：")
+                            _cf_rows = []
+                            for _cf in _conflict:
+                                _cf_rows.append({
+                                    "關鍵字": _cf["keyword"],
+                                    "現有等級": f"L{_cf['existing_level']}",
+                                    "CSV 等級": f"L{_cf['new_level']}",
+                                })
+                            st.dataframe(_cf_rows, use_container_width=True, hide_index=True)
+                            st.caption("衝突關鍵字預設**不匯入**，請先刪除現有關鍵字後再重新匯入，或手動修改。")
+
+                        if _to_import:
+                            st.write("**預覽可匯入關鍵字：**")
+                            _prev_df = [{"關鍵字": r["keyword"],
+                                         "危害等級": f"L{r['hazard_level']}",
+                                         "來源": r["source"]} for r in _to_import]
+                            st.dataframe(_prev_df, use_container_width=True, hide_index=True)
+
+                            if st.button(f"✅ 確認匯入 {len(_to_import)} 筆", key=f"confirm_import_{event_id}",
+                                         type="primary", use_container_width=True):
+                                _imported = 0
+                                for _item in _to_import:
+                                    db.add_keyword(
+                                        event_id=event_id,
+                                        keyword=_item["keyword"],
+                                        source=_item["source"],
+                                        hazard_level=_item["hazard_level"],
+                                    )
+                                    _imported += 1
+                                st.success(f"✅ 成功匯入 {_imported} 筆關鍵字！"
+                                           + (f"　略過重複 {len(_exact_dup)} 筆" if _exact_dup else "")
+                                           + (f"　衝突未匯入 {len(_conflict)} 筆" if _conflict else ""))
+                                st.rerun()
+                        elif not _conflict:
+                            st.info("ℹ️ 所有關鍵字皆已存在，無需匯入")
+
+            except Exception as _csv_err:
+                st.error(f"❌ CSV 解析失敗：{_csv_err}")
 
     st.divider()
 

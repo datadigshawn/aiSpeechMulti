@@ -392,6 +392,40 @@ class DBManager:
         self._conn.commit()
         self.logger.debug(f"關鍵字 id={keyword_id} 已刪除")
 
+    def find_keyword_in_event(self, event_id: int, keyword: str) -> Optional[dict]:
+        """
+        在指定事件中尋找相同關鍵字（不分大小寫）。
+
+        Returns:
+            dict with id/keyword/hazard_level/source，或 None（不存在）
+        """
+        row = self._conn.execute(
+            """
+            SELECT id, keyword, hazard_level, source
+            FROM keywords
+            WHERE event_id = ? AND LOWER(keyword) = LOWER(?)
+            LIMIT 1
+            """,
+            (event_id, keyword),
+        ).fetchone()
+        if row is None:
+            return None
+        return {"id": row[0], "keyword": row[1], "hazard_level": row[2], "source": row[3]}
+
+    def get_all_keywords(self) -> list:
+        """
+        取得所有事件的所有關鍵字（含事件名稱），供全局 CSV 匯出使用。
+        """
+        return self._conn.execute(
+            """
+            SELECT k.id, k.keyword, k.hazard_level, k.source,
+                   e.id AS event_id, e.event_name, k.created_at
+            FROM keywords k
+            JOIN events e ON k.event_id = e.id
+            ORDER BY k.hazard_level DESC, k.created_at
+            """
+        ).fetchall()
+
     # ── 查詢（P3 預留） ─────────────────────────────────────────────────────
 
     def search_transcriptions(self, query: str, limit: int = 50) -> list:
