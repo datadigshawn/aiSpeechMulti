@@ -36,13 +36,14 @@ except ImportError:
         logging.basicConfig(level=logging.INFO)
         return logging.getLogger(name)
 
-# 可用模型清單（與 model_gemini.py 保持一致）
+# 可用模型清單（與 model_gemini.py 保持一致，2026/3/27 更新）
+# 已移除：gemini-2.0-flash-exp（2026/3/9 停用）
 _MODELS = {
-    "gemini-2.5-flash":      "gemini-2.5-flash",
-    "gemini-2.5-pro":        "gemini-2.5-pro",
-    "gemini-2.5-flash-lite": "gemini-2.5-flash-lite",
-    "gemini-2.0-flash":      "gemini-2.0-flash",
-    "gemini-2.0-flash-exp":  "gemini-2.0-flash-exp",
+    "gemini-3.1-pro-preview": "gemini-3.1-pro-preview",  # 🆕 最新旗艦 Preview
+    "gemini-2.5-flash":       "gemini-2.5-flash",        # ⭐ 推薦：最佳價格/性能
+    "gemini-2.5-pro":         "gemini-2.5-pro",          # 最高準確度
+    "gemini-2.5-flash-lite":  "gemini-2.5-flash-lite",   # 最快、最省費
+    "gemini-2.0-flash":       "gemini-2.0-flash",        # 舊穩定版（2026/6/1 停用）
 }
 
 # 預設模型（價格/性能均衡）

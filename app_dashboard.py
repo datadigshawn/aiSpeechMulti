@@ -84,10 +84,11 @@ SUB_MODEL_OPTIONS = {
         ("chirp_telephony — 電話品質音訊",         "chirp_telephony"),
     ],
     "gemini": [
-        ("gemini-2.5-flash — 最佳價格/性能（推薦）", "gemini-2.5-flash"),
-        ("gemini-2.5-pro — 最高準確度",             "gemini-2.5-pro"),
-        ("gemini-2.5-flash-lite — 最快、最省費",    "gemini-2.5-flash-lite"),
-        ("gemini-2.0-flash — 穩定版（2026/6 停用）", "gemini-2.0-flash"),
+        ("gemini-3.1-pro-preview — 🆕 最新旗艦 Preview",  "gemini-3.1-pro-preview"),
+        ("gemini-2.5-flash — ⭐ 最佳價格/性能（推薦）",     "gemini-2.5-flash"),
+        ("gemini-2.5-pro — 最高準確度",                    "gemini-2.5-pro"),
+        ("gemini-2.5-flash-lite — 最快、最省費",            "gemini-2.5-flash-lite"),
+        ("gemini-2.0-flash — 舊穩定版（2026/6 停用）",      "gemini-2.0-flash"),
     ],
     "whisper": [
         ("large-v3 — 最準確（推薦）", "large-v3"),
@@ -1792,7 +1793,12 @@ def render_management_page():
     with ai_model_col:
         ai_model = st.selectbox(
             "Gemini 模型",
-            options=["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.5-flash-lite"],
+            options=[
+                "gemini-2.5-flash",         # ⭐ 推薦
+                "gemini-2.5-pro",
+                "gemini-2.5-flash-lite",
+                "gemini-3.1-pro-preview",   # 🆕 最新旗艦
+            ],
             index=0, key=f"ai_model_{event_id}",
         )
     with ai_btn_col:

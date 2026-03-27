@@ -264,8 +264,8 @@ def interactive_mode():
     # 步驟 3: 選擇子模型（如適用）
     # ========================================================================
     stt_model = "chirp_3"
-    gemini_model = "gemini-2.0-flash-exp"
-    
+    gemini_model = "gemini-2.5-flash"
+
     if model_type == 'google_stt':
         print()
         print("【步驟 3/4】選擇 Google STT 子模型")
@@ -279,49 +279,54 @@ def interactive_mode():
         print("3. Chirp 2")
         print("   - 支援講者識別")
         print()
-        
+
         while True:
             stt_choice = input("請選擇子模型 [1/2/3，直接Enter使用預設]: ").strip() or '1'
             if stt_choice in ['1', '2', '3']:
                 break
             print("❌ 請輸入 1、2 或 3")
-        
+
         stt_map = {'1': 'chirp_3', '2': 'chirp_telephony', '3': 'chirp_2'}
         stt_model = stt_map[stt_choice]
-        
+
         if choice == '1':
             output_dir = output_base / f"google_stt_{stt_model}_output"
-        
+
     elif model_type == 'gemini':
         print()
         print("【步驟 3/4】選擇 Gemini 模型")
         print("-" * 70)
-        print("1. Gemini 2.0 Flash Exp (推薦)")
-        print("   - 最新實驗版本")
-        print("   - 速度快、成本低")
+        print("1. Gemini 2.5 Flash (⭐ 推薦)")
+        print("   - 最佳價格/性能均衡")
+        print("   - 速度快、準確度高")
         print()
-        print("2. Gemini 1.5 Pro")
-        print("   - 穩定版本")
-        print("   - 準確度高、功能完整")
+        print("2. Gemini 2.5 Pro")
+        print("   - 最高準確度（穩定版）")
+        print("   - 適合高精度評測")
         print()
-        print("3. Gemini 1.5 Flash")
-        print("   - 輕量版本")
-        print("   - 速度最快")
+        print("3. Gemini 2.5 Flash Lite")
+        print("   - 最快、成本最低")
+        print("   - 適合大量批次處理")
         print()
-        
+        print("4. Gemini 3.1 Pro Preview  [🆕 最新]")
+        print("   - 旗艦 Preview 版本")
+        print("   - 最高辨識能力，費用較高")
+        print()
+
         while True:
-            gemini_choice = input("請選擇模型 [1/2/3，直接Enter使用預設]: ").strip() or '1'
-            if gemini_choice in ['1', '2', '3']:
+            gemini_choice = input("請選擇模型 [1/2/3/4，直接Enter使用預設]: ").strip() or '1'
+            if gemini_choice in ['1', '2', '3', '4']:
                 break
-            print("❌ 請輸入 1、2 或 3")
-        
+            print("❌ 請輸入 1、2、3 或 4")
+
         gemini_map = {
-            '1': 'gemini-2.0-flash-exp',
-            '2': 'gemini-1.5-pro',
-            '3': 'gemini-1.5-flash'
+            '1': 'gemini-2.5-flash',
+            '2': 'gemini-2.5-pro',
+            '3': 'gemini-2.5-flash-lite',
+            '4': 'gemini-3.1-pro-preview',
         }
         gemini_model = gemini_map[gemini_choice]
-        
+
         if choice == '1':
             output_dir = output_base / f"gemini_{gemini_model.replace('.', '_').replace('-', '_')}_output"
     
@@ -777,11 +782,14 @@ def main():
   # 使用 Chirp 3
   python scripts/batch_inference.py --test-case Test_02_TMRT --model google_stt --stt-model chirp_3
 
-  # 使用 Gemini 2.0
-  python scripts/batch_inference.py --test-case Test_02_TMRT --model gemini --gemini-model gemini-2.0-flash-exp
+  # 使用 Gemini 2.5 Flash（推薦）
+  python scripts/batch_inference.py --test-case Test_02_TMRT --model gemini --gemini-model gemini-2.5-flash
 
-  # 使用 Gemini 1.5 Pro
-  python scripts/batch_inference.py --test-case Test_02_TMRT --model gemini --gemini-model gemini-1.5-pro
+  # 使用 Gemini 2.5 Pro（最高準確度）
+  python scripts/batch_inference.py --test-case Test_02_TMRT --model gemini --gemini-model gemini-2.5-pro
+
+  # 使用 Gemini 3.1 Pro Preview（最新旗艦）
+  python scripts/batch_inference.py --test-case Test_02_TMRT --model gemini --gemini-model gemini-3.1-pro-preview
 
   # 使用 Whisper
   python scripts/batch_inference.py --test-case Test_02_TMRT --model whisper
@@ -814,9 +822,15 @@ def main():
     # Gemini 專用參數
     parser.add_argument(
         "--gemini-model",
-        choices=["gemini-2.0-flash-exp", "gemini-1.5-pro", "gemini-1.5-flash"],
-        default="gemini-2.0-flash-exp",
-        help="Gemini 模型 (預設: gemini-2.0-flash-exp)"
+        choices=[
+            "gemini-3.1-pro-preview",   # 🆕 最新旗艦 Preview
+            "gemini-2.5-flash",          # ⭐ 推薦：最佳價格/性能
+            "gemini-2.5-pro",            # 最高準確度
+            "gemini-2.5-flash-lite",     # 最快、最省費
+            "gemini-2.0-flash",          # 舊穩定版（2026/6/1 停用）
+        ],
+        default="gemini-2.5-flash",
+        help="Gemini 模型 (預設: gemini-2.5-flash)"
     )
     
     # 路徑設定

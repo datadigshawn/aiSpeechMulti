@@ -1,8 +1,9 @@
 """
 Google Gemini 模型模組
-(2026/3/11 更新)
+(2026/3/27 更新)
 
 支援功能:
+- gemini-3.1-pro-preview（最新旗艦 preview，2026/3 起）
 - gemini-2.5-flash / gemini-2.5-pro / gemini-2.5-flash-lite（當前主力）
 - gemini-2.0-flash（穩定版，2026/6/1 停用）
 - 檔案上傳 (File API)
@@ -10,7 +11,9 @@ Google Gemini 模型模組
 - 自定義提示詞
 - 自動從 utils/api_keys.py 或 utils/api_keys.json 讀取 API key
 
-注意：gemini-1.5-pro / gemini-1.5-flash 已完全下線，呼叫會回傳 404 錯誤。
+已下線 / 已停用：
+- gemini-1.5-pro / gemini-1.5-flash：已完全下線，呼叫回傳 404
+- gemini-2.0-flash-exp：實驗版已停用（2026/3/9）
 """
 
 import json
@@ -36,21 +39,22 @@ logger = get_logger('gemini')
 class GeminiModel:
     """Google Gemini 模型封裝"""
     
-    # 支援的模型（2026/3 更新）
-    # gemini-1.5-pro / gemini-1.5-flash 已完全下線，呼叫回傳 404
-    # gemini-2.0-flash 穩定版 2026/6/1 停用
+    # 支援的模型（2026/3/27 更新）
+    # 已移除：gemini-1.5-pro / gemini-1.5-flash（已完全下線，404）
+    # 已移除：gemini-2.0-flash-exp（實驗版，2026/3/9 停用）
+    # 預計停用：gemini-2.0-flash（穩定版，2026/6/1）
     MODELS = {
-        'gemini-2.5-flash':      'gemini-2.5-flash',       # ⭐ 推薦：最佳價格/性能
-        'gemini-2.5-pro':        'gemini-2.5-pro',         # 最高準確度
-        'gemini-2.5-flash-lite': 'gemini-2.5-flash-lite',  # 最快、最省費
-        'gemini-2.0-flash':      'gemini-2.0-flash',       # 穩定版（2026/6/1 停用）
-        'gemini-2.0-flash-exp':  'gemini-2.0-flash-exp',   # 實驗版（即將停用）
+        'gemini-3.1-pro-preview': 'gemini-3.1-pro-preview',  # 🆕 最新旗艦 Preview
+        'gemini-2.5-flash':       'gemini-2.5-flash',        # ⭐ 推薦：最佳價格/性能
+        'gemini-2.5-pro':         'gemini-2.5-pro',          # 最高準確度（穩定版）
+        'gemini-2.5-flash-lite':  'gemini-2.5-flash-lite',   # 最快、最省費
+        'gemini-2.0-flash':       'gemini-2.0-flash',        # 舊穩定版（2026/6/1 停用）
     }
-    
+
     def __init__(
         self,
         api_key: Optional[str] = None,
-        model: str = "gemini-2.0-flash-exp",
+        model: str = "gemini-2.5-flash",
         temperature: float = 0.0
     ):
         """
