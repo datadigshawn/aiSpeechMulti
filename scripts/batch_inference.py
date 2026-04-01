@@ -412,11 +412,12 @@ def interactive_mode():
 class BatchInference:
     """
     批次推論引擎
-    
+
     支援的模型:
-    - whisper: OpenAI Whisper (large-v3, turbo, medium)
+    - whisper:    OpenAI Whisper (large-v3, turbo, medium)
     - google_stt: Google Cloud Speech-to-Text V2 (chirp_3, chirp_telephony, chirp_2)
-    - gemini: Google Gemini (2.0-flash-exp, 1.5-pro, 1.5-flash)
+    - gemini:     Google Gemini (gemini-2.5-flash, gemini-2.5-pro, …)
+    - hybrid:     Google STT + Gemini 雙模型融合（ResultFuser，推薦）
     """
     
     # 支援的音檔格式
@@ -439,11 +440,11 @@ class BatchInference:
         Args:
             input_dir: 輸入音檔目錄
             output_dir: 輸出結果目錄
-            model_type: 模型類型 (whisper, google_stt, gemini)
+            model_type: 模型類型 (whisper, google_stt, gemini, hybrid)
             vocabulary_file: 詞彙表檔案路徑
             stt_model: Google STT 子模型 (chirp_3, chirp_telephony, chirp_2)
             stt_region: Google STT 區域
-            gemini_model: Gemini 模型 (gemini-2.0-flash-exp, gemini-1.5-pro, gemini-1.5-flash)
+            gemini_model: Gemini 模型 (gemini-2.5-flash, gemini-2.5-pro, …)
             language_code: 語言代碼
         """
         self.input_dir = Path(input_dir)
@@ -454,25 +455,30 @@ class BatchInference:
         self.stt_region = stt_region
         self.gemini_model = gemini_model
         self.language_code = language_code
-        
+
         # 建立輸出目錄
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # 載入詞彙表
         self.phrases = self._load_vocabulary() if vocabulary_file else None
-        
-        # 初始化模型
-        self.model = self._init_model()
-        
+
+        # 初始化模型（hybrid 同時持有兩個模型）
+        self.model           = self._init_model()   # 單引擎主模型（hybrid 為 None）
+        self.google_model    = None                 # hybrid 專用：GoogleSTTModel 實例
+        self.gemini_instance = None                 # hybrid 專用：GeminiModel 實例
+        self.fuser           = None                 # hybrid 專用：ResultFuser 實例
+        if self.model_type == "hybrid":
+            self._init_hybrid()
+
         # 記錄配置
         logger.info("=" * 60)
         logger.info("批次推論引擎初始化完成")
         logger.info("=" * 60)
         logger.info(f"模型類型: {model_type}")
-        if model_type == "google_stt":
+        if model_type in ("google_stt", "hybrid"):
             logger.info(f"STT 模型: {stt_model}")
             logger.info(f"STT 區域: {stt_region or '自動'}")
-        elif model_type == "gemini":
+        if model_type in ("gemini", "hybrid"):
             logger.info(f"Gemini 模型: {gemini_model}")
         logger.info(f"輸入目錄: {self.input_dir}")
         logger.info(f"輸出目錄: {self.output_dir}")
@@ -503,15 +509,27 @@ class BatchInference:
             return None
     
     def _init_model(self):
-        """初始化模型"""
+        """初始化單引擎主模型（hybrid 另由 _init_hybrid 處理）"""
         if self.model_type == "whisper":
             return self._init_whisper()
         elif self.model_type == "google_stt":
             return self._init_google_stt()
         elif self.model_type == "gemini":
             return self._init_gemini()
+        elif self.model_type == "hybrid":
+            return None   # hybrid 不使用 self.model，由 _init_hybrid 初始化各子模型
+        elif self.model_type == "sensevoice":
+            return self._init_sensevoice()
         else:
             raise ValueError(f"不支援的模型類型: {self.model_type}")
+
+    def _init_hybrid(self):
+        """初始化 hybrid 模式：同時建立 Google STT 與 Gemini 模型，以及 ResultFuser。"""
+        from scripts.result_fuser import ResultFuser
+        logger.info("初始化 Hybrid 模式（Google STT + Gemini）")
+        self.google_model    = self._init_google_stt()
+        self.gemini_instance = self._init_gemini()
+        self.fuser           = ResultFuser()
     
     def _init_whisper(self):
         """初始化 Whisper 模型"""
@@ -559,27 +577,48 @@ class BatchInference:
         """初始化 Gemini 模型"""
         try:
             from scripts.models.model_gemini import GeminiModel
-            
+
             logger.info(f"初始化 Gemini: {self.gemini_model}")
-            
+
             return GeminiModel(
                 model=self.gemini_model,
                 temperature=0.0
             )
-        
+
         except ImportError as e:
             logger.error(f"找不到 Gemini 模組: {e}")
             raise
-    
+
+    def _init_sensevoice(self):
+        """初始化 SenseVoiceSmall 離線模型"""
+        try:
+            from scripts.models.model_sensevoice import SenseVoiceModel
+
+            logger.info("初始化 SenseVoiceSmall（離線模式）")
+
+            vocab_csv = PROJECT_ROOT / "vocabulary" / "master_vocabulary.csv"
+            return SenseVoiceModel(
+                model_name="iic/SenseVoiceSmall",
+                language="zh",
+                device="cpu",
+                vocabulary_csv=str(vocab_csv) if vocab_csv.exists() else None,
+            )
+
+        except ImportError as e:
+            logger.error(f"找不到 SenseVoice 模組: {e}")
+            raise
+
     def transcribe_file(self, audio_file: Path) -> dict:
         """
         辨識單一音檔
-        
+
         Args:
             audio_file: 音檔路徑
-        
+
         Returns:
-            辨識結果字典
+            辨識結果字典（含 transcript、confidence 等欄位；
+            hybrid 模式額外含 source、rule、cer_between、
+            google_transcript、gemini_transcript）
         """
         if self.model_type == "whisper":
             return self._transcribe_whisper(audio_file)
@@ -587,9 +626,52 @@ class BatchInference:
             return self._transcribe_google_stt(audio_file)
         elif self.model_type == "gemini":
             return self._transcribe_gemini(audio_file)
+        elif self.model_type == "hybrid":
+            return self._transcribe_hybrid(audio_file)
+        elif self.model_type == "sensevoice":
+            return self._transcribe_sensevoice(audio_file)
         else:
             raise ValueError(f"不支援的模型類型: {self.model_type}")
-    
+
+    def _transcribe_hybrid(self, audio_file: Path) -> dict:
+        """
+        Hybrid 模式：以 ThreadPoolExecutor 並行呼叫 Google STT 與 Gemini，
+        再交由 ResultFuser 依 CER 一致性選取最佳結果。
+        任一模型失敗時仍可繼續（降級為單引擎），不中斷整體辨識流程。
+        """
+        from concurrent.futures import ThreadPoolExecutor
+
+        chunk_id = Path(audio_file).stem
+
+        def _call_google():
+            return self.google_model.transcribe_file(
+                str(audio_file),
+                phrases=self.phrases.get('phrases', []) if self.phrases else None,
+                enable_word_time_offsets=True,
+                enable_automatic_punctuation=True,
+                # 注意：Chirp 3 不支援 speaker diarization 參數
+            )
+
+        def _call_gemini():
+            return self._transcribe_gemini(audio_file, model_instance=self.gemini_instance)
+
+        google_result = {"transcript": "", "confidence": 0.0}
+        gemini_result = {"transcript": ""}
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            fut_g = executor.submit(_call_google)
+            fut_m = executor.submit(_call_gemini)
+            try:
+                google_result = fut_g.result()
+            except Exception as exc:
+                logger.warning(f"[{chunk_id}][hybrid] Google STT 失敗，降級：{exc}")
+            try:
+                gemini_result = fut_m.result()
+            except Exception as exc:
+                logger.warning(f"[{chunk_id}][hybrid] Gemini 失敗，降級：{exc}")
+
+        return self.fuser.fuse(chunk_id, google_result, gemini_result)
+
     def _transcribe_whisper(self, audio_file: Path) -> dict:
         """使用 Whisper 辨識"""
         if hasattr(self.model, 'transcribe_file'):
@@ -612,35 +694,35 @@ class BatchInference:
         return result
     
     def _transcribe_google_stt(self, audio_file: Path) -> dict:
-        """使用 Google STT 辨識"""
-        phrases_list = None
-        if self.phrases:
-            phrases_list = self.phrases.get('phrases', [])
-        
+        """使用 Google STT 辨識（單引擎模式；hybrid 模式請直接使用 self.google_model）"""
+        phrases_list = self.phrases.get('phrases', []) if self.phrases else None
         return self.model.transcribe_file(
             str(audio_file),
             phrases=phrases_list,
-            enable_word_time_offsets=True,         # 啟用時間戳
-            enable_automatic_punctuation=True      # 啟用自動斷句
-            # 注意: Chirp 3 不支援 speaker diarizat1ion 參數
-            # 如需講者識別，請使用 chirp_2 或 long 模型
+            enable_word_time_offsets=True,
+            enable_automatic_punctuation=True,
+            # 注意：Chirp 3 不支援 speaker diarization 參數；如需講者識別請改用 chirp_2
         )
-    
-    def _transcribe_gemini(self, audio_file: Path) -> dict:
-        """使用 Gemini 辨識"""
-        context = "這是台中捷運無線電通訊錄音。"
-        
+
+    def _transcribe_gemini(self, audio_file: Path, model_instance=None) -> dict:
+        """
+        使用 Gemini 辨識。
+        model_instance: 指定 GeminiModel 實例；None 時使用 self.model（單引擎模式）。
+        hybrid 模式透過 model_instance=self.gemini_instance 呼叫，避免直接存取 self.model。
+        """
+        model   = model_instance or self.model
+        context = "這是台灣捷運無線電通訊錄音。"
         if self.phrases:
-            top_terms = [p.get('value', p) if isinstance(p, dict) else p 
-                        for p in self.phrases.get('phrases', [])[:30]]
+            top_terms = [p.get('value', p) if isinstance(p, dict) else p
+                         for p in self.phrases.get('phrases', [])[:30]]
             if top_terms:
                 context += f"\n常見術語: {', '.join(top_terms)}"
-        
-        return self.model.transcribe_file(
-            str(audio_file),
-            context=context
-        )
-    
+        return model.transcribe_file(str(audio_file), context=context)
+
+    def _transcribe_sensevoice(self, audio_file: Path) -> dict:
+        """使用 SenseVoiceSmall 離線辨識"""
+        return self.model.transcribe_file(str(audio_file))
+
     def run(self) -> dict:
         """
         執行批次推論

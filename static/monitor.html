@@ -61,10 +61,10 @@
       border-radius: 20px;
     }
 
-    /* ── 五路狀態卡片 ── */
+    /* ── 六路狀態卡片 ── */
     .channels-grid {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
+      grid-template-columns: repeat(6, 1fr);
       gap: 10px;
       margin-bottom: 16px;
     }
@@ -207,6 +207,7 @@
     .r-ch.ch3 { background:#2d2a1a; color:#e2c04a; }
     .r-ch.ch4 { background:#2d1a1a; color:#e07070; }
     .r-ch.ch5 { background:#2a1a2d; color:#c085f5; }
+    .r-ch.ch6 { background:#1a2d2d; color:#4fd1c5; }
 
     .r-text { flex: 1; font-size: 0.88rem; color: #c8d0df; line-height: 1.5; }
     .r-conf { font-size: 0.7rem; color: #445; white-space: nowrap; padding-top: 3px; }
@@ -234,7 +235,7 @@
 
 <!-- 標題列 -->
 <div class="topbar">
-  <h1>📡 aiSpeechMulti <span>五路監控</span></h1>
+  <h1>📡 aiSpeechMulti <span>六路監控</span></h1>
   <div class="server-row">
     <span>伺服器</span>
     <input id="apiBase" value="http://localhost:8000" />
@@ -242,14 +243,14 @@
   </div>
 </div>
 
-<!-- 五路管道狀態卡片 -->
+<!-- 六路管道狀態卡片 -->
 <div class="channels-grid" id="channelsGrid">
-  <!-- 由 JS 動態產生 ch1–ch5 -->
+  <!-- 由 JS 動態產生 ch1–ch6 -->
 </div>
 
 <!-- 統計列 -->
 <div class="stats-row">
-  已連線管道 <span id="sActive">0</span> / 5 路 ｜
+  已連線管道 <span id="sActive">0</span> / 6 路 ｜
   總辨識筆數 <span id="sTx">—</span> 筆 ｜
   更新週期 <span>2 秒</span>
 </div>
@@ -279,7 +280,8 @@
 // =============================================================================
 // 設定
 // =============================================================================
-const CHANNEL_IDS     = ['ch1', 'ch2', 'ch3', 'ch4', 'ch5'];
+const CHANNEL_IDS     = ['ch1', 'ch2', 'ch3', 'ch4', 'ch5', 'ch6'];
+const SEAT_LABELS     = { ch1:'CC', ch2:'MTC', ch3:'DTC', ch4:'PC', ch5:'EC', ch6:'IA' };
 const POLL_INTERVAL   = 2000;   // ms — 每 2 秒輪詢一次
 const FEED_MAX_ROWS   = 200;    // 最多保留幾行（避免 DOM 無限增長）
 
@@ -300,7 +302,7 @@ function initChannelCards() {
     card.id = 'card-' + id;
     card.innerHTML = `
       <div class="ch-dot" id="dot-${id}"></div>
-      <div class="ch-name">${id.toUpperCase()}</div>
+      <div class="ch-name">${SEAT_LABELS[id] || id.toUpperCase()}</div>
       <div class="ch-count" id="cnt-${id}">0 筆</div>
       <div class="ch-time"  id="tim-${id}">—</div>
       <div class="ch-last"  id="lst-${id}">等待中…</div>
@@ -347,10 +349,11 @@ async function pollChannels() {
         const backend    = info.stt_backend  || 'google';
         const streamMode = info.stream_mode  || 'batch';
         const modeLabels = {
-          dual:          '⚡ dual',
-          scribe_rt:     '🟣 scribe_rt',
-          google_stream: '🔵 g_stream',
-          batch:         '🕐 batch',
+          dual:              '⚡ dual',
+          scribe_rt:         '🟣 scribe_rt',
+          google_stream:     '🔵 g_stream',
+          sensevoice_local:  '🟢 SenseVoice',
+          batch:             '🕐 batch',
         };
         const modeLabel = modeLabels[streamMode] || streamMode;
         document.getElementById('eng-' + id).innerHTML =
@@ -408,19 +411,22 @@ async function pollTranscripts() {
       // 信心度（chirp_3 固定 0，不顯示）
       const confStr = t.confidence > 0 ? (t.confidence * 100).toFixed(0) + '%' : '';
 
-      // 管道顏色 class（只取 ch1–ch5，其他給 default）
-      const chClass = CHANNEL_IDS.includes(t.channel_id) ? t.channel_id : '';
+      // 管道顏色 class（只取 ch1–ch6，其他給 default）
+      const chClass  = CHANNEL_IDS.includes(t.channel_id) ? t.channel_id : '';
+      const chLabel  = SEAT_LABELS[t.channel_id] || t.channel_id;
 
       // stt_backend 來源標籤（google / scribe_rt / google_stream…）
       const srcKey = (t.stt_backend || 'google').toLowerCase().replace(/[^a-z_]/g,'');
-      const srcLabel = srcKey === 'scribe_rt'     ? '🟣 Scribe'
-                     : srcKey === 'google_stream' ? '🔵 G串流'
-                     : srcKey === 'scribe'        ? '🟣 Scribe'
+      const srcLabel = srcKey === 'scribe_rt'        ? '🟣 Scribe'
+                     : srcKey === 'google_stream'  ? '🔵 G串流'
+                     : srcKey === 'scribe'         ? '🟣 Scribe'
+                     : srcKey === 'sensevoice'     ? '🟢 SenseVoice'
+                     : srcKey === 'sensevoice_local' ? '🟢 SenseVoice'
                      : '🔵 Google';
 
       row.innerHTML =
         `<span class="r-time">${timeStr}</span>` +
-        `<span class="r-ch ${chClass}">${t.channel_id}</span>` +
+        `<span class="r-ch ${chClass}">${chLabel}</span>` +
         `<span class="r-src ${srcKey}">${srcLabel}</span>` +
         `<span class="r-text">${escHtml(t.transcript)}</span>` +
         (confStr ? `<span class="r-conf">${confStr}</span>` : '');

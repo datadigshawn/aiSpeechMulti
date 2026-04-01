@@ -71,9 +71,11 @@ HAZARD_LABELS = {
 }
 
 MODEL_OPTIONS = {
-    "Google Cloud STT": "google_stt",
-    "Google Gemini":    "gemini",
-    "OpenAI Whisper":   "whisper",
+    "Google Cloud STT":         "google_stt",
+    "Google Gemini":            "gemini",
+    "OpenAI Whisper":           "whisper",
+    "🔀 混合模式（Google + Gemini）": "hybrid",
+    "🔒 SenseVoiceSmall（離線）": "sensevoice",
 }
 
 SUB_MODEL_OPTIONS = {
@@ -94,6 +96,17 @@ SUB_MODEL_OPTIONS = {
         ("large-v3 — 最準確（推薦）", "large-v3"),
         ("turbo — 最快",            "turbo"),
         ("medium — 均衡",           "medium"),
+    ],
+    # hybrid：子模型為 Gemini 選項（Google STT 固定使用 chirp_3）
+    "hybrid": [
+        ("gemini-2.5-flash — ⭐ 推薦（速度/品質均衡）",  "gemini-2.5-flash"),
+        ("gemini-2.5-pro — 最高準確度",                  "gemini-2.5-pro"),
+        ("gemini-3.1-pro-preview — 🆕 最新旗艦",         "gemini-3.1-pro-preview"),
+        ("gemini-2.5-flash-lite — 最省費",               "gemini-2.5-flash-lite"),
+    ],
+    # SenseVoice：只有一個模型
+    "sensevoice": [
+        ("SenseVoiceSmall — 🔒 離線、含情緒辨識（推薦）", "iic/SenseVoiceSmall"),
     ],
 }
 
@@ -218,6 +231,12 @@ def init_session_state():
         "show_limit":     50,
         "filter_ch_sidebar": "全部",
         "q_result":       None,
+        # 離線近即時監控
+        "om_watch_folder":   "",
+        "om_language":       "zh",
+        "om_running":        False,
+        "om_results":        [],
+        "om_seen_files":     [],
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -682,21 +701,20 @@ def render_home_page():
             st.rerun()
 
     with col8:
-        base = st.session_state.get("api_base", API_BASE)
         st.markdown(
-            f"""
-            <div style='padding:24px; border:1.5px solid #334; border-radius:12px; min-height:160px;'>
-                <h3 style='margin-top:0; color:#667;'>快速連結</h3>
-                <p style='color:#667; font-size:0.88em;'>
-                    🎤 <a href='http://localhost:8000/' target='_blank' style='color:#7eb8f7;'>音訊擷取頁面</a><br><br>
-                    📡 <a href='http://localhost:8000/monitor' target='_blank' style='color:#7eb8f7;'>五路監控頁面</a><br><br>
-                    📖 <a href='{base}/docs' target='_blank' style='color:#7eb8f7;'>FastAPI 文件</a><br><br>
-                    🩺 <a href='{base}/api/health' target='_blank' style='color:#7eb8f7;'>健康檢查</a>
-                </p>
+            """
+            <div style='padding:24px; border:1.5px solid #2d8a6b; border-radius:12px; min-height:160px;'>
+                <h3 style='margin-top:0; color:#4fd1a5;'>🔒 離線近即時監控</h3>
+                <p style='color:#aaa;'>監控指定資料夾，自動對新音檔進行 SenseVoice 離線辨識。</p>
+                <p style='color:#667; font-size:0.85em;'>含情緒偵測 ／ 無需網路 ／ RTF ≈ 0.1x</p>
             </div>
             """,
             unsafe_allow_html=True,
         )
+        st.write("")
+        if st.button("進入離線近即時監控", use_container_width=True, key="btn_offline_monitor"):
+            st.session_state["page"] = "offline_monitor"
+            st.rerun()
 
 
 # ============================================================================
@@ -823,6 +841,28 @@ def render_speech_page():
             "• 自動啟用**講者辨識**（Google chirp_3 官方支援）  \n"
             "• 輸出格式：`【講者A ｜ MM:SS】文字...`  \n"
             "• ⚠️ 繁體中文用語可能辨識準確度較低，僅供測試"
+        )
+
+    if model_type == "hybrid":
+        st.info(
+            "🔀 **混合模式說明**  \n"
+            "• **Google STT chirp_3**（固定）+ **Gemini**（上方選擇）同時辨識每個音檔  \n"
+            "• **融合規則**：依兩模型 CER 一致性分數自動選取最佳結果  \n"
+            "　　- CER < 10%（高度一致）→ 採用 Google STT（confidence 較可靠）  \n"
+            "　　- CER 10–40%（中度差異）→ 採用 Gemini（語意理解較強）  \n"
+            "　　- CER > 40%（極大差異）→ 採用 Google STT（差異過大，Gemini 可能嚴重錯誤）  \n"
+            "　　- 任一模型失敗 → 自動降級為另一模型  \n"
+            "• ⚠️ API 費用為單模型的約 **2 倍**，建議用於高準確度需求場景"
+        )
+
+    if model_type == "sensevoice":
+        st.info(
+            "🔒 **SenseVoiceSmall 離線模式說明**  \n"
+            "• **完全離線**，資料不離開本機，適合機密通聯  \n"
+            "• **含情緒辨識**：😊 開心 / 😠 憤怒 / 😢 悲傷 / 😐 中性…  \n"
+            "• **含事件偵測**：🗣️ 語音 / 🎵 背景音樂 / 😄 笑聲 / 😷 咳嗽…  \n"
+            "• **RTF ≈ 0.1x**（10 分鐘音檔約 1 分鐘辨識完成）  \n"
+            "• ⚠️ 首次使用會自動下載模型（約 500MB），需要網路"
         )
 
     st.write("")
@@ -1252,6 +1292,8 @@ def render_running_page():
         else:
             folder_name = f"{event_name}_{timestamp}_{sub_model}"
         output_dir = TEMP_UPLOAD_DIR / "ASR_Evaluation" / folder_name
+    elif model_type == "hybrid":
+        output_dir = TEMP_UPLOAD_DIR / "ASR_Evaluation" / f"hybrid_google+{sub_model}_{timestamp}"
     else:
         output_dir = TEMP_UPLOAD_DIR / "ASR_Evaluation" / f"{model_type}_{sub_model}_{timestamp}"
 
@@ -1288,15 +1330,32 @@ def render_running_page():
                 vocabulary_file = str(vocab_path)
 
         if model_type == "google_stt" and sub_model == "chirp_3_hans":
-            actual_stt_model    = "chirp_3"
+            actual_stt_model     = "chirp_3"
             actual_language_code = "cmn-Hans-CN"
         else:
-            actual_stt_model    = sub_model
+            actual_stt_model     = sub_model
             actual_language_code = "cmn-Hant-TW"
 
         if model_type == "whisper":
             from scripts.models.model_whisper import transcribe_with_whisper as whisper_transcribe
             engine = None
+        elif model_type == "hybrid":
+            # hybrid：Google STT chirp_3（固定）+ Gemini（sub_model 為 Gemini 版本）
+            engine = BatchInference(
+                input_dir=str(audio_paths[0].parent),
+                output_dir=str(output_dir),
+                model_type="hybrid",
+                stt_model="chirp_3",
+                gemini_model=sub_model,
+                vocabulary_file=vocabulary_file,
+                language_code="cmn-Hant-TW",
+            )
+        elif model_type == "sensevoice":
+            engine = BatchInference(
+                input_dir=str(audio_paths[0].parent),
+                output_dir=str(output_dir),
+                model_type="sensevoice",
+            )
         else:
             engine = BatchInference(
                 input_dir=str(audio_paths[0].parent),
@@ -1369,6 +1428,7 @@ def render_running_page():
                 elif model_type == "google_stt":
                     result = transcribe_google_stt_with_vad(engine, preproc_file, output_dir)
                 else:
+                    # gemini / hybrid / sensevoice 共用此路徑
                     result = engine.transcribe_file(preproc_file)
 
                 # 暫存檔清理
@@ -1376,6 +1436,16 @@ def render_running_page():
                     preproc_file.unlink(missing_ok=True)
 
                 transcript = result.get("transcript", "")
+
+                # SenseVoice / Whisper 輸出為簡體中文，轉換為繁體中文（台灣用詞）
+                if model_type in ("sensevoice", "whisper") and transcript:
+                    try:
+                        import opencc as _opencc
+                        _cc = _opencc.OpenCC("s2twp")
+                        transcript = _cc.convert(transcript)
+                    except ImportError:
+                        pass
+
                 if use_vocabulary:
                     try:
                         from utils.text_cleaner import fix_radio_jargon
@@ -1392,6 +1462,56 @@ def render_running_page():
                     value=transcript if transcript else "（無辨識結果）",
                     height=80, key=f"result_{i}", disabled=True,
                 )
+                # hybrid 模式：顯示融合診斷資訊
+                if model_type == "hybrid":
+                    _rule         = result.get("rule", "")
+                    _source       = result.get("source", "")
+                    _cer_between  = result.get("cer_between")
+                    _g_text       = result.get("google_transcript", "")
+                    _m_text       = result.get("gemini_transcript", "")
+                    _source_label = {"google": "Google STT", "gemini": "Gemini", "scribe": "Scribe", "": "（空）"}.get(_source, _source)
+                    _cer_str      = f"{_cer_between:.1%}" if _cer_between is not None else "N/A"
+                    with st.expander(
+                        f"🔀 融合診斷　規則={_rule}　來源={_source_label}　CER(G↔M)={_cer_str}",
+                        key=f"expander_fuse_{i}",
+                    ):
+                        col_g, col_m = st.columns(2)
+                        with col_g:
+                            st.caption("**Google STT（chirp_3）**")
+                            st.text(_g_text or "（無結果）")
+                        with col_m:
+                            st.caption(f"**Gemini（{sub_model}）**")
+                            st.text(_m_text or "（無結果）")
+
+                # SenseVoice 模式：顯示情緒/事件偵測結果
+                if model_type == "sensevoice":
+                    _emotion_label = result.get("emotion_label")
+                    _events        = result.get("events", [])
+                    _segments      = result.get("segments", [])
+                    _parts = []
+                    if _emotion_label:
+                        _parts.append(f"情緒：{_emotion_label}")
+                    _notable_events = [e for e in _events if "語音" not in e]
+                    if _notable_events:
+                        _parts.append(f"事件：{' '.join(_notable_events)}")
+                    if _parts:
+                        st.caption("　　".join(_parts))
+                    if _segments:
+                        with st.expander(f"🔍 逐段詳細結果（{len(_segments)} 段）",
+                                         key=f"expander_sv_{i}"):
+                            for seg in _segments:
+                                _conf = "🟢" if (seg.get("no_speech_prob", 0) < 0.3) else "🟡"
+                                _ts   = f"{seg['start']:.1f}s → {seg['end']:.1f}s"
+                                _emo  = seg.get("emotion_label") or ""
+                                _evts = " ".join(
+                                    e for e in seg.get("events", []) if "語音" not in e
+                                )
+                                _line = f"{_conf} **[{_ts}]** {seg['text']}"
+                                if _emo:
+                                    _line += f"　{_emo}"
+                                if _evts:
+                                    _line += f"　{_evts}"
+                                st.markdown(_line)
             except Exception as e:
                 all_results.append({"filename": audio_file.name, "transcript": "", "status": "error", "error": str(e)})
                 st.error(f"**{audio_file.name}**　辨識失敗：{e}")
@@ -2370,7 +2490,7 @@ def _render_audio_eval_mode(_json):
                     output_dir   = str(run_asr_dir),
                     model_type   = eval_model_value,
                     stt_model    = eval_sub_model if eval_model_value == "google_stt" else "chirp_3",
-                    gemini_model = eval_sub_model if eval_model_value == "gemini"     else "gemini-2.5-flash",
+                    gemini_model = eval_sub_model if eval_model_value in ("gemini", "hybrid") else "gemini-2.5-flash",
                     language_code= "cmn-Hant-TW",
                 ) if eval_model_value != "whisper" else None
 
@@ -2837,6 +2957,283 @@ def render_vocabulary_page():
 
 
 # ============================================================================
+# 頁面：離線近即時資料夾監控
+# ============================================================================
+def render_offline_monitor_page():
+    """
+    監控指定資料夾，對新出現的音檔自動以 SenseVoiceSmall 辨識。
+    每次 Streamlit rerun 掃描一次資料夾，新檔案加入辨識佇列並即時顯示結果。
+    """
+    if st.button("← 返回首頁", key="offline_back"):
+        st.session_state["page"] = "home"
+        st.rerun()
+
+    st.title("🔒 離線近即時資料夾監控")
+    st.caption("監控指定資料夾，自動對新音檔進行 SenseVoice 離線辨識（含情緒/事件偵測）")
+    st.divider()
+
+    # ── 側邊欄設定 ──────────────────────────────────────────────────────
+    with st.sidebar:
+        st.markdown("### ⚙️ 監控設定")
+
+        _om_is_running = st.session_state.get("om_running", False)
+        # 若監控中，顯示目前的路徑（唯讀提示）；否則允許輸入
+        if _om_is_running:
+            st.text_input(
+                "監控資料夾路徑",
+                value=st.session_state.get("om_watch_folder", ""),
+                key="om_watch_folder_input",
+                disabled=True,
+                help="監控進行中，停止後可修改路徑",
+            )
+        else:
+            # value 優先使用上次存入的路徑，方便停止後再度啟動
+            _default_path = st.session_state.get("om_watch_folder", "")
+            st.text_input(
+                "監控資料夾路徑",
+                value=_default_path,
+                placeholder="/Users/apple/incoming_audio",
+                key="om_watch_folder_input",
+                help="新音檔放入此資料夾後將自動辨識（支援 wav/mp3/m4a/flac/ogg）",
+            )
+
+        lang_opts = [("zh", "中文（推薦）"), ("en", "英文"), ("ja", "日文"),
+                     ("yue", "粵語"), ("ko", "韓文"), ("auto", "自動偵測")]
+        lang_labels = {k: v for k, v in lang_opts}
+        language = st.selectbox(
+            "辨識語言",
+            options=[k for k, _ in lang_opts],
+            format_func=lambda x: lang_labels[x],
+            index=0,
+            key="om_language_select",
+            disabled=_om_is_running,
+        )
+
+        st.divider()
+
+        _currently_running = st.session_state.get("om_running", False)
+
+        if not _currently_running:
+            if st.button("▶ 啟動監控", use_container_width=True, type="primary",
+                         key="om_btn_start"):
+                # 讀取 text_input 目前的值（Streamlit 自動存入 session_state[key]）
+                _path = st.session_state.get("om_watch_folder_input", "").strip()
+                if _path:
+                    st.session_state["om_watch_folder"] = _path
+                    st.session_state["om_language"]     = st.session_state.get(
+                        "om_language_select", "zh")
+                    st.session_state["om_running"]      = True
+                    st.session_state["om_seen_files"]   = []
+                    st.rerun()
+                else:
+                    st.warning("⚠️ 請先在上方輸入監控資料夾路徑！")
+        else:
+            if st.button("⏹ 停止監控", use_container_width=True, key="om_btn_stop"):
+                st.session_state["om_running"] = False
+                st.rerun()
+
+        if st.button("🗑 清除結果", use_container_width=True, key="om_btn_clear"):
+            st.session_state["om_results"]    = []
+            st.session_state["om_seen_files"] = []
+            st.rerun()
+
+        st.divider()
+        if st.button("← 返回首頁", key="offline_back2", use_container_width=True):
+            st.session_state["om_running"] = False
+            st.session_state["page"]       = "home"
+            st.rerun()
+
+    # ── 狀態列 ──────────────────────────────────────────────────────────
+    om_running     = st.session_state.get("om_running", False)
+    om_folder      = st.session_state.get("om_watch_folder", "")
+    om_language    = st.session_state.get("om_language", "zh")
+    om_results     = st.session_state.get("om_results", [])
+    om_seen_files  = st.session_state.get("om_seen_files", [])
+
+    col_st, col_cnt = st.columns([4, 2])
+    with col_st:
+        if om_running and om_folder:
+            st.success(f"🟢 監控中：`{om_folder}`")
+        elif om_folder:
+            st.warning(f"⏸ 已停止：`{om_folder}`")
+        else:
+            st.info("請在左側設定資料夾路徑，然後按「▶ 啟動監控」")
+    with col_cnt:
+        st.metric("已辨識", f"{len(om_results)} 個檔案")
+
+    if not om_folder:
+        return
+
+    folder_path = Path(om_folder)
+    if not folder_path.exists():
+        st.error(f"❌ 資料夾不存在：{om_folder}")
+        return
+
+    # ── 掃描資料夾，找出新音檔 ───────────────────────────────────────────
+    AUDIO_EXTS = {".wav", ".mp3", ".m4a", ".flac", ".ogg", ".aac"}
+    all_files  = sorted(
+        f for f in folder_path.iterdir()
+        if f.is_file() and f.suffix.lower() in AUDIO_EXTS
+    )
+
+    seen_set  = set(om_seen_files)
+    new_files = [f for f in all_files if f.name not in seen_set]
+
+    if om_running and new_files:
+        # 載入模型（每頁面週期懶載入）
+        try:
+            from scripts.models.model_sensevoice import SenseVoiceModel
+
+            vocab_csv = PROJECT_ROOT / "vocabulary" / "master_vocabulary.csv"
+            sv_model  = SenseVoiceModel(
+                language=om_language,
+                vocabulary_csv=str(vocab_csv) if vocab_csv.exists() else None,
+            )
+
+            progress = st.progress(0, text="辨識中…")
+            for idx, audio_file in enumerate(new_files):
+                progress.progress(
+                    (idx + 1) / len(new_files),
+                    text=f"辨識：{audio_file.name}  ({idx + 1}/{len(new_files)})",
+                )
+                try:
+                    result = sv_model.transcribe_file(str(audio_file))
+
+                    om_results.append({
+                        "filename":      audio_file.name,
+                        "transcript":    result.get("transcript", ""),
+                        "emotion":       result.get("emotion"),
+                        "emotion_label": result.get("emotion_label"),
+                        "events":        result.get("events", []),
+                        "segments":      result.get("segments", []),
+                        "timestamp":     datetime.now().strftime("%H:%M:%S"),
+                        "status":        "success",
+                    })
+                except Exception as exc:
+                    om_results.append({
+                        "filename":  audio_file.name,
+                        "transcript": "",
+                        "status":    "error",
+                        "error":     str(exc),
+                        "timestamp": datetime.now().strftime("%H:%M:%S"),
+                    })
+
+                om_seen_files.append(audio_file.name)
+
+            progress.empty()
+            st.session_state["om_results"]    = om_results
+            st.session_state["om_seen_files"] = om_seen_files
+            st.rerun()
+
+        except ImportError:
+            st.error(
+                "❌ funasr 未安裝，無法使用 SenseVoice 離線模式。\n\n"
+                "請執行：`pip install funasr>=1.1.0 modelscope onnxruntime`"
+            )
+
+    elif om_running and not new_files:
+        st.caption(
+            f"⏳ 等待新音檔…（資料夾共 {len(all_files)} 個已辨識）　"
+            f"每 {5} 秒自動掃描一次"
+        )
+
+    # ── 辨識結果顯示 ─────────────────────────────────────────────────────
+    st.divider()
+    st.markdown(f"#### 辨識結果（共 {len(om_results)} 筆）")
+
+    if not om_results:
+        st.markdown(
+            '<div style="color:#445; padding:20px; text-align:center;">'
+            '尚無辨識結果，等待新音檔…</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        # CSV 匯出
+        csv_rows = []
+        for r in om_results:
+            csv_rows.append({
+                "時間":     r.get("timestamp", ""),
+                "檔名":     r["filename"],
+                "辨識文字": r.get("transcript", ""),
+                "情緒":     r.get("emotion_label", ""),
+                "事件":     " ".join(r.get("events", [])),
+                "狀態":     r.get("status", ""),
+            })
+        _buf = io.StringIO()
+        _writer = csv.DictWriter(_buf, fieldnames=["時間", "檔名", "辨識文字", "情緒", "事件", "狀態"])
+        _writer.writeheader()
+        _writer.writerows(csv_rows)
+        _csv_bytes = ("\ufeff" + _buf.getvalue()).encode("utf-8")
+        st.download_button(
+            "⬇️ 下載辨識結果 CSV",
+            data=_csv_bytes,
+            file_name=f"offline_monitor_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv",
+        )
+
+        st.write("")
+
+        for r in reversed(om_results):  # 最新在上
+            fname   = r["filename"]
+            ts      = r.get("timestamp", "")
+            status  = r.get("status", "success")
+
+            if status == "error":
+                with st.expander(f"❌ `{fname}`　{ts}", expanded=False):
+                    st.error(r.get("error", "未知錯誤"))
+                continue
+
+            text          = r.get("transcript", "") or "（無辨識結果）"
+            emotion_label = r.get("emotion_label", "")
+            events        = r.get("events", [])
+            segments      = r.get("segments", [])
+
+            notable_events = [e for e in events if "語音" not in e]
+            badge_parts    = []
+            if emotion_label:
+                badge_parts.append(emotion_label)
+            badge_parts.extend(notable_events)
+            badge_str = "　".join(badge_parts)
+
+            header = f"✅ `{fname}`　{ts}"
+            if badge_str:
+                header += f"　｜　{badge_str}"
+
+            with st.expander(header, expanded=True):
+                st.markdown(
+                    f'<div style="font-size:0.9rem; color:#d0d8ef; '
+                    f'background:#1a1d27; padding:10px; border-radius:6px;">'
+                    f'{text}'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+                if segments:
+                    st.write("")
+                    seg_lines = []
+                    for seg in segments:
+                        _ts_str = f"{seg['start']:.1f}s→{seg['end']:.1f}s"
+                        _emo    = seg.get("emotion_label") or ""
+                        _evts   = " ".join(
+                            e for e in seg.get("events", []) if "語音" not in e
+                        )
+                        _line   = f"**[{_ts_str}]** {seg['text']}"
+                        if _emo:
+                            _line += f"　{_emo}"
+                        if _evts:
+                            _line += f"　{_evts}"
+                        seg_lines.append(_line)
+                    st.caption("逐段詳細")
+                    for line in seg_lines:
+                        st.markdown(f"&emsp;{line}")
+
+    # ── 自動刷新（監控中時） ─────────────────────────────────────────────
+    if om_running:
+        time.sleep(5)
+        st.rerun()
+
+
+# ============================================================================
 # 主程式
 # ============================================================================
 def main():
@@ -2863,6 +3260,8 @@ def main():
         render_vocabulary_page()
     elif page == "evaluation":
         render_evaluation_page()
+    elif page == "offline_monitor":
+        render_offline_monitor_page()
     else:
         st.session_state["page"] = "home"
         st.rerun()

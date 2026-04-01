@@ -96,7 +96,7 @@ except ImportError:
 # 全域設定
 # ==============================================================================
 
-MAX_CHANNELS      = 5
+MAX_CHANNELS      = 6
 PROJECT_ID        = os.getenv("GOOGLE_CLOUD_PROJECT", "dazzling-seat-315406")
 STT_MODEL         = "chirp_3"
 STT_LANGUAGE      = "cmn-Hant-TW"
@@ -107,12 +107,13 @@ BYTES_PER_SAMPLE  = 2
 TARGET_BYTES      = SAMPLE_RATE * CHUNK_SECONDS * BYTES_PER_SAMPLE  # 480,000 bytes
 
 # ── 串流模式設定 ───────────────────────────────────────────────────────────────
-# mode 可為：dual / scribe_rt / google_stream / batch
-# dual        = Scribe RT（即時字幕）+ Google 批次（確認存庫） ← 推薦
-# scribe_rt   = 純 Scribe v2 Realtime（最低延遲，不存 DB）
-# google_stream = 純 Google streaming_recognize()（gRPC，自動重連）
-# batch       = 原有 15 秒批次（向下相容）
-VALID_MODES         = {"dual", "scribe_rt", "google_stream", "batch"}
+# mode 可為：dual / scribe_rt / google_stream / batch / sensevoice_local
+# dual              = Scribe RT（即時字幕）+ Google 批次（確認存庫） ← 推薦
+# scribe_rt         = 純 Scribe v2 Realtime（最低延遲，不存 DB）
+# google_stream     = 純 Google streaming_recognize()（gRPC，自動重連）
+# batch             = 原有 15 秒批次（向下相容）
+# sensevoice_local  = SenseVoice 本地端（3 秒 chunk，機密語音，100% 離線）
+VALID_MODES         = {"dual", "scribe_rt", "google_stream", "batch", "sensevoice_local"}
 DEFAULT_STREAM_MODE = os.getenv("STREAM_MODE", "dual").strip().lower()
 if DEFAULT_STREAM_MODE not in VALID_MODES:
     DEFAULT_STREAM_MODE = "dual"
@@ -120,7 +121,7 @@ if DEFAULT_STREAM_MODE not in VALID_MODES:
 # 預設 STT 引擎：讀自 .env，未設定時回退 google
 # 每條 WebSocket 連線可透過 ?backend= 覆蓋此預設值
 DEFAULT_STT_BACKEND = os.getenv("STT_BACKEND", "google").strip().lower()
-if DEFAULT_STT_BACKEND not in ("google", "scribe"):
+if DEFAULT_STT_BACKEND not in ("google", "scribe", "sensevoice"):
     DEFAULT_STT_BACKEND = "google"
 
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
@@ -216,14 +217,15 @@ class StreamManager:
 # ==============================================================================
 
 class AudioBuffer:
-    def __init__(self):
+    def __init__(self, target_bytes: int = None):
         self._buf = bytearray()
+        self.target_bytes = target_bytes or TARGET_BYTES
 
     def append(self, data: bytes):
         self._buf.extend(data)
 
     def is_ready(self) -> bool:
-        return len(self._buf) >= TARGET_BYTES
+        return len(self._buf) >= self.target_bytes
 
     def flush_to_wav(self) -> Optional[str]:
         if not self._buf:
@@ -365,8 +367,9 @@ def create_stt_model(backend: str = "google"):
     依 backend 參數建立對應的 STT 模型實例。
 
     Args:
-        backend: "google" → GoogleSTTModel (chirp_3)
-                 "scribe" → ScribeSTTModel (ElevenLabs scribe_v1)
+        backend: "google"     → GoogleSTTModel (chirp_3)
+                 "scribe"     → ScribeSTTModel (ElevenLabs scribe_v1)
+                 "sensevoice" → SenseVoiceModel (FunASR 本地端)
 
     每條 WebSocket 連線各自持有一個實例，避免跨管道共用狀態。
     """
@@ -375,6 +378,9 @@ def create_stt_model(backend: str = "google"):
             language_code="zh",   # 提示偏中文，可留空讓 Scribe 自動偵測
             diarize=False,
         )
+    elif backend == "sensevoice":
+        from scripts.models.model_sensevoice import SenseVoiceModel
+        return SenseVoiceModel(model_name="iic/SenseVoiceSmall", language="zh")
     else:
         return GoogleSTTModel(
             project_id=PROJECT_ID,
@@ -565,6 +571,117 @@ async def _handle_batch_mode(
                     os.unlink(wav_path)
 
 
+# ── SenseVoice 本地端即時辨識常數 ─────────────────────────────────────────────
+SENSEVOICE_CHUNK_SECONDS = 3    # 3 秒一段（SenseVoice 推論極快，70ms/10s）
+SENSEVOICE_TARGET_BYTES  = SAMPLE_RATE * SENSEVOICE_CHUNK_SECONDS * BYTES_PER_SAMPLE  # 96,000 bytes
+
+# ── SenseVoice 全域單例（避免每次連線重複載入 ~900MB 模型）──────────────
+_sensevoice_instance = None
+_sensevoice_lock     = asyncio.Lock()
+
+
+async def _get_sensevoice_model():
+    """取得或建立 SenseVoice 全域單例（thread-safe）。"""
+    global _sensevoice_instance
+    if _sensevoice_instance is not None:
+        return _sensevoice_instance
+
+    async with _sensevoice_lock:
+        if _sensevoice_instance is not None:
+            return _sensevoice_instance
+
+        from scripts.models.model_sensevoice import SenseVoiceModel
+        logger.info("[sensevoice] 正在載入 SenseVoice 模型（首次，含下載）...")
+        # use_vad=False：即時模式已由 AudioBuffer 切 3 秒 chunk，不需要 FunASR 內建 VAD
+        # 這樣可避免下載 fsmn-vad 模型（ModelScope 下載極不穩定）
+        stt = SenseVoiceModel(model_name="iic/SenseVoiceSmall", language="zh", use_vad=False)
+        await asyncio.to_thread(stt._ensure_loaded)
+        _sensevoice_instance = stt
+        logger.info("[sensevoice] SenseVoice 模型載入完成 ✅")
+        return _sensevoice_instance
+
+
+async def _handle_sensevoice_local_mode(
+    ws: WebSocket, channel_id: str, state: "ChannelState"
+) -> None:
+    """
+    SenseVoice 本地端近即時辨識模式：
+    PCM 累積 3 秒 → WAV → SenseVoice 本地辨識 → 回傳 transcript + 存庫
+
+    特點：
+        - 100% 本地執行，音訊不外傳（適用於機密語音）
+        - 推論極快（10 秒音訊約 70ms），3 秒 chunk 延遲極低
+        - 使用 FunASR SenseVoiceSmall 模型（全域單例，首次載入後複用）
+        - 自動簡體→繁體中文轉換（台灣用詞）
+    """
+    stt = await _get_sensevoice_model()
+
+    await ws.send_json({
+        "type":        "engine_info",
+        "channel_id":  channel_id,
+        "stt_backend": "sensevoice",
+        "stream_mode": "sensevoice_local",
+        "timestamp":   datetime.now().isoformat(),
+    })
+
+    audio_buf = AudioBuffer(target_bytes=SENSEVOICE_TARGET_BYTES)
+
+    async for message in ws.iter_bytes():
+        audio_buf.append(message)
+
+        if audio_buf.is_ready():
+            wav_path = audio_buf.flush_to_wav()
+            if not wav_path:
+                continue
+            try:
+                # ── 前處理：降噪 + VAD ─────────────────────────────────────
+                _, should_skip = await asyncio.to_thread(
+                    _preprocess_wav, wav_path, channel_id
+                )
+                if should_skip:
+                    continue
+
+                result     = await asyncio.to_thread(stt.transcribe_file, wav_path)
+                transcript = result.get("transcript", "").strip()
+                confidence = result.get("confidence", 0.0)
+
+                # ── 簡體→繁體中文轉換（SenseVoice 預設輸出簡體）─────────
+                if transcript:
+                    transcript = _s2t(transcript)
+
+                if transcript:
+                    await ws.send_json({
+                        "type":        "transcript",
+                        "channel_id":  channel_id,
+                        "text":        transcript,
+                        "confidence":  round(confidence, 4),
+                        "stt_backend": "sensevoice",
+                        "timestamp":   datetime.now().isoformat(),
+                    })
+                    database.save(channel_id, transcript, confidence, "sensevoice",
+                                  use_vad=_audio_settings["use_vad"],
+                                  use_denoise=_audio_settings["use_denoise"])
+                    state.transcript_count += 1
+                    state.last_text         = transcript
+                    logger.debug(f"[{channel_id}][sensevoice] {transcript[:60]}")
+                elif result.get("error"):
+                    logger.warning(f"[{channel_id}][sensevoice] STT 錯誤：{result['error']}")
+
+            except (ConnectionError, RuntimeError) as exc:
+                # WebSocket 已斷線，停止處理
+                logger.info(f"[{channel_id}][sensevoice] 連線中斷，停止辨識：{exc}")
+                break
+            except Exception as exc:
+                logger.error(f"[{channel_id}][sensevoice] 辨識例外：{exc}")
+                try:
+                    await _send_error(ws, channel_id, str(exc))
+                except Exception:
+                    break  # WebSocket 已關閉，無法送出錯誤
+            finally:
+                if os.path.exists(wav_path):
+                    os.unlink(wav_path)
+
+
 async def _handle_scribe_rt_mode(
     ws: WebSocket, channel_id: str, state: "ChannelState"
 ) -> None:
@@ -715,17 +832,34 @@ async def _handle_google_stream_mode(
 
     async def _task_result_to_browser():
         """從 result_q 取辨識結果 → 推播前端。"""
-        while not stop_ev.is_set() or not result_q.empty():
+        while True:
             try:
-                result = await asyncio.wait_for(result_q.get(), timeout=1.0)
+                result = await asyncio.wait_for(result_q.get(), timeout=0.5)
             except asyncio.TimeoutError:
+                # 只有在 stop_ev 已設定且佇列確實清空後才退出，
+                # 避免 gRPC 結果尚未入列就提前結束迴圈。
+                if stop_ev.is_set() and result_q.empty():
+                    break
                 continue
 
+            msg_type   = result.get("type", "partial")
             text       = result.get("text", "").strip()
-            is_final   = result.get("type") == "final"
+            is_final   = msg_type == "final"
+            is_error   = msg_type == "error"
             confidence = result.get("confidence", 0.0)
 
             if not text:
+                continue
+
+            if is_error:
+                # 串流發生錯誤：推播前端顯示警告，不存庫
+                await ws.send_json({
+                    "type":       "error",
+                    "channel_id": channel_id,
+                    "message":    text,
+                    "timestamp":  datetime.now().isoformat(),
+                })
+                logger.error(f"[{channel_id}][google_stream] 串流錯誤：{text}")
                 continue
 
             # 推播前端
@@ -747,11 +881,23 @@ async def _handle_google_stream_mode(
                 state.last_text         = text
                 logger.debug(f"[{channel_id}][google_stream] final: {text[:60]}")
 
-    await asyncio.gather(
-        _task_browser_to_queue(),
-        _task_stream_recognize(),
-        _task_result_to_browser(),
-    )
+    try:
+        await asyncio.gather(
+            _task_browser_to_queue(),
+            _task_stream_recognize(),
+            _task_result_to_browser(),
+        )
+    except Exception as exc:
+        logger.error(f"[{channel_id}][google_stream] gather 異常終止：{exc}")
+        try:
+            await ws.send_json({
+                "type":      "error",
+                "channel_id": channel_id,
+                "message":   f"Google Stream 意外中斷：{exc}",
+                "timestamp": datetime.now().isoformat(),
+            })
+        except Exception:
+            pass
 
 
 async def _handle_dual_mode(
@@ -933,18 +1079,19 @@ async def _handle_dual_mode(
 async def audio_stream(
     ws:         WebSocket,
     channel_id: str,
-    backend: str = Query(default=None,  description="STT 引擎：google | scribe（batch 模式用）"),
-    mode:    str = Query(default=None,  description="串流模式：dual | scribe_rt | google_stream | batch"),
+    backend: str = Query(default=None,  description="STT 引擎：google | scribe | sensevoice（batch 模式用）"),
+    mode:    str = Query(default=None,  description="串流模式：dual | scribe_rt | google_stream | batch | sensevoice_local"),
 ):
     """
     五路無線電語音串流端點（v2.0 多模式）。
 
     query params:
-        mode=dual          雙引擎（推薦）：Scribe RT 即時字幕 + Google 批次確認存庫
-        mode=scribe_rt     純 Scribe v2 Realtime（最低延遲）
-        mode=google_stream 純 Google streaming_recognize()
-        mode=batch         原有 15 秒批次（向下相容）
-        backend=google     batch 模式用的引擎選擇（google | scribe）
+        mode=dual              雙引擎（推薦）：Scribe RT 即時字幕 + Google 批次確認存庫
+        mode=scribe_rt         純 Scribe v2 Realtime（最低延遲）
+        mode=google_stream     純 Google streaming_recognize()
+        mode=batch             原有 15 秒批次（向下相容）
+        mode=sensevoice_local  SenseVoice 本地端（3 秒 chunk，機密語音）
+        backend=google         batch 模式用的引擎選擇（google | scribe | sensevoice）
 
     前端訊息類型：
         engine_info  — 連線成功，說明實際使用的引擎與模式
@@ -959,7 +1106,7 @@ async def audio_stream(
         mode = DEFAULT_STREAM_MODE
 
     backend = (backend or DEFAULT_STT_BACKEND).strip().lower()
-    if backend not in ("google", "scribe"):
+    if backend not in ("google", "scribe", "sensevoice"):
         backend = "google"
 
     # ── 容量保護 ──────────────────────────────────────────────────────────────
@@ -1009,6 +1156,8 @@ async def audio_stream(
             await _handle_scribe_rt_mode(ws, channel_id, state)
         elif mode == "google_stream":
             await _handle_google_stream_mode(ws, channel_id, state, google_stt)
+        elif mode == "sensevoice_local":
+            await _handle_sensevoice_local_mode(ws, channel_id, state)
         else:
             await _handle_batch_mode(ws, channel_id, state, stt)
 

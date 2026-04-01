@@ -692,7 +692,9 @@ class GoogleSTTModel:
         result_queue:   "asyncio.Queue[dict]",
         stop_event:     "asyncio.Event",
         max_chunk_bytes: int = 24000,   # ≤25KB；16kHz mono 約 0.75 秒
-        reconnect_secs:  int = 270,     # 4.5 分鐘重連（Google 限制 5 分鐘）
+        reconnect_secs:  int = 10,      # Google STT V2 chirp_3 只在串流關閉時回傳結果；
+                                        # 縮短為 10 秒讓每個 window 都能拿到辨識文字。
+                                        # （Google 單次串流上限 5 分鐘；10 秒遠低於此限制）
     ) -> None:
         """
         持續從 audio_queue 讀取 PCM bytes，透過 Google STT V2
@@ -716,7 +718,9 @@ class GoogleSTTModel:
                              }
             stop_event:      設定後結束串流（asyncio.Event）
             max_chunk_bytes: 每個 streaming request 的最大音訊大小（預設 24KB）
-            reconnect_secs:  自動重連間隔秒數（預設 270 秒 = 4.5 分鐘）
+            reconnect_secs:  每次串流視窗長度（預設 10 秒）。
+                             chirp_3 streaming 只在串流關閉時回傳結果，
+                             縮短視窗可降低辨識延遲。Google 上限 5 分鐘。
 
         使用方式（在 FastAPI 的 asyncio 環境中）：
             audio_q  = asyncio.Queue()
@@ -793,6 +797,7 @@ class GoogleSTTModel:
                 後續 yield   → 音訊 request（從 audio_queue 持續取資料）
             """
             # ── 第一個 request：config only ──
+            self.logger.debug("[stream_recognize] generator: 送出 config request")
             yield _build_config_request()
 
             # ── 若有前一輪未送完的暫存 chunks ──
@@ -803,22 +808,35 @@ class GoogleSTTModel:
                     )
 
             # ── 持續從佇列讀取並送出音訊 ──
+            audio_chunk_count = 0
             deadline = _asyncio.get_event_loop().time() + reconnect_secs
             while not stop_event.is_set():
                 remaining = deadline - _asyncio.get_event_loop().time()
                 if remaining <= 0:
-                    self.logger.info("🔄 Google STT 串流：達到重連時限，準備重連")
+                    self.logger.debug(
+                        f"[stream_recognize] {reconnect_secs}s 視窗結束，"
+                        f"共送 {audio_chunk_count} chunk，關閉串流等待回傳結果…"
+                    )
                     break
                 try:
                     pcm = await _asyncio.wait_for(
                         audio_queue.get(), timeout=min(1.0, remaining)
                     )
+                    audio_chunk_count += 1
+                    if audio_chunk_count <= 3 or audio_chunk_count % 20 == 0:
+                        self.logger.debug(
+                            f"[stream_recognize] generator: 送出第 {audio_chunk_count} 個音訊 chunk"
+                            f"（{len(pcm)} bytes）"
+                        )
                     for i in range(0, len(pcm), max_chunk_bytes):
                         yield cloud_speech.StreamingRecognizeRequest(
                             audio=pcm[i : i + max_chunk_bytes]
                         )
                 except _asyncio.TimeoutError:
                     continue
+            self.logger.debug(
+                f"[stream_recognize] generator 結束，共送出 {audio_chunk_count} 個音訊 chunk"
+            )
 
         # ── 主迴圈：自動重連 ────────────────────────────────────────────────
         pending: list[bytes] = []
@@ -826,31 +844,65 @@ class GoogleSTTModel:
         async with SpeechAsyncClient(client_options=client_opts) as async_client:
             while not stop_event.is_set():
                 try:
+                    self.logger.debug(
+                        f"[stream_recognize] 發起 streaming_recognize："
+                        f" model={self.model} lang={self.language_code}"
+                        f" recognizer={recognizer}"
+                    )
                     responses = await async_client.streaming_recognize(
                         requests=_request_generator(pending),
                         metadata=metadata,      # ← metadata bug 修復關鍵
                     )
                     pending = []  # 重連成功，清空暫存
+                    self.logger.debug(
+                        f"[stream_recognize] streaming_recognize() 已回傳，"
+                        f"responses 型別={type(responses).__name__}，開始迭代…"
+                    )
 
+                    response_count = 0
+                    result_count   = 0
                     async for response in responses:
+                        response_count += 1
+                        self.logger.debug(
+                            f"[stream_recognize] 收到第 {response_count} 個 response，"
+                            f"results={len(response.results)}"
+                        )
                         for result in response.results:
-                            if not result.alternatives:
+                            result_count += 1
+                            alts = result.alternatives
+                            text_raw = alts[0].transcript if alts else ""
+                            self.logger.debug(
+                                f"[stream_recognize] result #{result_count}："
+                                f" is_final={result.is_final}"
+                                f" alternatives={len(alts)}"
+                                f" text='{text_raw[:40]}'"
+                            )
+                            if not alts:
                                 continue
-                            text = result.alternatives[0].transcript.strip()
+                            text = text_raw.strip()
                             if not text:
                                 continue
                             is_final = result.is_final
                             await result_queue.put({
                                 "type":       "final" if is_final else "partial",
                                 "text":       text,
-                                "confidence": float(
-                                    result.alternatives[0].confidence or 0.0
-                                ),
+                                "confidence": float(alts[0].confidence or 0.0),
                             })
+
+                    self.logger.debug(
+                        f"[stream_recognize] async for 結束："
+                        f" responses={response_count}  results={result_count}"
+                    )
 
                 except Exception as exc:
                     err_str = str(exc)
                     self.logger.warning(f"⚠️  Google STT 串流中斷：{err_str}")
+                    # 把錯誤訊息送入 result_queue，讓消費端推播前端
+                    await result_queue.put({
+                        "type":    "error",
+                        "text":    f"Google STT 串流錯誤：{err_str}",
+                        "confidence": 0.0,
+                    })
                     if stop_event.is_set():
                         break
                     # 短暫等待後重連（避免瞬間過多重連）

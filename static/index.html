@@ -406,13 +406,14 @@
   <div class="card">
     <div class="card-title">連線設定</div>
     <div class="config-row">
-      <label>管道 ID</label>
+      <label>席位代號</label>
       <select id="channelSelect">
-        <option value="ch1">管道 1（ch1）</option>
-        <option value="ch2">管道 2（ch2）</option>
-        <option value="ch3">管道 3（ch3）</option>
-        <option value="ch4">管道 4（ch4）</option>
-        <option value="ch5">管道 5（ch5）</option>
+        <option value="ch1">CC 控制長（ch1）</option>
+        <option value="ch2">MTC 正線控制工程師（ch2）</option>
+        <option value="ch3">DTC 機廠控制工程師（ch3）</option>
+        <option value="ch4">PC 電力控制工程師（ch4）</option>
+        <option value="ch5">EC 工程控制工程師（ch5）</option>
+        <option value="ch6">IA 行控資訊員（ch6）</option>
       </select>
 
       <label>串流模式</label>
@@ -420,13 +421,15 @@
         <option value="dual">⚡ dual — Scribe RT 即時 + Google 批次確認（推薦）</option>
         <option value="scribe_rt">🟣 scribe_rt — 純 Scribe Realtime（最低延遲）</option>
         <option value="google_stream">🔵 google_stream — Google streaming_recognize()</option>
+        <option value="sensevoice_local">🟢 sensevoice_local — SenseVoice 本地端（機密語音）</option>
         <option value="batch">🕐 batch — 15 秒批次（原有模式）</option>
       </select>
 
       <label id="engineLabel">批次引擎</label>
-      <select id="engineSelect" title="batch 模式才有效；dual/scribe_rt/google_stream 固定引擎">
+      <select id="engineSelect" title="batch 模式才有效；dual/scribe_rt/google_stream/sensevoice_local 固定引擎">
         <option value="google">🔵 Google STT (chirp_3)</option>
         <option value="scribe">🟣 ElevenLabs Scribe v1</option>
+        <option value="sensevoice">🟢 SenseVoice（本地端）</option>
       </select>
 
       <label>伺服器</label>
@@ -804,6 +807,9 @@ function onModeChange() {
   } else if (mode === 'batch') {
     bufWrap.style.display = '';
     bufLabel.textContent  = '緩衝（15 秒）';
+  } else if (mode === 'sensevoice_local') {
+    bufWrap.style.display = '';
+    bufLabel.textContent  = '緩衝（3 秒，SenseVoice 本地辨識）';
   } else {
     // scribe_rt / google_stream：串流模式，無固定緩衝
     bufWrap.style.display = 'none';
@@ -877,9 +883,11 @@ function addEntry(type, channelId, text, confidence, backend) {
     if (type === 'confirmed') {
       typeBadge = '<span class="type-badge confirmed">✅ Google</span>';
     } else if (type === 'transcript') {
-      // stt_backend 區分 google_stream 與 scribe_rt
+      // stt_backend 區分引擎來源
       if (backend === 'google_stream') {
         typeBadge = '<span class="type-badge confirmed">🔵 Google</span>';
+      } else if (backend === 'sensevoice') {
+        typeBadge = '<span class="type-badge sensevoice">🟢 SenseVoice</span>';
       } else {
         typeBadge = '<span class="type-badge scribe-rt">🟣 Scribe</span>';
       }
@@ -1082,10 +1090,11 @@ async function startCapture() {
 
     // 顯示模式資訊
     const modeLabels = {
-      dual:          '⚡ dual（Scribe RT + Google確認）',
-      scribe_rt:     '🟣 scribe_rt（Scribe Realtime）',
-      google_stream: '🔵 google_stream（Google 串流）',
-      batch:         '🕐 batch（15 秒批次）',
+      dual:              '⚡ dual（Scribe RT + Google確認）',
+      scribe_rt:         '🟣 scribe_rt（Scribe Realtime）',
+      google_stream:     '🔵 google_stream（Google 串流）',
+      sensevoice_local:  '🟢 sensevoice_local（SenseVoice 本地端）',
+      batch:             '🕐 batch（15 秒批次）',
     };
     document.getElementById('statMode').textContent = modeLabels[mode] || mode;
 
@@ -1109,12 +1118,16 @@ async function startCapture() {
         const backend    = data.stt_backend || 'google';
         const modeStr = streamMode === 'dual'
           ? `dual（Scribe RT=${data.scribe_rt ? '✅' : '❌'} + Google批次）`
-          : streamMode;
+          : streamMode === 'sensevoice_local'
+            ? '🟢 SenseVoice 本地端'
+            : streamMode;
         addEntry('system', channelId, `🔧 模式：${modeStr}`);
         document.getElementById('statEngine').textContent =
-          streamMode === 'batch'
-            ? (backend === 'scribe' ? '🟣 Scribe v1' : '🔵 Google STT')
-            : modeStr;
+          streamMode === 'sensevoice_local'
+            ? '🟢 SenseVoice'
+            : streamMode === 'batch'
+              ? (backend === 'scribe' ? '🟣 Scribe v1' : '🔵 Google STT')
+              : modeStr;
 
       } else if (data.type === 'partial') {
         // Scribe RT 中間結果（即時字幕，原地更新，不計入筆數）

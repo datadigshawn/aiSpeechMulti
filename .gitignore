@@ -15,6 +15,9 @@ utils/google-gemini-key.rtf
 *_credentials.json
 service_account*.json
 
+# Claude Code
+.claude/
+
 # Python
 __pycache__/
 *.pyc

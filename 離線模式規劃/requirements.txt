@@ -1,0 +1,12 @@
+# ── 雙引擎共用 ──
+streamlit>=1.30.0
+numpy>=1.24.0
+torch>=2.0.0
+
+# ── 引擎 A：faster-whisper ──
+faster-whisper>=1.0.0
+
+# ── 引擎 B：FunASR SenseVoiceSmall ──
+funasr>=1.1.0
+modelscope
+onnxruntime
