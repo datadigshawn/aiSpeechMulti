@@ -1028,9 +1028,81 @@ def render_speech_page():
     else:
         st.caption("⚫ 前處理關閉，直接送 STT（原始音訊）")
 
-    # ── Step 6：彙整輸出 ─────────────────────────────────────────────────
+    # ── Step 6：後處理 Pipeline ───────────────────────────────────────────
     st.write("")
-    st.subheader("Step 6　彙整輸出")
+    st.subheader("Step 6　後處理 Pipeline")
+    st.caption("辨識結果產出後，依序套用以下後處理修正（可獨立開關）")
+
+    col_pp1, col_pp2, col_pp3 = st.columns(3)
+    with col_pp1:
+        pp_car_norm = st.checkbox(
+            "🚆 車廂編號正規化",
+            value=st.session_state.get("pp_car_norm", True),
+            key="pp_car_norm_chk",
+            help=(
+                "regex 修正車廂編號格式，例如：\n"
+                "  2526車 → 25/26 車\n"
+                "  兩五兩六車 → 25/26 車\n"
+                "  腰洞車 → 10 車（軍事數字）\n"
+                "支援中文/軍事數字，零成本"
+            ),
+        )
+    with col_pp2:
+        pp_dict = st.checkbox(
+            "📖 詞彙字典修正",
+            value=st.session_state.get("pp_dict", True),
+            key="pp_dict_chk",
+            help=(
+                "套用 vocabulary/correction_dict.py 的同音字/術語修正規則\n"
+                "由 master_vocabulary.csv 的 common_error 欄位自動生成"
+            ),
+        )
+    with col_pp3:
+        pp_llm = st.checkbox(
+            "🤖 LLM 後修正",
+            value=st.session_state.get("pp_llm", False),
+            key="pp_llm_chk",
+            help=(
+                "用 Gemini 對辨識結果做最後一輪語意校對。\n"
+                "需要 GEMINI_API_KEY，每句約 1-2 秒額外時間"
+            ),
+        )
+
+    if pp_llm:
+        col_llm1, col_llm2 = st.columns(2)
+        with col_llm1:
+            pp_llm_model = st.selectbox(
+                "LLM 模型",
+                options=["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro", "gemini-3.1-pro-preview"],
+                index=0,
+                key="pp_llm_model_sel",
+            )
+        with col_llm2:
+            pp_llm_strict = st.selectbox(
+                "修正強度",
+                options=["strict", "conservative", "balanced"],
+                index=1,
+                key="pp_llm_strict_sel",
+                help=(
+                    "strict: 只改高信心術語錯誤\n"
+                    "conservative: 修正術語+簡繁+同音字（推薦）\n"
+                    "balanced: 含標點與輕度語法修正"
+                ),
+            )
+    else:
+        pp_llm_model = "gemini-2.5-flash"
+        pp_llm_strict = "conservative"
+
+    # 將設定寫入 session_state，供 running 頁面讀取
+    st.session_state["pp_car_norm"] = pp_car_norm
+    st.session_state["pp_dict"] = pp_dict
+    st.session_state["pp_llm"] = pp_llm
+    st.session_state["pp_llm_model"] = pp_llm_model
+    st.session_state["pp_llm_strict"] = pp_llm_strict
+
+    # ── Step 7：彙整輸出 ─────────────────────────────────────────────────
+    st.write("")
+    st.subheader("Step 7　彙整輸出")
     merge_results = st.checkbox(
         "將辨識結果彙整到單一檔案",
         value=st.session_state.get("merge_results", False),
@@ -1446,7 +1518,37 @@ def render_running_page():
                     except ImportError:
                         pass
 
-                if use_vocabulary:
+                # ── 後處理 Pipeline（Step 6）─────────────────────────────
+                # 讀取使用者在 Step 6 設定的開關
+                _pp_car  = st.session_state.get("pp_car_norm", True)
+                _pp_dict = st.session_state.get("pp_dict", True) and use_vocabulary
+                _pp_llm  = st.session_state.get("pp_llm", False)
+                _pp_model    = st.session_state.get("pp_llm_model", "gemini-2.5-flash")
+                _pp_strict   = st.session_state.get("pp_llm_strict", "conservative")
+
+                _pp_report = None
+                if transcript and (_pp_car or _pp_dict or _pp_llm):
+                    try:
+                        from scripts.post_process import post_process as _post_process
+                        transcript, _pp_report = _post_process(
+                            transcript,
+                            enable_car_norm=_pp_car,
+                            enable_dict=_pp_dict,
+                            enable_llm=_pp_llm,
+                            llm_model=_pp_model,
+                            llm_strictness=_pp_strict,
+                        )
+                    except Exception as _ppe:
+                        # fallback：仍套用舊版 fix_radio_jargon
+                        if use_vocabulary:
+                            try:
+                                from utils.text_cleaner import fix_radio_jargon
+                                transcript = fix_radio_jargon(transcript)
+                            except Exception:
+                                pass
+                        st.warning(f"⚠️ 後處理 pipeline 失敗，已退回舊版修正：{_ppe}")
+                elif use_vocabulary and transcript:
+                    # 三層全部關閉但使用者勾選了詞彙修正：保留向後相容
                     try:
                         from utils.text_cleaner import fix_radio_jargon
                         transcript = fix_radio_jargon(transcript)
@@ -1455,13 +1557,46 @@ def render_running_page():
 
                 txt_file = output_dir / f"{audio_file.stem}.txt"
                 txt_file.write_text(transcript, encoding="utf-8")
-                all_results.append({"filename": audio_file.name, "transcript": transcript, "status": "success"})
+                _result_entry = {"filename": audio_file.name, "transcript": transcript, "status": "success"}
+                if _pp_report:
+                    _result_entry["post_process"] = _pp_report
+                all_results.append(_result_entry)
                 st.success(f"**{audio_file.name}**　完成")
                 st.text_area(
                     label="辨識結果",
                     value=transcript if transcript else "（無辨識結果）",
                     height=80, key=f"result_{i}", disabled=True,
                 )
+
+                # 後處理修正診斷面板
+                if _pp_report and _pp_report.get("total_changes", 0) > 0:
+                    _stage_summary = "　".join(
+                        f"{s['name']}={s['change_count']}"
+                        for s in _pp_report["stages"] if s["applied"]
+                    )
+                    with st.expander(
+                        f"🔧 後處理修正　共 {_pp_report['total_changes']} 處　[{_stage_summary}]",
+                        key=f"expander_pp_{i}",
+                    ):
+                        for _s in _pp_report["stages"]:
+                            if not _s["applied"] or _s["change_count"] == 0:
+                                continue
+                            _label = {
+                                "car_norm": "🚆 車廂編號正規化",
+                                "dict":     "📖 詞彙字典修正",
+                                "llm":      "🤖 LLM 後修正",
+                            }.get(_s["name"], _s["name"])
+                            st.caption(f"**{_label}**　({_s['change_count']} 處)")
+                            if _s.get("error"):
+                                st.warning(_s["error"])
+                            for _c in _s["changes"][:20]:
+                                _from = _c.get("from", "")
+                                _to   = _c.get("to", "")
+                                _rule = _c.get("rule") or _c.get("type", "")
+                                _cnt  = f" ×{_c['count']}" if _c.get("count", 0) > 1 else ""
+                                st.markdown(f"- `{_from}` → `{_to}`{_cnt}　_{_rule}_")
+                            if len(_s["changes"]) > 20:
+                                st.caption(f"... 還有 {len(_s['changes']) - 20} 處未顯示")
                 # hybrid 模式：顯示融合診斷資訊
                 if model_type == "hybrid":
                     _rule         = result.get("rule", "")

@@ -1,0 +1,78 @@
+{
+  "meta": {
+    "timestamp": "20260407_143351",
+    "gt_file": "/tmp/fake_gt.txt",
+    "phraseset_size": 150,
+    "gt_key_terms_count": 5,
+    "gt_phraseset_intersect": 7,
+    "auto_import": {
+      "added": [
+        {
+          "term": "彩虹站",
+          "category": "location",
+          "boost_value": "18",
+          "alert_level": "0",
+          "pinyin": "",
+          "common_error": "",
+          "description": "GT 偵測自動補充（station_name）"
+        }
+      ],
+      "skipped": [],
+      "regen_ok": true,
+      "regen_output": "(dry-run)"
+    }
+  },
+  "gt_key_terms_by_category": {
+    "station_code": [],
+    "equipment": [],
+    "platform": [],
+    "car_number": [],
+    "action": [
+      "回報",
+      "通告"
+    ],
+    "comm": [
+      "OVER",
+      "完畢"
+    ],
+    "station_name": [
+      "彩虹站"
+    ],
+    "track": []
+  },
+  "results": [
+    {
+      "label": "chirp3",
+      "cer": 4.1636,
+      "ps_hit": 2,
+      "ps_total": 7,
+      "ps_rate": 0.2857,
+      "ki_hit": 1,
+      "ki_total": 5,
+      "ki_rate": 0.2,
+      "ps_hits": [
+        "月台",
+        "通告"
+      ],
+      "ps_misses": [
+        "OCC",
+        "over",
+        "回報",
+        "完畢",
+        "通告完畢"
+      ],
+      "ki_hits": [
+        "通告"
+      ],
+      "ki_misses": [
+        "OVER",
+        "回報",
+        "完畢",
+        "彩虹站"
+      ]
+    }
+  ],
+  "phraseset_gap": [
+    "彩虹站"
+  ]
+}

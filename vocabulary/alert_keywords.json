@@ -1,1012 +1,362 @@
 {
-  "description": "關鍵字告警設定 - 自動產生",
-  "categories": {
-    "emergency": [
-      {
-        "term": "異物",
-        "category": "emergency",
-        "description": "軌道或月台異物"
-      },
-      {
-        "term": "斷電",
-        "category": "emergency",
-        "description": "軌道斷電"
-      },
-      {
-        "term": "火災",
-        "category": "emergency",
-        "description": "火災事故"
-      },
-      {
-        "term": "出軌",
-        "category": "emergency",
-        "description": "列車出軌"
-      },
-      {
-        "term": "求救",
-        "category": "emergency",
-        "description": "緊急求救"
-      },
-      {
-        "term": "一一九",
-        "category": "emergency",
-        "description": "緊急電話119"
-      },
-      {
-        "term": "緊急按鈕",
-        "category": "equipment",
-        "description": "緊急停車按鈕"
-      },
-      {
-        "term": "請求支援",
-        "category": "emergency",
-        "description": "請求協助"
-      },
-      {
-        "term": "疏散",
-        "category": "emergency",
-        "description": "人員疏散"
-      },
-      {
-        "term": "封鎖",
-        "category": "emergency",
-        "description": "區域封鎖"
-      },
-      {
-        "term": "救援",
-        "category": "emergency",
-        "description": "緊急救援"
-      },
-      {
-        "term": "受困",
-        "category": "emergency",
-        "description": "人員受困"
-      },
-      {
-        "term": "受傷",
-        "category": "emergency",
-        "description": "人員受傷"
-      },
-      {
-        "term": "送醫",
-        "category": "emergency",
-        "description": "醫療送醫"
-      }
-    ],
-    "important": [
-      {
-        "term": "立即至",
-        "category": "command",
-        "description": "緊急前往指令"
-      },
-      {
-        "term": "軌道",
-        "category": "equipment",
-        "description": "鐵軌"
-      },
-      {
-        "term": "車門",
-        "category": "equipment",
-        "description": "列車門"
-      },
-      {
-        "term": "Bypass",
-        "category": "equipment",
-        "description": "旁路模式"
-      },
-      {
-        "term": "方向鑰匙",
-        "category": "equipment",
-        "description": "特殊工具鑰匙"
-      },
-      {
-        "term": "停車",
-        "category": "command",
-        "description": "列車停止"
-      },
-      {
-        "term": "號誌",
-        "category": "equipment",
-        "description": "軌道號誌系統"
-      },
-      {
-        "term": "轉轍器",
-        "category": "equipment",
-        "description": "軌道轉換裝置"
-      },
-      {
-        "term": "月台門",
-        "category": "equipment",
-        "description": "月台安全門"
-      },
-      {
-        "term": "異常",
-        "category": "status",
-        "description": "狀態異常"
-      },
-      {
-        "term": "故障",
-        "category": "status",
-        "description": "設備故障"
-      },
-      {
-        "term": "通報",
-        "category": "command",
-        "description": "狀況通報"
-      },
-      {
-        "term": "解除封鎖",
-        "category": "command",
-        "description": "解除封鎖"
-      },
-      {
-        "term": "越站",
-        "category": "status",
-        "description": "列車不停站通過"
-      }
-    ],
-    "normal": [
-      {
-        "term": "OCC",
-        "category": "equipment",
-        "description": "行控中心 Operations Control Center"
-      },
-      {
-        "term": "滿檔",
-        "category": "status",
-        "description": "車門完全開啟狀態"
-      },
-      {
-        "term": "VVVF",
-        "category": "equipment",
-        "description": "Variable Voltage Variable Frequency 變頻器"
-      },
-      {
-        "term": "啟動",
-        "category": "command",
-        "description": "設備啟動"
-      },
-      {
-        "term": "關閉",
-        "category": "command",
-        "description": "設備關閉"
-      },
-      {
-        "term": "開啟",
-        "category": "command",
-        "description": "設備開啟"
-      },
-      {
-        "term": "檢查",
-        "category": "command",
-        "description": "設備檢查"
-      },
-      {
-        "term": "確認",
-        "category": "command",
-        "description": "狀況確認"
-      },
-      {
-        "term": "ATP",
-        "category": "equipment",
-        "description": "列車自動防護系統"
-      },
-      {
-        "term": "ATO",
-        "category": "equipment",
-        "description": "列車自動駕駛系統"
-      },
-      {
-        "term": "ATS",
-        "category": "equipment",
-        "description": "列車自動監督系統"
-      },
-      {
-        "term": "維修人員",
-        "category": "role",
-        "description": "設備維修人員"
-      },
-      {
-        "term": "行控人員",
-        "category": "role",
-        "description": "行控中心人員"
-      },
-      {
-        "term": "電聯車",
-        "category": "equipment",
-        "description": "捷運列車"
-      },
-      {
-        "term": "晚點",
-        "category": "status",
-        "description": "列車延誤"
-      },
-      {
-        "term": "維修中",
-        "category": "status",
-        "description": "正在維修"
-      },
-      {
-        "term": "已修復",
-        "category": "status",
-        "description": "維修完成"
-      },
-      {
-        "term": "復位",
-        "category": "command",
-        "description": "系統復位"
-      },
-      {
-        "term": "重置",
-        "category": "command",
-        "description": "系統重置"
-      },
-      {
-        "term": "清空",
-        "category": "command",
-        "description": "資料清除"
-      },
-      {
-        "term": "備用",
-        "category": "status",
-        "description": "備用狀態"
-      },
-      {
-        "term": "執行",
-        "category": "command",
-        "description": "執行指令"
-      },
-      {
-        "term": "取消",
-        "category": "command",
-        "description": "取消操作"
-      },
-      {
-        "term": "暫停",
-        "category": "command",
-        "description": "暫停操作"
-      },
-      {
-        "term": "繼續",
-        "category": "command",
-        "description": "繼續操作"
-      },
-      {
-        "term": "回報",
-        "category": "command",
-        "description": "狀況回報"
-      },
-      {
-        "term": "發車",
-        "category": "command",
-        "description": "列車發車"
-      },
-      {
-        "term": "折返",
-        "category": "command",
-        "description": "列車折返"
-      },
-      {
-        "term": "調度",
-        "category": "command",
-        "description": "列車調度"
-      }
-    ],
-    "info": [
-      {
-        "term": "呼叫",
-        "category": "command",
-        "description": "無線電呼叫用語"
-      },
-      {
-        "term": "一月台",
-        "category": "location",
-        "description": "第一月台"
-      },
-      {
-        "term": "二月台",
-        "category": "location",
-        "description": "第二月台"
-      },
-      {
-        "term": "收到",
-        "category": "command",
-        "description": "訊息確認"
-      },
-      {
-        "term": "了解",
-        "category": "command",
-        "description": "訊息理解"
-      },
-      {
-        "term": "G0",
-        "category": "station_code",
-        "description": "北屯總站"
-      },
-      {
-        "term": "G03",
-        "category": "station_code",
-        "description": "舊社"
-      },
-      {
-        "term": "G04",
-        "category": "station_code",
-        "description": "松竹"
-      },
-      {
-        "term": "G05",
-        "category": "station_code",
-        "description": "四維國小"
-      },
-      {
-        "term": "G06",
-        "category": "station_code",
-        "description": "文心崇德"
-      },
-      {
-        "term": "G07",
-        "category": "station_code",
-        "description": "文心中清"
-      },
-      {
-        "term": "G08",
-        "category": "station_code",
-        "description": "文華高中"
-      },
-      {
-        "term": "G08a",
-        "category": "station_code",
-        "description": "文心櫻花"
-      },
-      {
-        "term": "G09",
-        "category": "station_code",
-        "description": "市政府"
-      },
-      {
-        "term": "G10",
-        "category": "station_code",
-        "description": "水安宮"
-      },
-      {
-        "term": "G10a",
-        "category": "station_code",
-        "description": "文心森林公園"
-      },
-      {
-        "term": "G11",
-        "category": "station_code",
-        "description": "南屯"
-      },
-      {
-        "term": "G12",
-        "category": "station_code",
-        "description": "豐樂公園"
-      },
-      {
-        "term": "G13",
-        "category": "station_code",
-        "description": "大慶"
-      },
-      {
-        "term": "G14",
-        "category": "station_code",
-        "description": "九張犁"
-      },
-      {
-        "term": "G15",
-        "category": "station_code",
-        "description": "九德"
-      },
-      {
-        "term": "G16",
-        "category": "station_code",
-        "description": "烏日"
-      },
-      {
-        "term": "G17",
-        "category": "station_code",
-        "description": "高鐵臺中站"
-      },
-      {
-        "term": "零",
-        "category": "number",
-        "description": "數字0"
-      },
-      {
-        "term": "一",
-        "category": "number",
-        "description": "數字1"
-      },
-      {
-        "term": "二",
-        "category": "number",
-        "description": "數字2"
-      },
-      {
-        "term": "三",
-        "category": "number",
-        "description": "數字3"
-      },
-      {
-        "term": "四",
-        "category": "number",
-        "description": "數字4"
-      },
-      {
-        "term": "五",
-        "category": "number",
-        "description": "數字5"
-      },
-      {
-        "term": "六",
-        "category": "number",
-        "description": "數字6"
-      },
-      {
-        "term": "七",
-        "category": "number",
-        "description": "數字7"
-      },
-      {
-        "term": "八",
-        "category": "number",
-        "description": "數字8"
-      },
-      {
-        "term": "九",
-        "category": "number",
-        "description": "數字9"
-      },
-      {
-        "term": "十",
-        "category": "number",
-        "description": "數字10"
-      },
-      {
-        "term": "洞",
-        "category": "number",
-        "description": "無線電讀音:0"
-      },
-      {
-        "term": "勾",
-        "category": "number",
-        "description": "無線電讀音:9"
-      },
-      {
-        "term": "腰",
-        "category": "number",
-        "description": "無線電讀音:1"
-      },
-      {
-        "term": "拐",
-        "category": "number",
-        "description": "無線電讀音:7(較少用)"
-      },
-      {
-        "term": "鉤",
-        "category": "number",
-        "description": "無線電讀音:9(拐音)"
-      },
-      {
-        "term": "洞洞",
-        "category": "number",
-        "description": "無線電讀音:00"
-      },
-      {
-        "term": "洞一",
-        "category": "number",
-        "description": "無線電讀音:01"
-      },
-      {
-        "term": "洞二",
-        "category": "number",
-        "description": "無線電讀音:02"
-      },
-      {
-        "term": "洞三",
-        "category": "number",
-        "description": "無線電讀音:03"
-      },
-      {
-        "term": "洞四",
-        "category": "number",
-        "description": "無線電讀音:04"
-      },
-      {
-        "term": "洞五",
-        "category": "number",
-        "description": "無線電讀音:05"
-      },
-      {
-        "term": "洞六",
-        "category": "number",
-        "description": "無線電讀音:06"
-      },
-      {
-        "term": "洞七",
-        "category": "number",
-        "description": "無線電讀音:07"
-      },
-      {
-        "term": "洞八",
-        "category": "number",
-        "description": "無線電讀音:08"
-      },
-      {
-        "term": "洞九",
-        "category": "number",
-        "description": "無線電讀音:09"
-      },
-      {
-        "term": "腰洞",
-        "category": "number",
-        "description": "無線電讀音:10"
-      },
-      {
-        "term": "腰腰",
-        "category": "number",
-        "description": "無線電讀音:11"
-      },
-      {
-        "term": "腰二",
-        "category": "number",
-        "description": "無線電讀音:12"
-      },
-      {
-        "term": "腰三",
-        "category": "number",
-        "description": "無線電讀音:13"
-      },
-      {
-        "term": "司機員",
-        "category": "role",
-        "description": "列車司機"
-      },
-      {
-        "term": "站務員",
-        "category": "role",
-        "description": "車站服務人員"
-      },
-      {
-        "term": "對講機",
-        "category": "equipment",
-        "description": "通訊設備"
-      },
-      {
-        "term": "正常",
-        "category": "status",
-        "description": "狀態正常"
-      },
-      {
-        "term": "測試",
-        "category": "command",
-        "description": "設備測試"
-      },
-      {
-        "term": "待命",
-        "category": "status",
-        "description": "待命狀態"
-      },
-      {
-        "term": "進站",
-        "category": "status",
-        "description": "列車進站"
-      },
-      {
-        "term": "離站",
-        "category": "status",
-        "description": "列車離站"
-      },
-      {
-        "term": "到站",
-        "category": "status",
-        "description": "列車到站"
-      },
-      {
-        "term": "停靠",
-        "category": "command",
-        "description": "列車停靠"
-      }
-    ]
-  },
-  "elasticsearch_queries": [
+  "keywords": [
     {
-      "query_id": "emergency_alert",
-      "alert_level": 3,
-      "alert_type": "緊急告警",
-      "notification": [
-        "email",
-        "sms",
-        "popup",
-        "sound"
-      ],
-      "keywords": [
-        "異物",
-        "斷電",
-        "火災",
-        "出軌",
-        "求救",
-        "一一九",
-        "緊急按鈕",
-        "請求支援",
-        "疏散",
-        "封鎖",
-        "救援",
-        "受困",
-        "受傷",
-        "送醫"
-      ],
-      "query": {
-        "bool": {
-          "should": [
-            {
-              "match": {
-                "content": "異物"
-              }
-            },
-            {
-              "match": {
-                "content": "斷電"
-              }
-            },
-            {
-              "match": {
-                "content": "火災"
-              }
-            },
-            {
-              "match": {
-                "content": "出軌"
-              }
-            },
-            {
-              "match": {
-                "content": "求救"
-              }
-            },
-            {
-              "match": {
-                "content": "一一九"
-              }
-            },
-            {
-              "match": {
-                "content": "緊急按鈕"
-              }
-            },
-            {
-              "match": {
-                "content": "請求支援"
-              }
-            },
-            {
-              "match": {
-                "content": "疏散"
-              }
-            },
-            {
-              "match": {
-                "content": "封鎖"
-              }
-            },
-            {
-              "match": {
-                "content": "救援"
-              }
-            },
-            {
-              "match": {
-                "content": "受困"
-              }
-            },
-            {
-              "match": {
-                "content": "受傷"
-              }
-            },
-            {
-              "match": {
-                "content": "送醫"
-              }
-            }
-          ],
-          "minimum_should_match": 1
-        }
-      }
+      "term": "EDRH",
+      "level": "CRITICAL",
+      "category": "equipment",
+      "description": "緊急門釋放把手 Emergency Door Release Handle",
+      "priority": 3
     },
     {
-      "query_id": "important_alert",
-      "alert_level": 2,
-      "alert_type": "重要告警",
-      "notification": [
-        "email",
-        "popup"
-      ],
-      "keywords": [
-        "立即至",
-        "軌道",
-        "車門",
-        "Bypass",
-        "方向鑰匙",
-        "停車",
-        "號誌",
-        "轉轍器",
-        "月台門",
-        "異常",
-        "故障",
-        "通報",
-        "解除封鎖",
-        "越站"
-      ],
-      "query": {
-        "bool": {
-          "should": [
-            {
-              "match": {
-                "content": "立即至"
-              }
-            },
-            {
-              "match": {
-                "content": "軌道"
-              }
-            },
-            {
-              "match": {
-                "content": "車門"
-              }
-            },
-            {
-              "match": {
-                "content": "Bypass"
-              }
-            },
-            {
-              "match": {
-                "content": "方向鑰匙"
-              }
-            },
-            {
-              "match": {
-                "content": "停車"
-              }
-            },
-            {
-              "match": {
-                "content": "號誌"
-              }
-            },
-            {
-              "match": {
-                "content": "轉轍器"
-              }
-            },
-            {
-              "match": {
-                "content": "月台門"
-              }
-            },
-            {
-              "match": {
-                "content": "異常"
-              }
-            },
-            {
-              "match": {
-                "content": "故障"
-              }
-            },
-            {
-              "match": {
-                "content": "通報"
-              }
-            },
-            {
-              "match": {
-                "content": "解除封鎖"
-              }
-            },
-            {
-              "match": {
-                "content": "越站"
-              }
-            }
-          ],
-          "minimum_should_match": 1
-        }
-      }
+      "term": "立即回報",
+      "level": "CRITICAL",
+      "category": "command",
+      "description": "緊急回報指令",
+      "priority": 3
     },
     {
-      "query_id": "normal_alert",
-      "alert_level": 1,
-      "alert_type": "一般通知",
-      "notification": [
-        "popup"
-      ],
-      "keywords": [
-        "OCC",
-        "滿檔",
-        "VVVF",
-        "啟動",
-        "關閉",
-        "開啟",
-        "檢查",
-        "確認",
-        "ATP",
-        "ATO",
-        "ATS",
-        "維修人員",
-        "行控人員",
-        "電聯車",
-        "晚點",
-        "維修中",
-        "已修復",
-        "復位",
-        "重置",
-        "清空",
-        "備用",
-        "執行",
-        "取消",
-        "暫停",
-        "繼續",
-        "回報",
-        "發車",
-        "折返",
-        "調度"
-      ],
-      "query": {
-        "bool": {
-          "should": [
-            {
-              "match": {
-                "content": "OCC"
-              }
-            },
-            {
-              "match": {
-                "content": "滿檔"
-              }
-            },
-            {
-              "match": {
-                "content": "VVVF"
-              }
-            },
-            {
-              "match": {
-                "content": "啟動"
-              }
-            },
-            {
-              "match": {
-                "content": "關閉"
-              }
-            },
-            {
-              "match": {
-                "content": "開啟"
-              }
-            },
-            {
-              "match": {
-                "content": "檢查"
-              }
-            },
-            {
-              "match": {
-                "content": "確認"
-              }
-            },
-            {
-              "match": {
-                "content": "ATP"
-              }
-            },
-            {
-              "match": {
-                "content": "ATO"
-              }
-            },
-            {
-              "match": {
-                "content": "ATS"
-              }
-            },
-            {
-              "match": {
-                "content": "維修人員"
-              }
-            },
-            {
-              "match": {
-                "content": "行控人員"
-              }
-            },
-            {
-              "match": {
-                "content": "電聯車"
-              }
-            },
-            {
-              "match": {
-                "content": "晚點"
-              }
-            },
-            {
-              "match": {
-                "content": "維修中"
-              }
-            },
-            {
-              "match": {
-                "content": "已修復"
-              }
-            },
-            {
-              "match": {
-                "content": "復位"
-              }
-            },
-            {
-              "match": {
-                "content": "重置"
-              }
-            },
-            {
-              "match": {
-                "content": "清空"
-              }
-            },
-            {
-              "match": {
-                "content": "備用"
-              }
-            },
-            {
-              "match": {
-                "content": "執行"
-              }
-            },
-            {
-              "match": {
-                "content": "取消"
-              }
-            },
-            {
-              "match": {
-                "content": "暫停"
-              }
-            },
-            {
-              "match": {
-                "content": "繼續"
-              }
-            },
-            {
-              "match": {
-                "content": "回報"
-              }
-            },
-            {
-              "match": {
-                "content": "發車"
-              }
-            },
-            {
-              "match": {
-                "content": "折返"
-              }
-            },
-            {
-              "match": {
-                "content": "調度"
-              }
-            }
-          ],
-          "minimum_should_match": 1
-        }
-      }
+      "term": "立即前往月台",
+      "level": "CRITICAL",
+      "category": "command",
+      "description": "緊急前往月台指令",
+      "priority": 3
+    },
+    {
+      "term": "未停準",
+      "level": "CRITICAL",
+      "category": "status",
+      "description": "列車未停準確位置",
+      "priority": 3
+    },
+    {
+      "term": "電力異常",
+      "level": "CRITICAL",
+      "category": "emergency",
+      "description": "電力系統異常",
+      "priority": 3
+    },
+    {
+      "term": "意外停滯",
+      "level": "CRITICAL",
+      "category": "emergency",
+      "description": "列車意外停止",
+      "priority": 3
+    },
+    {
+      "term": "發生電力異常",
+      "level": "CRITICAL",
+      "category": "emergency",
+      "description": "發生電力故障",
+      "priority": 3
+    },
+    {
+      "term": "MCP",
+      "level": "IMPORTANT",
+      "category": "equipment",
+      "description": "主控面板 Master Control Panel",
+      "priority": 2
+    },
+    {
+      "term": "MTC",
+      "level": "IMPORTANT",
+      "category": "equipment",
+      "description": "月台門控制 Platform Door Control",
+      "priority": 2
+    },
+    {
+      "term": "MCS",
+      "level": "IMPORTANT",
+      "category": "equipment",
+      "description": "主控模式 Master Control System",
+      "priority": 2
+    },
+    {
+      "term": "Bypass",
+      "level": "IMPORTANT",
+      "category": "equipment",
+      "description": "旁路模式",
+      "priority": 2
+    },
+    {
+      "term": "軌旁胸牆",
+      "level": "IMPORTANT",
+      "category": "equipment",
+      "description": "軌道旁防護牆",
+      "priority": 2
+    },
+    {
+      "term": "月台門",
+      "level": "IMPORTANT",
+      "category": "equipment",
+      "description": "Platform Screen Doors",
+      "priority": 2
+    },
+    {
+      "term": "停準",
+      "level": "IMPORTANT",
+      "category": "status",
+      "description": "列車停靠準確位置",
+      "priority": 2
+    },
+    {
+      "term": "障礙物",
+      "level": "IMPORTANT",
+      "category": "status",
+      "description": "軌道障礙物",
+      "priority": 2
+    },
+    {
+      "term": "電纜",
+      "level": "IMPORTANT",
+      "category": "equipment",
+      "description": "電力電纜",
+      "priority": 2
+    },
+    {
+      "term": "通告全線",
+      "level": "IMPORTANT",
+      "category": "command",
+      "description": "全線廣播通告",
+      "priority": 2
+    },
+    {
+      "term": "請全線各站長",
+      "level": "IMPORTANT",
+      "category": "command",
+      "description": "呼叫所有站長",
+      "priority": 2
+    },
+    {
+      "term": "確認可視範圍內",
+      "level": "IMPORTANT",
+      "category": "command",
+      "description": "檢查可見範圍",
+      "priority": 2
+    },
+    {
+      "term": "上下行軌道",
+      "level": "IMPORTANT",
+      "category": "equipment",
+      "description": "雙向軌道",
+      "priority": 2
+    },
+    {
+      "term": "協助確認列車",
+      "level": "IMPORTANT",
+      "category": "command",
+      "description": "協助檢查列車",
+      "priority": 2
+    },
+    {
+      "term": "以MCP開啟",
+      "level": "IMPORTANT",
+      "category": "command",
+      "description": "使用主控面板開啟",
+      "priority": 2
+    },
+    {
+      "term": "引導旅客下車",
+      "level": "IMPORTANT",
+      "category": "command",
+      "description": "引導乘客下車",
+      "priority": 2
+    },
+    {
+      "term": "清車完畢",
+      "level": "IMPORTANT",
+      "category": "command",
+      "description": "列車清空完成",
+      "priority": 2
+    },
+    {
+      "term": "差一扇門",
+      "level": "IMPORTANT",
+      "category": "status",
+      "description": "一扇門無法開啟",
+      "priority": 2
+    },
+    {
+      "term": "未開啟",
+      "level": "IMPORTANT",
+      "category": "status",
+      "description": "設備未開啟",
+      "priority": 2
+    },
+    {
+      "term": "停準",
+      "level": "IMPORTANT",
+      "category": "status",
+      "description": "列車停靠準確",
+      "priority": 2
+    },
+    {
+      "term": "三軌復電",
+      "level": "IMPORTANT",
+      "category": "command",
+      "description": "第三軌供電恢復",
+      "priority": 2
+    },
+    {
+      "term": "三軌佈線",
+      "level": "IMPORTANT",
+      "category": "command",
+      "description": "第三軌線路作業",
+      "priority": 2
+    },
+    {
+      "term": "軌道設備",
+      "level": "IMPORTANT",
+      "category": "equipment",
+      "description": "軌道相關設備",
+      "priority": 2
+    },
+    {
+      "term": "有異常",
+      "level": "IMPORTANT",
+      "category": "status",
+      "description": "存在異常狀況",
+      "priority": 2
+    },
+    {
+      "term": "全線站長",
+      "level": "IMPORTANT",
+      "category": "role",
+      "description": "所有車站站長",
+      "priority": 2
+    },
+    {
+      "term": "軌旁修牆下方",
+      "level": "IMPORTANT",
+      "category": "location",
+      "description": "軌道旁牆下方",
+      "priority": 2
+    },
+    {
+      "term": "請人員至",
+      "level": "IMPORTANT",
+      "category": "command",
+      "description": "請求人員前往",
+      "priority": 2
+    },
+    {
+      "term": "復電",
+      "level": "IMPORTANT",
+      "category": "action",
+      "description": "軌道供電恢復",
+      "priority": 2
+    },
+    {
+      "term": "清車",
+      "level": "IMPORTANT",
+      "category": "action",
+      "description": "清空車內旅客",
+      "priority": 2
+    },
+    {
+      "term": "三軌",
+      "level": "IMPORTANT",
+      "category": "equipment",
+      "description": "第三軌（供電軌）",
+      "priority": 2
+    },
+    {
+      "term": "OCC",
+      "level": "WARNING",
+      "category": "equipment",
+      "description": "行控中心 Operations Control Center",
+      "priority": 1
+    },
+    {
+      "term": "ATP",
+      "level": "WARNING",
+      "category": "equipment",
+      "description": "列車自動防護系統 Automatic Train Protection",
+      "priority": 1
+    },
+    {
+      "term": "ATO",
+      "level": "WARNING",
+      "category": "equipment",
+      "description": "列車自動駕駛系統 Automatic Train Operation",
+      "priority": 1
+    },
+    {
+      "term": "VVVF",
+      "level": "WARNING",
+      "category": "equipment",
+      "description": "變頻器 Variable Voltage Variable Frequency",
+      "priority": 1
+    },
+    {
+      "term": "旅客",
+      "level": "WARNING",
+      "category": "role",
+      "description": "乘客",
+      "priority": 1
+    },
+    {
+      "term": "開車",
+      "level": "WARNING",
+      "category": "command",
+      "description": "列車發車",
+      "priority": 1
+    },
+    {
+      "term": "登上列車",
+      "level": "WARNING",
+      "category": "command",
+      "description": "進入列車",
+      "priority": 1
+    },
+    {
+      "term": "引導",
+      "level": "WARNING",
+      "category": "action",
+      "description": "引導旅客動作",
+      "priority": 1
+    },
+    {
+      "term": "登上",
+      "level": "WARNING",
+      "category": "action",
+      "description": "進入車輛或設施",
+      "priority": 1
+    },
+    {
+      "term": "通告",
+      "level": "WARNING",
+      "category": "action",
+      "description": "廣播宣告",
+      "priority": 1
+    },
+    {
+      "term": "回報",
+      "level": "WARNING",
+      "category": "action",
+      "description": "回傳資訊",
+      "priority": 1
+    },
+    {
+      "term": "下行",
+      "level": "WARNING",
+      "category": "location",
+      "description": "下行方向軌道",
+      "priority": 1
+    },
+    {
+      "term": "上行",
+      "level": "WARNING",
+      "category": "location",
+      "description": "上行方向軌道",
+      "priority": 1
     }
-  ]
+  ],
+  "description": "aiSpeech 關鍵字告警詞彙表",
+  "total_keywords": 50,
+  "alert_levels": {
+    "CRITICAL": "嚴重告警（立即處理）",
+    "IMPORTANT": "重要告警（優先處理）",
+    "WARNING": "一般告警（需注意）",
+    "INFO": "資訊通知"
+  }
 }

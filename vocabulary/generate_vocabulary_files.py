@@ -32,8 +32,9 @@ def generate_google_phrases(vocabulary, output_file: str):
     phrases = []
     
     for item in vocabulary:
-        term = item['term'].strip()
-        boost_value = int(item['boost_value']) if item['boost_value'] else 10
+        term = (item.get('term') or '').strip()
+        bv = item.get('boost_value')
+        boost_value = int(bv) if bv and str(bv).strip() else 10
         
         if term:  # 排除空白行
             phrases.append({
@@ -62,9 +63,9 @@ def generate_correction_dict(vocabulary, output_file: str):
     corrections = {}
     
     for item in vocabulary:
-        term = item['term'].strip()
-        common_errors = item.get('common_error', '').strip()
-        
+        term = (item.get('term') or '').strip()
+        common_errors = (item.get('common_error') or '').strip()
+
         if term and common_errors:
             # 分割多個錯誤寫法（用 | 分隔）
             error_list = [e.strip() for e in common_errors.split('|') if e.strip()]
@@ -111,11 +112,11 @@ def generate_alert_keywords(vocabulary, output_file: str):
     }
     
     for item in vocabulary:
-        term = item['term'].strip()
-        alert_level = item.get('alert_level', '0').strip()
-        category = item.get('category', '').strip()
-        description = item.get('description', '').strip()
-        
+        term = (item.get('term') or '').strip()
+        alert_level = (item.get('alert_level') or '0').strip() or '0'
+        category = (item.get('category') or '').strip()
+        description = (item.get('description') or '').strip()
+
         if term and int(alert_level) > 0:  # 只包含需要告警的詞彙
             keywords.append({
                 "term": term,
