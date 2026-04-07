@@ -4,7 +4,7 @@
       "term": "EDRH",
       "level": "CRITICAL",
       "category": "equipment",
-      "description": "緊急門釋放把手 Emergency Door Release Handle",
+      "description": "緊急門釋放把手 Emergency Door Release Handle（移除 ED 短字串避免疊加 EDRHRH）",
       "priority": 3
     },
     {

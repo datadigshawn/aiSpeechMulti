@@ -445,107 +445,107 @@
       "boost": 10
     },
     {
-      "value": "洞",
+      "value": "0",
       "boost": 20
     },
     {
-      "value": "腰",
+      "value": "1",
       "boost": 20
     },
     {
-      "value": "兩",
+      "value": "2",
       "boost": 20
     },
     {
-      "value": "勾",
+      "value": "9",
       "boost": 20
     },
     {
-      "value": "拐",
+      "value": "7",
       "boost": 18
     },
     {
-      "value": "洞洞",
+      "value": "00",
       "boost": 20
     },
     {
-      "value": "洞一",
+      "value": "01",
       "boost": 20
     },
     {
-      "value": "洞二",
+      "value": "02",
       "boost": 20
     },
     {
-      "value": "洞三",
+      "value": "03",
       "boost": 20
     },
     {
-      "value": "洞四",
+      "value": "04",
       "boost": 20
     },
     {
-      "value": "洞五",
+      "value": "05",
       "boost": 20
     },
     {
-      "value": "洞六",
+      "value": "06",
       "boost": 20
     },
     {
-      "value": "洞七",
+      "value": "07",
       "boost": 20
     },
     {
-      "value": "洞八",
+      "value": "08",
       "boost": 20
     },
     {
-      "value": "洞九",
+      "value": "09",
       "boost": 20
     },
     {
-      "value": "腰洞",
+      "value": "10",
       "boost": 20
     },
     {
-      "value": "腰腰",
+      "value": "11",
       "boost": 20
     },
     {
-      "value": "腰二",
+      "value": "12",
       "boost": 20
     },
     {
-      "value": "腰三",
+      "value": "13",
       "boost": 20
     },
     {
-      "value": "腰四",
+      "value": "14",
       "boost": 20
     },
     {
-      "value": "腰五",
+      "value": "15",
       "boost": 20
     },
     {
-      "value": "腰六",
+      "value": "16",
       "boost": 20
     },
     {
-      "value": "腰七",
+      "value": "17",
       "boost": 20
     },
     {
-      "value": "腰八",
+      "value": "18",
       "boost": 20
     },
     {
-      "value": "腰九",
+      "value": "19",
       "boost": 20
     },
     {
-      "value": "兩洞",
+      "value": "20",
       "boost": 20
     },
     {
