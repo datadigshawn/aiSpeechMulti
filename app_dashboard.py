@@ -1068,8 +1068,28 @@ def render_speech_page():
             ),
         )
 
+    # 引擎建議 caption（依 A/B 測試結論）
+    _hq_engines = {"gemini", "hybrid"}
+    _is_hq = model_type in _hq_engines
     if pp_llm:
-        col_llm1, col_llm2 = st.columns(2)
+        if _is_hq:
+            st.warning(
+                f"⚠️ 你選擇的 **{model_type}** 屬於高品質 LLM-grade 引擎，"
+                "再用 LLM 後修正可能造成**過度修改**反而降低 CER（依 A/B 測試結果）。\n\n"
+                "建議：勾選下方「🛡️ 智能跳過」讓系統自動為高品質引擎略過 LLM 階段。"
+            )
+        else:
+            st.caption(
+                f"💡 **{model_type}** 屬於中等品質引擎，LLM 後修正預期可降低 CER 約 1~3%。"
+            )
+    else:
+        st.caption(
+            "💡 **引擎建議**：對 chirp_3 / Whisper / SenseVoice / Scribe 等中等品質引擎勾選 LLM 後修正可改善 CER；"
+            "對 Gemini / Hybrid 等高品質 LLM-grade 引擎則建議**保持關閉**。"
+        )
+
+    if pp_llm:
+        col_llm1, col_llm2, col_llm3 = st.columns(3)
         with col_llm1:
             pp_llm_model = st.selectbox(
                 "LLM 模型",
@@ -1089,9 +1109,22 @@ def render_speech_page():
                     "balanced: 含標點與輕度語法修正"
                 ),
             )
+        with col_llm3:
+            pp_llm_smart_skip = st.checkbox(
+                "🛡️ 智能跳過",
+                value=st.session_state.get("pp_llm_smart_skip", True),
+                key="pp_llm_smart_skip_chk",
+                help=(
+                    "啟用後，當辨識引擎為 Gemini / Hybrid 等高品質 LLM-grade 時，"
+                    "自動跳過 LLM 後修正階段，避免過度修改。\n\n"
+                    "依 A/B 測試結果：Gemini 3.1 Pro 經 LLM 後修正後 CER "
+                    "由 26.96% 退步到 27.54%。"
+                ),
+            )
     else:
         pp_llm_model = "gemini-2.5-flash"
         pp_llm_strict = "conservative"
+        pp_llm_smart_skip = True
 
     # 將設定寫入 session_state，供 running 頁面讀取
     st.session_state["pp_car_norm"] = pp_car_norm
@@ -1099,6 +1132,8 @@ def render_speech_page():
     st.session_state["pp_llm"] = pp_llm
     st.session_state["pp_llm_model"] = pp_llm_model
     st.session_state["pp_llm_strict"] = pp_llm_strict
+    st.session_state["pp_llm_smart_skip"] = pp_llm_smart_skip
+    st.session_state["pp_engine_hint"] = model_type
 
     # ── Step 7：彙整輸出 ─────────────────────────────────────────────────
     st.write("")
@@ -1525,6 +1560,8 @@ def render_running_page():
                 _pp_llm  = st.session_state.get("pp_llm", False)
                 _pp_model    = st.session_state.get("pp_llm_model", "gemini-2.5-flash")
                 _pp_strict   = st.session_state.get("pp_llm_strict", "conservative")
+                _pp_smart_skip = st.session_state.get("pp_llm_smart_skip", True)
+                _pp_engine_hint = st.session_state.get("pp_engine_hint", model_type)
 
                 _pp_report = None
                 if transcript and (_pp_car or _pp_dict or _pp_llm):
@@ -1537,6 +1574,8 @@ def render_running_page():
                             enable_llm=_pp_llm,
                             llm_model=_pp_model,
                             llm_strictness=_pp_strict,
+                            engine_hint=_pp_engine_hint,
+                            auto_skip_llm_for_high_quality=_pp_smart_skip,
                         )
                     except Exception as _ppe:
                         # fallback：仍套用舊版 fix_radio_jargon
@@ -1567,6 +1606,13 @@ def render_running_page():
                     value=transcript if transcript else "（無辨識結果）",
                     height=80, key=f"result_{i}", disabled=True,
                 )
+
+                # smart_skip 通知（即使 total_changes=0 也顯示）
+                if _pp_report:
+                    for _s in _pp_report.get("stages", []):
+                        if _s["name"] == "llm" and _s.get("skipped_reason"):
+                            st.info(f"🛡️ **LLM 智能跳過**：{_s['skipped_reason']}")
+                            break
 
                 # 後處理修正診斷面板
                 if _pp_report and _pp_report.get("total_changes", 0) > 0:

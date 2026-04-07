@@ -286,6 +286,12 @@ def _resolve_api_key() -> Optional[str]:
 # ══════════════════════════════════════════════════════════════════════
 # 主流程
 # ══════════════════════════════════════════════════════════════════════
+# ── 高品質引擎清單（LLM smart skip 用）──────────────────────────────
+# 這些引擎本身已是 LLM 等級或自帶語意理解，再用 LLM 後修正
+# 多半「過度修改」反而降低 CER，依 A/B 測試結果動態調整。
+HIGH_QUALITY_ENGINES = {"gemini", "hybrid"}
+
+
 def post_process(
     text: str,
     enable_car_norm: bool = True,
@@ -293,6 +299,8 @@ def post_process(
     enable_llm: bool = False,
     llm_model: str = "gemini-2.5-flash",
     llm_strictness: str = "conservative",
+    engine_hint: Optional[str] = None,
+    auto_skip_llm_for_high_quality: bool = False,
 ) -> tuple[str, dict]:
     """執行三層後處理 pipeline
 
@@ -303,6 +311,11 @@ def post_process(
         enable_llm: 是否啟用 LLM 後修正
         llm_model: LLM 模型名稱
         llm_strictness: LLM 修正強度（strict/conservative/balanced）
+        engine_hint: 上游 STT 引擎類型，例如 "google_stt" / "gemini" / "hybrid"
+                     / "whisper" / "sensevoice" / "scribe"
+                     用於 LLM smart skip 判斷
+        auto_skip_llm_for_high_quality: True 時若 engine_hint 屬於 HIGH_QUALITY_ENGINES
+                     會自動跳過 LLM 階段（避免 Gemini 等高品質引擎被過度修改）
 
     Returns:
         (final_text, report_dict)
@@ -336,24 +349,42 @@ def post_process(
     else:
         stages.append({"name": "dict", "applied": False, "changes": [], "change_count": 0})
 
-    # Stage 3: LLM
+    # Stage 3: LLM（含 smart skip 邏輯）
     if enable_llm:
-        corrected, llm_changes, err = apply_llm_correction(
-            current, model=llm_model, strictness=llm_strictness
-        )
-        stage = {
-            "name": "llm",
-            "applied": True,
-            "changes": llm_changes,
-            "change_count": len(llm_changes),
-            "model": llm_model,
-            "strictness": llm_strictness,
-        }
-        if err:
-            stage["error"] = err
+        # Smart skip: 若上游已是高品質 LLM-grade 引擎，跳過 LLM 後修正
+        # 因為實測顯示 Gemini 等引擎被 LLM 修正後反而 CER 變糟
+        if (
+            auto_skip_llm_for_high_quality
+            and engine_hint
+            and engine_hint.lower() in HIGH_QUALITY_ENGINES
+        ):
+            stages.append({
+                "name": "llm",
+                "applied": False,
+                "changes": [],
+                "change_count": 0,
+                "skipped_reason": (
+                    f"smart_skip: 上游引擎 '{engine_hint}' 為高品質 LLM-grade，"
+                    f"再次套用 LLM 後修正可能造成過度修改（依 A/B 測試結果）"
+                ),
+            })
         else:
-            current = corrected
-        stages.append(stage)
+            corrected, llm_changes, err = apply_llm_correction(
+                current, model=llm_model, strictness=llm_strictness
+            )
+            stage = {
+                "name": "llm",
+                "applied": True,
+                "changes": llm_changes,
+                "change_count": len(llm_changes),
+                "model": llm_model,
+                "strictness": llm_strictness,
+            }
+            if err:
+                stage["error"] = err
+            else:
+                current = corrected
+            stages.append(stage)
     else:
         stages.append({"name": "llm", "applied": False, "changes": [], "change_count": 0})
 
