@@ -4,7 +4,7 @@ term,category,boost_value,alert_level,pinyin,common_error,description
 # ============================================================================
 OCC,equipment,20,1,O-C-C,歐西|哦西|歐CC|現電力一場,行控中心 Operations Control Center
 MCP,equipment,20,2,M-C-P,ncp|n c p|M C P,主控面板 Master Control Panel
-EDRH,equipment,20,3,E-D-R-H,e d|ED|e d r h,緊急門釋放把手 Emergency Door Release Handle
+EDRH,equipment,20,3,E-D-R-H,e d r h|EDR H|ED RH,緊急門釋放把手 Emergency Door Release Handle（移除 ED 短字串避免疊加 EDRHRH）
 MTC,equipment,18,2,M-T-C,M T C,月台門控制 Platform Door Control
 MCS,equipment,18,2,M-C-S,M C S,主控模式 Master Control System
 ATP,equipment,18,1,A-T-P,ATP|a t p,列車自動防護系統 Automatic Train Protection
@@ -117,32 +117,32 @@ R20,station_code,20,0,R-er4-ling2,R二零|R 2 0|R兒洞|R20,臺中榮總
 # ============================================================================
 # 無線電專用數字讀音（關鍵！）
 # ============================================================================
-洞,number,20,0,dong4,零|領|動,無線電讀音:0
-腰,number,20,0,yao1,一|么|要,無線電讀音:1
-兩,number,20,0,liang3,二|兩|倆,無線電讀音:2
-勾,number,20,0,gou1,九|鉤|狗,無線電讀音:9
-拐,number,18,0,guai3,七|怪,無線電讀音:7
-洞洞,number,20,0,dong4 dong4,零零|00|動動,讀音:00
-洞一,number,20,0,dong4 yi1,零一|01|動一,讀音:01
-洞二,number,20,0,dong4 er4,零二|02|動二,讀音:02
-洞三,number,20,0,dong4 san1,零三|03|動三,讀音:03
-洞四,number,20,0,dong4 si4,零四|04|動四,讀音:04
-洞五,number,20,0,dong4 wu3,零五|05|動五,讀音:05
-洞六,number,20,0,dong4 liu4,零六|06|動六,讀音:06
-洞七,number,20,0,dong4 qi1,零七|07|動七,讀音:07
-洞八,number,20,0,dong4 ba1,零八|08|動八,讀音:08
-洞九,number,20,0,dong4 jiu3,零九|09|動九,讀音:09
-腰洞,number,20,0,yao1 dong4,一零|10|腰動,讀音:10
-腰腰,number,20,0,yao1 yao1,一一|11|么么,讀音:11
-腰二,number,20,0,yao1 er4,一二|12|么二,讀音:12
-腰三,number,20,0,yao1 san1,一三|13|么三,讀音:13
-腰四,number,20,0,yao1 si4,一四|14|么四,讀音:14
-腰五,number,20,0,yao1 wu3,一五|15|么五,讀音:15
-腰六,number,20,0,yao1 liu4,一六|16|么六,讀音:16
-腰七,number,20,0,yao1 qi1,一七|17|么七,讀音:17
-腰八,number,20,0,yao1 ba1,一八|18|么八,讀音:18
-腰九,number,20,0,yao1 jiu3,一九|19|么九,讀音:19
-兩洞,number,20,0,liang3 dong4,二零|20|兩動,讀音:20
+0,number,20,0,dong4,,阿拉伯數字 0（軍事讀法: 洞）— 單字 common_error 已移除避免副作用
+1,number,20,0,yao1,,阿拉伯數字 1（軍事讀法: 腰）— 單字 common_error 已移除避免副作用
+2,number,20,0,liang3,,阿拉伯數字 2（軍事讀法: 兩）— 單字 common_error 已移除避免副作用
+9,number,20,0,gou1,,阿拉伯數字 9（軍事讀法: 勾）— 單字 common_error 已移除避免副作用
+7,number,18,0,guai3,,阿拉伯數字 7（軍事讀法: 拐）— 單字 common_error 已移除避免副作用
+00,number,20,0,dong4 dong4,零零|動動|洞洞,阿拉伯數字 00（軍事讀法: 洞洞）
+01,number,20,0,dong4 yi1,零一|動一|洞一,阿拉伯數字 01（軍事讀法: 洞一）
+02,number,20,0,dong4 er4,零二|動二|洞二,阿拉伯數字 02（軍事讀法: 洞二）
+03,number,20,0,dong4 san1,零三|動三|洞三,阿拉伯數字 03（軍事讀法: 洞三）
+04,number,20,0,dong4 si4,零四|動四|洞四,阿拉伯數字 04（軍事讀法: 洞四）
+05,number,20,0,dong4 wu3,零五|動五|洞五,阿拉伯數字 05（軍事讀法: 洞五）
+06,number,20,0,dong4 liu4,零六|動六|洞六,阿拉伯數字 06（軍事讀法: 洞六）
+07,number,20,0,dong4 qi1,零七|動七|洞七,阿拉伯數字 07（軍事讀法: 洞七）
+08,number,20,0,dong4 ba1,零八|動八|洞八,阿拉伯數字 08（軍事讀法: 洞八）
+09,number,20,0,dong4 jiu3,零九|動九|洞九,阿拉伯數字 09（軍事讀法: 洞九）
+10,number,20,0,yao1 dong4,一零|腰動|腰洞,阿拉伯數字 10（軍事讀法: 腰洞）
+11,number,20,0,yao1 yao1,一一|么么|腰腰,阿拉伯數字 11（軍事讀法: 腰腰）
+12,number,20,0,yao1 er4,一二|么二|腰二,阿拉伯數字 12（軍事讀法: 腰二）
+13,number,20,0,yao1 san1,一三|么三|腰三,阿拉伯數字 13（軍事讀法: 腰三）
+14,number,20,0,yao1 si4,一四|么四|腰四,阿拉伯數字 14（軍事讀法: 腰四）
+15,number,20,0,yao1 wu3,一五|么五|腰五,阿拉伯數字 15（軍事讀法: 腰五）
+16,number,20,0,yao1 liu4,一六|么六|腰六,阿拉伯數字 16（軍事讀法: 腰六）
+17,number,20,0,yao1 qi1,一七|么七|腰七,阿拉伯數字 17（軍事讀法: 腰七）
+18,number,20,0,yao1 ba1,一八|么八|腰八,阿拉伯數字 18（軍事讀法: 腰八）
+19,number,20,0,yao1 jiu3,一九|么九|腰九,阿拉伯數字 19（軍事讀法: 腰九）
+20,number,20,0,liang3 dong4,二零|兩動|兩洞,阿拉伯數字 20（軍事讀法: 兩洞）
 
 # ============================================================================
 # 緊急情況術語（Alert Level 3）
@@ -172,13 +172,30 @@ R20,station_code,20,0,R-er4-ling2,R二零|R 2 0|R兒洞|R20,臺中榮總
 全線站長,role,18,2,quan2 xian4 zhan4 zhang3,全新站長|全先站長,所有車站站長
 目視範圍內,command,15,0,mu4 shi4 fan4 wei2 nei4,目是範圍內|木視範圍,目視可見範圍
 軌旁修牆下方,location,18,2,gui3 pang2 xiu1 qiang2 xia4 fang1,鬼旁修牆下方|規旁修牆,軌道旁牆下方
-通告完畢,command,15,0,tong1 gao4 wan2 bi4,通話完畢|通告萬畢,廣播結束
+通告完畢,command,15,0,tong1 gao4 wan2 bi4,通告萬畢|通告萬必,廣播結束（移除「通話完畢」避免與另一條互相打架）
 請人員至,command,15,2,qing3 ren2 yuan2 zhi4,請人員到|情人員至,請求人員前往
 
 # ============================================================================
 # Over/Overwrite標準用語
 # ============================================================================
-over,command,12,0,over,over|完畢,無線電結束用語
-通話完畢,command,12,0,tong1 hua4 wan2 bi4,通告完畢|通話萬畢,對話結束
+over,command,12,0,over,oveR|Over|OVER,無線電結束用語（移除完畢避免誤替換）
+通話完畢,command,12,0,tong1 hua4 wan2 bi4,通話萬畢|通話萬必,對話結束（移除「通告完畢」避免與另一條互相打架）
 收到,command,15,0,shou1 dao4,手到|受到,訊息確認
 了解,command,12,0,liao3 jie3,瞭解|料解,訊息理解
+
+# ============================================================================
+# 補充：高頻獨立動詞與通訊詞（2026-04-07 GT 覆蓋率分析新增）
+# 來源：experiments/llm_correction_poc/coverage_eval.py 從 GT 偵測到的關鍵詞
+# ============================================================================
+復電,action,18,2,fu4 dian4,輔電|鋪電|覆電|赋電|附電|府電,軌道供電恢復
+清車,action,18,2,qing1 che1,情車|青車|清查,清空車內旅客
+引導,action,15,1,yin3 dao3,印導|因到|隱導,引導旅客動作
+登上,action,15,1,deng1 shang4,等上|燈上|登傷,進入車輛或設施
+通告,action,18,1,tong1 gao4,通高|通靠|同告,廣播宣告
+回報,action,15,1,hui2 bao4,回保|匯報|回抱,回傳資訊
+完畢,command,15,0,wan2 bi4,萬畢|完備|完弊,結束標示
+稍後,command,12,0,shao1 hou4,燒後|稍候|少後,稍待片刻
+三軌,equipment,18,2,san1 gui3,三鬼|三規|三跪,第三軌（供電軌）
+下行,location,15,1,xia4 xing2,下型|下形|夏行,下行方向軌道
+上行,location,15,1,shang4 xing2,上型|上形|商行,上行方向軌道
+G7,station_code,20,0,G-qi1,G七|G柒|G7站,文華高中（G07 簡寫）

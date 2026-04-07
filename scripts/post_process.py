@@ -1,0 +1,448 @@
+#!/usr/bin/env python3
+"""
+語音辨識後處理 Pipeline
+=======================
+
+整合三層後處理：
+    1. 車廂編號正規化（regex，零成本）
+    2. correction_dict 同音字/術語修正（字串替換）
+    3. LLM 後修正層（Gemini，可選）
+
+每層都可獨立開關。回傳結果包含每階段的修正紀錄，方便 UI 顯示與審核。
+
+用法：
+    from scripts.post_process import post_process
+
+    final, report = post_process(
+        text,
+        enable_car_norm=True,
+        enable_dict=True,
+        enable_llm=False,
+        llm_model="gemini-2.5-flash",
+        llm_strictness="conservative",
+    )
+
+    # report 結構：
+    # {
+    #   "stages": [
+    #     {"name": "car_norm",   "applied": True, "changes": [...]},
+    #     {"name": "dict",       "applied": True, "changes": [...]},
+    #     {"name": "llm",        "applied": False, "changes": [], "skipped_reason": "disabled"},
+    #   ],
+    #   "total_changes": 7,
+    #   "elapsed_sec": 0.12,
+    # }
+"""
+
+from __future__ import annotations
+
+import os
+import json
+import re
+import time
+from pathlib import Path
+from typing import Optional
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+# ── 內部模組：車廂編號正規化 ─────────────────────────────────────────
+# 原本位於 experiments/llm_correction_poc/car_number_normalizer.py
+# 為了讓 production 程式能 import，這裡直接內嵌核心邏輯
+# （也可以後續搬到 scripts/car_number_normalizer.py 共用）
+CHINESE_DIGITS = {
+    "零": "0", "〇": "0",
+    "一": "1", "壹": "1",
+    "二": "2", "兩": "2", "貳": "2",
+    "三": "3", "參": "3", "叁": "3",
+    "四": "4", "肆": "4",
+    "五": "5", "伍": "5",
+    "六": "6", "陸": "6",
+    "七": "7", "柒": "7",
+    "八": "8", "捌": "8",
+    "九": "9", "玖": "9",
+    "洞": "0",
+    "么": "1", "腰": "1",
+    "拐": "7",
+    "勾": "9",
+}
+_CHN_DIGIT_CLASS = "[" + "".join(CHINESE_DIGITS.keys()) + "]"
+
+
+def _chinese_to_arabic(s: str) -> str:
+    return "".join(CHINESE_DIGITS.get(c, c) for c in s)
+
+
+def normalize_car_numbers(text: str) -> tuple[str, list[dict]]:
+    """車廂編號正規化（與 experiments 版本同步維護）"""
+    if not text:
+        return text, []
+    changes: list[dict] = []
+    result = text
+
+    # Pass 1: 中文數字 → 阿拉伯
+    chn_pattern = re.compile(
+        rf"({_CHN_DIGIT_CLASS}{{2,4}})\s*(動車門|動車|車門|車(?![組站輛]))"
+    )
+
+    def chn_repl(m):
+        chn_seq, suffix = m.group(1), m.group(2)
+        arabic = _chinese_to_arabic(chn_seq)
+        if not arabic.isdigit():
+            return m.group(0)
+        new = arabic + suffix
+        changes.append({"from": m.group(0), "to": new, "rule": "chn_to_arabic"})
+        return new
+
+    result = chn_pattern.sub(chn_repl, result)
+
+    # Pass 2: 4 位數字 → 拆對
+    for suf in ("動車門", "動車", "車門"):
+        pat = re.compile(rf"(?<![\d/])(\d{{2}})(\d{{2}})\s*{suf}")
+
+        def split_repl(m, _s=suf):
+            new = f"{m.group(1)}/{m.group(2)} {_s}"
+            changes.append({"from": m.group(0), "to": new, "rule": f"split_4digit_{_s}"})
+            return new
+
+        result = pat.sub(split_repl, result)
+
+    pat_car = re.compile(r"(?<![\d/])(\d{2})(\d{2})\s*車(?![組站輛門掌廂])")
+
+    def split_car_repl(m):
+        new = f"{m.group(1)}/{m.group(2)} 車"
+        changes.append({"from": m.group(0), "to": new, "rule": "split_4digit_車"})
+        return new
+
+    result = pat_car.sub(split_car_repl, result)
+
+    # Pass 3: X/Y 補零標準化
+    slash_pat = re.compile(r"(\d{1,2})\s*[/／]\s*(\d{1,2})\s*(動車門|動車|車門|車(?![組站輛]))")
+
+    def slash_repl(m):
+        a, b, suf = m.group(1), m.group(2), m.group(3)
+        new = f"{a.zfill(2)}/{b.zfill(2)} {suf}"
+        if new != m.group(0):
+            changes.append({"from": m.group(0), "to": new, "rule": "slash_normalize"})
+        return new
+
+    result = slash_pat.sub(slash_repl, result)
+
+    # Pass 4: 1-2 位數字補空格
+    for suf in ("動車門", "動車", "車門"):
+        pat = re.compile(rf"(?<![\d/])(\d{{1,2}})\s*{suf}")
+
+        def single_repl(m, _s=suf):
+            new = f"{m.group(1)} {_s}"
+            if new != m.group(0):
+                changes.append({"from": m.group(0), "to": new, "rule": f"space_single_{_s}"})
+            return new
+
+        result = pat.sub(single_repl, result)
+
+    pat_single_car = re.compile(r"(?<![\d/])(\d{1,2})\s*車(?![組站輛門掌廂])")
+
+    def single_car_repl(m):
+        new = f"{m.group(1)} 車"
+        if new != m.group(0):
+            changes.append({"from": m.group(0), "to": new, "rule": "space_single_車"})
+        return new
+
+    result = pat_single_car.sub(single_car_repl, result)
+
+    result = re.sub(r"  +", " ", result)
+    return result, changes
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 第二層：correction_dict（包裝既有 fix_radio_jargon）
+# ══════════════════════════════════════════════════════════════════════
+def apply_correction_dict(text: str) -> tuple[str, list[dict]]:
+    """套用 vocabulary/correction_dict.py 的同音字/術語修正
+    透過直接比對 RADIO_REPLACEMENT_RULES 取得 diff 資訊"""
+    if not text:
+        return text, []
+    try:
+        from vocabulary.correction_dict import RADIO_REPLACEMENT_RULES
+    except ImportError:
+        return text, []
+
+    changes: list[dict] = []
+    result = text
+    for wrong, right in RADIO_REPLACEMENT_RULES.items():
+        if wrong and right and wrong in result:
+            count = result.count(wrong)
+            result = result.replace(wrong, right)
+            changes.append({"from": wrong, "to": right, "count": count, "rule": "correction_dict"})
+    return result, changes
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 第三層：LLM 後修正（可選）
+# ══════════════════════════════════════════════════════════════════════
+LLM_SYSTEM_PROMPT = """你是台中捷運（TMRT）行控中心無線電通訊文字校正專家。
+
+# 任務
+修正語音辨識結果中的「字詞層級錯誤」（同音字、術語誤辨、簡繁混雜）。
+你的角色是「校對員」，不是「編輯」。
+
+# 修正強度: {strictness}
+{strictness_rules}
+
+# 絕對禁止
+1. 禁止改寫 3 字以上連續詞組為意義不同的詞
+2. 禁止新增、刪除、翻譯任何內容
+3. 禁止語意推測（不確定就保留原文）
+4. 禁止移除口語助詞（好、是、喔、那、吧）
+5. 禁止改變講者標記內容
+
+# 必須做
+1. 簡體字 → 繁體字（台灣用法）
+2. 已知術語誤辨修正：越台門→月台門、歐西/哦西→OCC、輔電/鋪電→復電、待行軌→待避軌
+3. 通訊用語：喔飛→over
+4. 軍事數字保留：洞=0、么/腰=1、兩=2、拐=7、勾=9
+
+# 輸出（嚴格 JSON，無 markdown）
+{{
+  "corrected": "修正後全文",
+  "changes": [{{"from": "...", "to": "...", "type": "term|s2t|homophone|comm"}}],
+  "confidence": 0.95
+}}
+"""
+
+_STRICTNESS_RULES = {
+    "strict":       "- 只改術語對照表中明確列出的錯誤\n- 禁止任何語意推測",
+    "conservative": "- 修正術語 + 簡繁 + 高信心同音字\n- 禁止 3 字以上詞組改寫",
+    "balanced":     "- 修正術語 + 簡繁 + 同音字 + 標點補全",
+}
+
+
+def apply_llm_correction(
+    text: str,
+    model: str = "gemini-2.5-flash",
+    strictness: str = "conservative",
+    api_key: Optional[str] = None,
+    timeout: int = 60,
+) -> tuple[str, list[dict], Optional[str]]:
+    """LLM 後修正。回傳: (修正後文字, changes, error_msg or None)"""
+    if not text or not text.strip():
+        return text, [], None
+
+    try:
+        import google.generativeai as genai
+    except ImportError:
+        return text, [], "未安裝 google-generativeai"
+
+    if not api_key:
+        api_key = _resolve_api_key()
+    if not api_key:
+        return text, [], "找不到 GEMINI_API_KEY"
+
+    try:
+        genai.configure(api_key=api_key)
+        sys_prompt = LLM_SYSTEM_PROMPT.format(
+            strictness=strictness,
+            strictness_rules=_STRICTNESS_RULES.get(strictness, _STRICTNESS_RULES["conservative"]),
+        )
+        gm = genai.GenerativeModel(
+            model_name=model,
+            system_instruction=sys_prompt,
+            generation_config={
+                "temperature": 0.0,
+                "response_mime_type": "application/json",
+            },
+        )
+        resp = gm.generate_content(f"請修正以下無線電辨識結果：\n\n{text}\n\n輸出 JSON。")
+        raw = resp.text.strip()
+        raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw).strip()
+        data = json.loads(raw)
+        corrected = data.get("corrected", text)
+        changes = data.get("changes", [])
+        return corrected, changes, None
+    except Exception as e:
+        return text, [], f"LLM 呼叫失敗: {type(e).__name__}: {str(e)[:200]}"
+
+
+def _resolve_api_key() -> Optional[str]:
+    key = os.environ.get("GEMINI_API_KEY")
+    if key:
+        return key
+    json_path = PROJECT_ROOT / "utils" / "api_keys.json"
+    if json_path.exists():
+        try:
+            data = json.loads(json_path.read_text(encoding="utf-8"))
+            for k in ("gemini_api_key", "GEMINI_API_KEY", "google_api_key"):
+                if data.get(k):
+                    return data[k]
+        except Exception:
+            pass
+    env_path = PROJECT_ROOT / ".env"
+    if env_path.exists():
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            if line.startswith("GEMINI_API_KEY="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    return None
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 主流程
+# ══════════════════════════════════════════════════════════════════════
+# ── 高品質引擎清單（LLM smart skip 用）──────────────────────────────
+# 這些引擎本身已是 LLM 等級或自帶語意理解，再用 LLM 後修正
+# 多半「過度修改」反而降低 CER，依 A/B 測試結果動態調整。
+HIGH_QUALITY_ENGINES = {"gemini", "hybrid"}
+
+
+def post_process(
+    text: str,
+    enable_car_norm: bool = True,
+    enable_dict: bool = True,
+    enable_llm: bool = False,
+    llm_model: str = "gemini-2.5-flash",
+    llm_strictness: str = "conservative",
+    engine_hint: Optional[str] = None,
+    auto_skip_llm_for_high_quality: bool = False,
+) -> tuple[str, dict]:
+    """執行三層後處理 pipeline
+
+    Args:
+        text: 原始 STT 辨識文字
+        enable_car_norm: 是否啟用車廂編號正規化
+        enable_dict: 是否啟用 correction_dict 字串替換
+        enable_llm: 是否啟用 LLM 後修正
+        llm_model: LLM 模型名稱
+        llm_strictness: LLM 修正強度（strict/conservative/balanced）
+        engine_hint: 上游 STT 引擎類型，例如 "google_stt" / "gemini" / "hybrid"
+                     / "whisper" / "sensevoice" / "scribe"
+                     用於 LLM smart skip 判斷
+        auto_skip_llm_for_high_quality: True 時若 engine_hint 屬於 HIGH_QUALITY_ENGINES
+                     會自動跳過 LLM 階段（避免 Gemini 等高品質引擎被過度修改）
+
+    Returns:
+        (final_text, report_dict)
+    """
+    t0 = time.time()
+    stages = []
+    current = text or ""
+    original = current
+
+    # Stage 1: 車廂編號正規化
+    if enable_car_norm:
+        current, car_changes = normalize_car_numbers(current)
+        stages.append({
+            "name": "car_norm",
+            "applied": True,
+            "changes": car_changes,
+            "change_count": len(car_changes),
+        })
+    else:
+        stages.append({"name": "car_norm", "applied": False, "changes": [], "change_count": 0})
+
+    # Stage 2: correction_dict
+    if enable_dict:
+        current, dict_changes = apply_correction_dict(current)
+        stages.append({
+            "name": "dict",
+            "applied": True,
+            "changes": dict_changes,
+            "change_count": len(dict_changes),
+        })
+    else:
+        stages.append({"name": "dict", "applied": False, "changes": [], "change_count": 0})
+
+    # Stage 3: LLM（含 smart skip 邏輯）
+    if enable_llm:
+        # Smart skip: 若上游已是高品質 LLM-grade 引擎，跳過 LLM 後修正
+        # 因為實測顯示 Gemini 等引擎被 LLM 修正後反而 CER 變糟
+        if (
+            auto_skip_llm_for_high_quality
+            and engine_hint
+            and engine_hint.lower() in HIGH_QUALITY_ENGINES
+        ):
+            stages.append({
+                "name": "llm",
+                "applied": False,
+                "changes": [],
+                "change_count": 0,
+                "skipped_reason": (
+                    f"smart_skip: 上游引擎 '{engine_hint}' 為高品質 LLM-grade，"
+                    f"再次套用 LLM 後修正可能造成過度修改（依 A/B 測試結果）"
+                ),
+            })
+        else:
+            corrected, llm_changes, err = apply_llm_correction(
+                current, model=llm_model, strictness=llm_strictness
+            )
+            stage = {
+                "name": "llm",
+                "applied": True,
+                "changes": llm_changes,
+                "change_count": len(llm_changes),
+                "model": llm_model,
+                "strictness": llm_strictness,
+            }
+            if err:
+                stage["error"] = err
+            else:
+                current = corrected
+            stages.append(stage)
+    else:
+        stages.append({"name": "llm", "applied": False, "changes": [], "change_count": 0})
+
+    report = {
+        "stages": stages,
+        "total_changes": sum(s["change_count"] for s in stages),
+        "elapsed_sec": round(time.time() - t0, 3),
+        "original_length": len(original),
+        "final_length": len(current),
+    }
+    return current, report
+
+
+# ══════════════════════════════════════════════════════════════════════
+# CLI 測試
+# ══════════════════════════════════════════════════════════════════════
+if __name__ == "__main__":
+    import argparse
+
+    p = argparse.ArgumentParser()
+    p.add_argument("--text", help="輸入文字")
+    p.add_argument("--file", help="輸入檔案")
+    p.add_argument("--no-car", action="store_true")
+    p.add_argument("--no-dict", action="store_true")
+    p.add_argument("--llm", action="store_true", help="啟用 LLM 修正")
+    p.add_argument("--model", default="gemini-2.5-flash")
+    p.add_argument("--strictness", default="conservative")
+    args = p.parse_args()
+
+    if args.text:
+        text = args.text
+    elif args.file:
+        text = Path(args.file).read_text(encoding="utf-8")
+    else:
+        print("需要 --text 或 --file")
+        exit(1)
+
+    final, report = post_process(
+        text,
+        enable_car_norm=not args.no_car,
+        enable_dict=not args.no_dict,
+        enable_llm=args.llm,
+        llm_model=args.model,
+        llm_strictness=args.strictness,
+    )
+
+    print("─── 原文 ───")
+    print(text)
+    print("\n─── 修正後 ───")
+    print(final)
+    print(f"\n─── 報告 ───")
+    print(f"總修正: {report['total_changes']} 處 / 耗時 {report['elapsed_sec']}s")
+    for s in report["stages"]:
+        flag = "✅" if s["applied"] else "⏭️"
+        print(f"  {flag} {s['name']:10} ({s['change_count']} 處)")
+        if s.get("error"):
+            print(f"     ❌ {s['error']}")
+        for c in s["changes"][:5]:
+            print(f"     · {c.get('from')!r} → {c.get('to')!r}")
+        if len(s["changes"]) > 5:
+            print(f"     ... 還有 {len(s['changes'])-5} 處")
