@@ -202,6 +202,7 @@ class SenseVoiceModel:
         audio_path: str,
         language: Optional[str] = None,
         extra_hotwords: str = "",
+        event_type: Optional[str] = None,
         **kwargs,
     ) -> dict:
         """
@@ -211,6 +212,10 @@ class SenseVoiceModel:
             audio_path:      音檔路徑（支援 wav/mp3/m4a/flac/ogg）
             language:        語言代碼；None 時使用初始化設定
             extra_hotwords:  額外熱詞（空格或頓號分隔）
+            event_type:      事件類型（強化版 hotwords）
+                             - None: 使用預設 RAILWAY_HOTWORDS（向後相容）
+                             - "default"/"daily"/"door"/"track"/"emergency"/"control":
+                               使用對應事件類型的強化版 hotwords（依 initial_prompts.json）
 
         Returns:
             {
@@ -249,6 +254,17 @@ class SenseVoiceModel:
             hw_parts.append(self._extra_hotwords)
         if extra_hotwords:
             hw_parts.append(extra_hotwords.replace("、", " "))
+
+        # 強化版：若指定 event_type，追加事件相關熱詞
+        if event_type:
+            try:
+                from scripts.prompt_builder import build_sensevoice_hotwords
+                event_hw = build_sensevoice_hotwords(event_type=event_type, max_keywords=20)
+                if event_hw:
+                    hw_parts.append(event_hw)
+            except Exception as e:
+                print(f"⚠️ 載入 event_type '{event_type}' 熱詞失敗: {e}")
+
         hotwords = " ".join(hw_parts)
 
         raw_results = self._model.generate(

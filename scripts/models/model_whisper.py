@@ -155,14 +155,15 @@ def load_model_once(model_size="large-v3"):
 # ==================== 辨識功能 ====================
 
 def transcribe_with_whisper(
-    audio_path, 
+    audio_path,
     model_size="large-v3",
     use_vocabulary=True,
-    language="zh"
+    language="zh",
+    event_type=None,
 ):
     """
     使用 Whisper 辨識單一音檔
-    
+
     Args:
         audio_path (str): 音檔路徑
         model_size (str): 模型大小 (turbo/medium/large-v3)
@@ -171,19 +172,36 @@ def transcribe_with_whisper(
             - "zh": 中文（自動偵測簡繁）
             - "zh-TW": 繁體中文
             - None: 自動偵測語言
-    
+        event_type (str|None): 事件類型（強化版 prompt）
+            - None: 使用舊版通用 prompt（向後相容）
+            - "default"/"daily"/"door"/"track"/"emergency"/"control":
+              使用對應事件類型的強化版 prompt（含範例句）
+
     Returns:
         str: 辨識文字
     """
     # 1. 取得模型實體
     model = load_model_once(model_size)
-    
-    # 2. 產生 prompt（如果啟用詞彙表）
+
+    # 2. 產生 prompt
     if use_vocabulary:
-        prompt_text = load_vocabulary_for_prompt()
+        if event_type:
+            # 使用強化版 prompt（含範例句）
+            try:
+                from scripts.prompt_builder import build_whisper_prompt
+                prompt_text = build_whisper_prompt(
+                    event_type=event_type,
+                    include_example=True,
+                )
+                print(f"✅ 使用強化版 prompt（event_type={event_type}，{len(prompt_text)} 字）")
+            except Exception as e:
+                print(f"⚠️ 載入強化版 prompt 失敗，退回舊版: {e}")
+                prompt_text = load_vocabulary_for_prompt()
+        else:
+            prompt_text = load_vocabulary_for_prompt()
     else:
         prompt_text = "這是一段台灣捷運無線電通訊。"
-    
+
     # 3. 執行辨識
     # initial_prompt 是 Whisper 的關鍵參數，可以引導模型辨識方向
     result = model.transcribe(
@@ -192,7 +210,7 @@ def transcribe_with_whisper(
         initial_prompt=prompt_text,
         verbose=False  # 關閉進度顯示（批次處理時較乾淨）
     )
-    
+
     return result['text'].strip()
 
 
