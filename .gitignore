@@ -67,3 +67,29 @@ logs/
 .idea/
 *.swp
 *.swo
+
+# ============================================================
+# 敏感資料與機密音檔（絕對不能上傳公開 GitHub）
+# ============================================================
+# 捷運事件原始音檔（含實際通訊內容，涉及隱私與機密）
+調查資料之純語音部份/
+調查資料/
+敏感資料/
+confidential/
+private_audio/
+
+# 事件資料夾（依日期+事件類型命名）
+experiments/202[0-9]*/
+experiments/61001/
+experiments/61003/
+
+# PPTX 備份檔（保留 main 版本即可）
+docs/aiSpeechMulti_Architecture_*.pptx
+!docs/aiSpeechMulti_Architecture.pptx
+docs/~$*.pptx
+
+# 大型實驗輸出
+experiments/llm_correction_poc/ab_test_*.json
+experiments/llm_correction_poc/coverage_*.json
+experiments/llm_correction_poc/eval_gt_*.json
+experiments/llm_correction_poc/results_*.json
