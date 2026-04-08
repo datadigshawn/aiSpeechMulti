@@ -1,0 +1,133 @@
+{
+  "_description": "上下文敏感修正規則 — 三元組 (prefix, wrong, suffix) → right",
+  "_version": "1.0.0 (2026-04-08)",
+  "_usage": {
+    "prefix": "前綴（必須出現在 wrong 前面，空字串 '' 表示無限制）",
+    "wrong": "要被修正的錯字",
+    "suffix": "後綴（必須出現在 wrong 後面，空字串 '' 表示無限制）",
+    "right": "修正後的字詞",
+    "gap": "prefix 與 wrong、wrong 與 suffix 之間允許的最大字元數（預設 0 表示必須緊鄰）",
+    "note": "規則說明（可選）"
+  },
+  "_notes": [
+    "這些規則補足 correction_dict（字串替換）與 blacklist（強制替換）",
+    "適用於『相同錯字在不同上下文需要不同處理』或『避免 false positive』的情境",
+    "規則越具體越好，避免過度匹配",
+    "每條規則會保留修正紀錄，方便在 UI 顯示"
+  ],
+
+  "rules": [
+    {
+      "prefix": "",
+      "wrong": "越台",
+      "suffix": "門",
+      "right": "月台",
+      "gap": 0,
+      "note": "月台門 — 只在後接門時修正"
+    },
+    {
+      "prefix": "上",
+      "wrong": "越台",
+      "suffix": "",
+      "right": "月台",
+      "gap": 0,
+      "note": "上月台"
+    },
+    {
+      "prefix": "下",
+      "wrong": "越台",
+      "suffix": "",
+      "right": "月台",
+      "gap": 0,
+      "note": "下月台"
+    },
+    {
+      "prefix": "至",
+      "wrong": "越台",
+      "suffix": "",
+      "right": "月台",
+      "gap": 0,
+      "note": "至月台"
+    },
+    {
+      "prefix": "車",
+      "wrong": "鬥",
+      "suffix": "",
+      "right": "頭",
+      "gap": 0,
+      "note": "車頭（而非車斗）"
+    },
+    {
+      "prefix": "車",
+      "wrong": "斗",
+      "suffix": "",
+      "right": "頭",
+      "gap": 0,
+      "note": "車頭（誤辨為車斗）"
+    },
+    {
+      "prefix": "",
+      "wrong": "拘止",
+      "suffix": "繩",
+      "right": "警戒",
+      "gap": 0,
+      "note": "警戒繩（非拘止繩）"
+    },
+    {
+      "prefix": "三軌",
+      "wrong": "輔電",
+      "suffix": "",
+      "right": "復電",
+      "gap": 0,
+      "note": "三軌復電（輔電 → 復電，限三軌上下文）"
+    },
+    {
+      "prefix": "三軌",
+      "wrong": "鋪電",
+      "suffix": "",
+      "right": "復電",
+      "gap": 0,
+      "note": "三軌復電（鋪電 → 復電）"
+    },
+    {
+      "prefix": "",
+      "wrong": "待行軌",
+      "suffix": "",
+      "right": "待避軌",
+      "gap": 0,
+      "note": "待避軌（非待行軌）"
+    },
+    {
+      "prefix": "OCC",
+      "wrong": "回服",
+      "suffix": "",
+      "right": "回復",
+      "gap": 0,
+      "note": "OCC 回復（回服 → 回復）"
+    },
+    {
+      "prefix": "",
+      "wrong": "已經將車清車",
+      "suffix": "",
+      "right": "已經將車清空",
+      "gap": 0,
+      "note": "清車疊詞修正"
+    },
+    {
+      "prefix": "請站長至",
+      "wrong": "月臺",
+      "suffix": "",
+      "right": "月台",
+      "gap": 0,
+      "note": "繁簡混合修正（限上下文）"
+    },
+    {
+      "prefix": "MCS",
+      "wrong": "模式",
+      "suffix": "",
+      "right": "模式",
+      "gap": 0,
+      "note": "（範例）上下文確認，不修改"
+    }
+  ]
+}

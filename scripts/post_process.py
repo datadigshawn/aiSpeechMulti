@@ -303,6 +303,7 @@ def post_process(
     auto_skip_llm_for_high_quality: bool = False,
     enable_term_filter: bool = True,
     enable_number_norm: bool = True,
+    enable_contextual: bool = True,
 ) -> tuple[str, dict]:
     """執行後處理 pipeline
 
@@ -406,6 +407,30 @@ def post_process(
         })
     else:
         stages.append({"name": "dict", "applied": False, "changes": [], "change_count": 0})
+
+    # Stage 2.5: contextual corrections（上下文敏感三元組）
+    if enable_contextual:
+        try:
+            from scripts.contextual_corrector import ContextualCorrector
+            _cc = ContextualCorrector()
+            current, ctx_changes = _cc.apply(current)
+            stages.append({
+                "name": "contextual",
+                "applied": True,
+                "changes": ctx_changes,
+                "change_count": len(ctx_changes),
+            })
+        except Exception as _cce:
+            stages.append({
+                "name": "contextual",
+                "applied": False,
+                "changes": [],
+                "change_count": 0,
+                "error": f"ContextualCorrector 失敗: {_cce}",
+            })
+    else:
+        stages.append({"name": "contextual", "applied": False,
+                       "changes": [], "change_count": 0})
 
     # Stage 3: LLM（含 smart skip + whitelist 保護）
     if enable_llm:
