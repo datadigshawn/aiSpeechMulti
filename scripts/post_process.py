@@ -301,8 +301,13 @@ def post_process(
     llm_strictness: str = "conservative",
     engine_hint: Optional[str] = None,
     auto_skip_llm_for_high_quality: bool = False,
+    enable_term_filter: bool = True,
 ) -> tuple[str, dict]:
-    """執行三層後處理 pipeline
+    """執行後處理 pipeline
+
+    Pipeline 順序：
+        [term_filter.blacklist] → car_norm → dict →
+            [term_filter.protect] → llm → [term_filter.restore]
 
     Args:
         text: 原始 STT 辨識文字
@@ -311,11 +316,12 @@ def post_process(
         enable_llm: 是否啟用 LLM 後修正
         llm_model: LLM 模型名稱
         llm_strictness: LLM 修正強度（strict/conservative/balanced）
-        engine_hint: 上游 STT 引擎類型，例如 "google_stt" / "gemini" / "hybrid"
-                     / "whisper" / "sensevoice" / "scribe"
-                     用於 LLM smart skip 判斷
+        engine_hint: 上游 STT 引擎類型，用於 LLM smart skip 判斷
         auto_skip_llm_for_high_quality: True 時若 engine_hint 屬於 HIGH_QUALITY_ENGINES
-                     會自動跳過 LLM 階段（避免 Gemini 等高品質引擎被過度修改）
+                     會自動跳過 LLM 階段
+        enable_term_filter: 是否啟用術語黑白名單（預設開）
+                     - Blacklist 會在最早階段強制替換絕對錯字
+                     - Whitelist 會在 LLM 階段用 placeholder 保護關鍵術語
 
     Returns:
         (final_text, report_dict)
@@ -324,6 +330,34 @@ def post_process(
     stages = []
     current = text or ""
     original = current
+
+    # Stage 0: Term filter blacklist（強制替換絕對錯字）
+    if enable_term_filter:
+        try:
+            from scripts.term_filter import TermFilter
+            _tf = TermFilter()
+            current, tf_changes = _tf.apply_blacklist_with_log(current)
+            stages.append({
+                "name": "term_blacklist",
+                "applied": True,
+                "changes": [
+                    {"from": c.original, "to": c.replaced, "count": c.count,
+                     "rule": "blacklist"}
+                    for c in tf_changes
+                ],
+                "change_count": len(tf_changes),
+            })
+        except Exception as _tfe:
+            stages.append({
+                "name": "term_blacklist",
+                "applied": False,
+                "changes": [],
+                "change_count": 0,
+                "error": f"TermFilter 失敗: {_tfe}",
+            })
+    else:
+        stages.append({"name": "term_blacklist", "applied": False,
+                       "changes": [], "change_count": 0})
 
     # Stage 1: 車廂編號正規化
     if enable_car_norm:
@@ -349,7 +383,7 @@ def post_process(
     else:
         stages.append({"name": "dict", "applied": False, "changes": [], "change_count": 0})
 
-    # Stage 3: LLM（含 smart skip 邏輯）
+    # Stage 3: LLM（含 smart skip + whitelist 保護）
     if enable_llm:
         # Smart skip: 若上游已是高品質 LLM-grade 引擎，跳過 LLM 後修正
         # 因為實測顯示 Gemini 等引擎被 LLM 修正後反而 CER 變糟
@@ -369,6 +403,16 @@ def post_process(
                 ),
             })
         else:
+            # Whitelist 保護：把關鍵術語換成 placeholder，避免 LLM 誤改
+            _placeholder_map: dict = {}
+            if enable_term_filter:
+                try:
+                    from scripts.term_filter import TermFilter
+                    _tf = TermFilter()
+                    current, _placeholder_map = _tf.protect_whitelist(current)
+                except Exception:
+                    _placeholder_map = {}
+
             corrected, llm_changes, err = apply_llm_correction(
                 current, model=llm_model, strictness=llm_strictness
             )
@@ -382,6 +426,14 @@ def post_process(
             }
             if err:
                 stage["error"] = err
+
+            # 還原 whitelist placeholder
+            if _placeholder_map:
+                from scripts.term_filter import TermFilter
+                _tf = TermFilter()
+                corrected = _tf.restore_whitelist(corrected, _placeholder_map)
+                current = _tf.restore_whitelist(current, _placeholder_map)
+                stage["whitelist_protected"] = len(_placeholder_map)
             else:
                 current = corrected
             stages.append(stage)
