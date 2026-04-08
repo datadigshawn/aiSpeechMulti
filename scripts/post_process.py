@@ -302,6 +302,7 @@ def post_process(
     engine_hint: Optional[str] = None,
     auto_skip_llm_for_high_quality: bool = False,
     enable_term_filter: bool = True,
+    enable_number_norm: bool = True,
 ) -> tuple[str, dict]:
     """執行後處理 pipeline
 
@@ -370,6 +371,29 @@ def post_process(
         })
     else:
         stages.append({"name": "car_norm", "applied": False, "changes": [], "change_count": 0})
+
+    # Stage 1.5: 數字/時間/站碼正規化
+    if enable_number_norm:
+        try:
+            from scripts.number_normalizer import normalize_numbers
+            current, num_changes = normalize_numbers(current)
+            stages.append({
+                "name": "number_norm",
+                "applied": True,
+                "changes": num_changes,
+                "change_count": len(num_changes),
+            })
+        except Exception as _nne:
+            stages.append({
+                "name": "number_norm",
+                "applied": False,
+                "changes": [],
+                "change_count": 0,
+                "error": f"NumberNormalizer 失敗: {_nne}",
+            })
+    else:
+        stages.append({"name": "number_norm", "applied": False,
+                       "changes": [], "change_count": 0})
 
     # Stage 2: correction_dict
     if enable_dict:
