@@ -1,0 +1,8 @@
+G: 15/16車回報OCC，轉回AM模式，over。
+B: 收到，人員目前檔位仍為MCS模式請再次嘗試，over。
+G: 15/16車回報OCC已恢復AM檔位，over。
+B: OCC呼叫那目前行控端尚未收到AM模式的訊號，麻煩請再次將檔位恢復成AM模式，over。
+G: 15/16車回報OCC已恢復AM檔位，over。
+B: OCC收到，那人員請先於車上待命，over。
+G: G15九德站1月台21/22車回報OCC，已將列車車門MCS關閉轉回AM模式，over。
+B: OCC收到跟你確認列車已轉回AM模式將嘗試AM出發，over。
