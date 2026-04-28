@@ -1193,6 +1193,64 @@ def render_speech_page():
 
 
 # ============================================================================
+# 工具：Gemini 長音檔自動切段辨識
+# ============================================================================
+def transcribe_gemini_with_chunking(engine, audio_file: Path, output_dir: Path, max_duration: float = 1500.0) -> dict:
+    """
+    Gemini 長音檔辨識：超過 max_duration（預設 25 分鐘）自動切段。
+    使用 pydub 按固定時長切段，逐段上傳 Gemini 辨識，最後合併結果。
+    """
+    from pydub import AudioSegment
+    import logging
+    _logger = logging.getLogger(__name__)
+
+    try:
+        audio = AudioSegment.from_file(str(audio_file))
+        duration_sec = len(audio) / 1000.0
+    except Exception as e:
+        _logger.warning(f"⚠️ 無法讀取音檔時長，直接送 Gemini: {e}")
+        return engine.transcribe_file(audio_file)
+
+    # 短音檔直接辨識
+    if duration_sec <= max_duration:
+        _logger.info(f"音檔 {duration_sec:.0f}s <= {max_duration:.0f}s，直接辨識")
+        return engine.transcribe_file(audio_file)
+
+    # 長音檔：按 max_duration 切段
+    chunk_length_ms = int(max_duration * 1000)
+    total_ms = len(audio)
+    num_chunks = (total_ms + chunk_length_ms - 1) // chunk_length_ms
+    _logger.info(f"🔪 音檔 {duration_sec:.0f}s 超過 {max_duration:.0f}s，切為 {num_chunks} 段")
+
+    chunks_dir = output_dir / "gemini_chunks" / audio_file.stem
+    chunks_dir.mkdir(parents=True, exist_ok=True)
+
+    all_transcripts = []
+    for i in range(num_chunks):
+        start_ms = i * chunk_length_ms
+        end_ms = min((i + 1) * chunk_length_ms, total_ms)
+        chunk = audio[start_ms:end_ms]
+
+        chunk_file = chunks_dir / f"{audio_file.stem}_chunk_{i + 1:03d}.wav"
+        chunk.export(str(chunk_file), format="wav")
+        _logger.info(f"  段 {i + 1}/{num_chunks}: {start_ms // 1000}s ~ {end_ms // 1000}s ({chunk_file.name})")
+
+        try:
+            chunk_result = engine.transcribe_file(chunk_file)
+            chunk_text = chunk_result.get("transcript", "").strip()
+            if chunk_text:
+                all_transcripts.append(chunk_text)
+        except Exception as e:
+            _logger.error(f"  ❌ 段 {i + 1} 辨識失敗: {e}")
+
+    # 清理暫存切段
+    import shutil
+    shutil.rmtree(chunks_dir, ignore_errors=True)
+
+    return {"transcript": "\n\n".join(all_transcripts)}
+
+
+# ============================================================================
 # 工具：Google STT VAD 切段辨識
 # ============================================================================
 def transcribe_google_stt_with_vad(engine, audio_file: Path, output_dir: Path, max_duration: float = 55.0) -> dict:
@@ -1534,8 +1592,10 @@ def render_running_page():
                     result   = {"transcript": raw_text}
                 elif model_type == "google_stt":
                     result = transcribe_google_stt_with_vad(engine, preproc_file, output_dir)
+                elif model_type == "gemini":
+                    result = transcribe_gemini_with_chunking(engine, preproc_file, output_dir)
                 else:
-                    # gemini / hybrid / sensevoice 共用此路徑
+                    # hybrid / sensevoice 共用此路徑
                     result = engine.transcribe_file(preproc_file)
 
                 # 暫存檔清理
