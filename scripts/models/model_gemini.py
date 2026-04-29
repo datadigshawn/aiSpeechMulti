@@ -36,6 +36,29 @@ except ImportError:
 logger = get_logger('gemini')
 
 
+def _truncate_runaway_repetition(text: str, min_unit: int = 2, max_unit: int = 30, threshold: int = 5) -> str:
+    """
+    偵測並截斷失控的重複輸出（例如 max_output_tokens 過大時 LLM 會把同一短字串重複到塞滿）。
+    若文末出現相同子字串連續重複 >= threshold 次，視為失控，從首次重複處（保留 1 次）截斷。
+    """
+    if not text or len(text) < min_unit * threshold:
+        return text
+    for unit in range(min_unit, max_unit + 1):
+        tail = text[-unit * threshold:]
+        chunk = tail[:unit]
+        if not chunk or tail != chunk * threshold:
+            continue
+        # 從頭找最早出現「chunk * threshold」的位置，保留前面內容 + 第一次 chunk
+        first_idx = text.find(chunk * threshold)
+        keep = first_idx + unit
+        logger.warning(
+            f"⚠️ 偵測到失控重複輸出（unit={unit}, 重複 {threshold}+ 次），"
+            f"截斷 {len(text) - keep} 字"
+        )
+        return text[:keep].rstrip()
+    return text
+
+
 class GeminiModel:
     """Google Gemini 模型封裝"""
     
@@ -90,7 +113,7 @@ class GeminiModel:
                     'temperature': temperature,
                     'top_p': 0.95,
                     'top_k': 40,
-                    'max_output_tokens': 65536,
+                    'max_output_tokens': 8192,
                 }
             )
             
@@ -265,7 +288,10 @@ class GeminiModel:
                 # 移除 Markdown code block
                 lines = transcript.split('\n')
                 transcript = '\n'.join(lines[1:-1]).strip()
-            
+
+            # 重複輸出偵測：若同一短字串連續重複 >= 5 次，視為失控輸出，截斷
+            transcript = _truncate_runaway_repetition(transcript)
+
             logger.info(f"辨識完成: {Path(audio_file).name}")
             logger.info(f"  逐字稿: {transcript[:50]}...")
             

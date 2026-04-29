@@ -86,11 +86,11 @@ SUB_MODEL_OPTIONS = {
         ("chirp_telephony — 電話品質音訊",         "chirp_telephony"),
     ],
     "gemini": [
-        ("gemini-3.1-pro-preview — 🆕 最新旗艦 Preview",  "gemini-3.1-pro-preview"),
-        ("gemini-2.5-flash — ⭐ 最佳價格/性能（推薦）",     "gemini-2.5-flash"),
-        ("gemini-2.5-pro — 最高準確度",                    "gemini-2.5-pro"),
-        ("gemini-2.5-flash-lite — 最快、最省費",            "gemini-2.5-flash-lite"),
-        ("gemini-2.0-flash — 舊穩定版（2026/6 停用）",      "gemini-2.0-flash"),
+        ("gemini-2.5-pro — ⭐ 最佳辨識（baseline CER 49%，推薦）", "gemini-2.5-pro"),
+        ("gemini-3.1-pro-preview — 最新旗艦 Preview（成本高）",   "gemini-3.1-pro-preview"),
+        ("gemini-2.5-flash-lite — 最快、最省費",                  "gemini-2.5-flash-lite"),
+        ("gemini-2.5-flash — 不推薦（重複輸出風險）",              "gemini-2.5-flash"),
+        ("gemini-2.0-flash — 舊穩定版（2026/6 停用）",             "gemini-2.0-flash"),
     ],
     "whisper": [
         ("large-v3 — 最準確（推薦）", "large-v3"),
@@ -99,10 +99,10 @@ SUB_MODEL_OPTIONS = {
     ],
     # hybrid：子模型為 Gemini 選項（Google STT 固定使用 chirp_3）
     "hybrid": [
-        ("gemini-2.5-flash — ⭐ 推薦（速度/品質均衡）",  "gemini-2.5-flash"),
-        ("gemini-2.5-pro — 最高準確度",                  "gemini-2.5-pro"),
-        ("gemini-3.1-pro-preview — 🆕 最新旗艦",         "gemini-3.1-pro-preview"),
-        ("gemini-2.5-flash-lite — 最省費",               "gemini-2.5-flash-lite"),
+        ("gemini-2.5-pro — ⭐ 最佳辨識（推薦）",           "gemini-2.5-pro"),
+        ("gemini-3.1-pro-preview — 最新旗艦（成本高）",    "gemini-3.1-pro-preview"),
+        ("gemini-2.5-flash-lite — 最省費",                "gemini-2.5-flash-lite"),
+        ("gemini-2.5-flash — 不推薦（重複輸出風險）",      "gemini-2.5-flash"),
     ],
     # SenseVoice：只有一個模型
     "sensevoice": [
