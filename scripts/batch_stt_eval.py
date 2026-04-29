@@ -116,13 +116,20 @@ def load_manifest() -> list[dict]:
 # ══════════════════════════════════════════════════════════════════════
 # 主流程
 # ══════════════════════════════════════════════════════════════════════
-def run_engine(label: str, force: bool = False) -> dict:
+def run_engine(label: str, force: bool = False, audio_dir_override: str | None = None, output_subdir: str | None = None) -> dict:
     print(f"\n{'═' * 70}")
-    print(f"🎯 引擎：{label}")
+    print(f"🎯 引擎：{label}" + (f"  /  audio_dir={audio_dir_override}" if audio_dir_override else ""))
     print(f"{'═' * 70}")
 
-    out_dir = STT_OUTPUTS_DIR / label
+    # output_subdir：當預處理跑分時用 stt_outputs/{label}_preproc/ 等子目錄區分
+    out_label = output_subdir or label
+    out_dir = STT_OUTPUTS_DIR / out_label
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    # audio_dir_override：若指定，將 manifest 的 audio_file 檔名 join 到此目錄
+    audio_dir = Path(audio_dir_override) if audio_dir_override else None
+    if audio_dir and not audio_dir.is_absolute():
+        audio_dir = PROJECT_ROOT / audio_dir
 
     manifest = load_manifest()
     print(f"📋 共 {len(manifest)} 筆樣本")
@@ -147,7 +154,12 @@ def run_engine(label: str, force: bool = False) -> dict:
     for i, sample in enumerate(manifest, 1):
         sid = sample["id"]
         event_type = sample["event_type"]
-        audio_path = PROJECT_ROOT / sample["audio_file"]
+        original_audio = PROJECT_ROOT / sample["audio_file"]
+        # 若有 audio_dir override，用該目錄找同檔名
+        if audio_dir is not None:
+            audio_path = audio_dir / original_audio.name
+        else:
+            audio_path = original_audio
         out_path = out_dir / f"{sid}.txt"
         duration = float(sample.get("duration_sec") or 0)
 
@@ -203,6 +215,14 @@ def main():
     ap.add_argument("--engine", help="單一引擎")
     ap.add_argument("--engines", help="多個引擎（逗號分隔）")
     ap.add_argument("--force", action="store_true", help="強制重跑（覆寫快取）")
+    ap.add_argument("--audio-dir", help="覆寫 manifest 的 audio_file 目錄（用同檔名找音檔）")
+    ap.add_argument("--smart-preproc", action="store_true",
+                    help="依引擎 overlay 的 audio_preprocess.enabled 自動選音檔："
+                         "true → audio_preprocessed/, false → 原始 audio/")
+    ap.add_argument("--preproc-dir", default="experiments/golden_dataset/audio_preprocessed",
+                    help="--smart-preproc 啟用時，預處理音檔目錄（預設 audio_preprocessed/）")
+    ap.add_argument("--output-suffix", default="",
+                    help="輸出目錄後綴（避免與既有 baseline 衝突），如 '_preproc'")
     args = ap.parse_args()
 
     if args.engines:
@@ -219,7 +239,27 @@ def main():
     summaries = []
     for label in engines:
         try:
-            summaries.append(run_engine(label, force=args.force))
+            # smart-preproc：依 overlay 設定決定音檔來源
+            if args.smart_preproc and not args.audio_dir:
+                from scripts.term_filter import get_engine_audio_preprocess
+                ap_cfg = get_engine_audio_preprocess(label)
+                if ap_cfg["enabled"]:
+                    audio_dir = args.preproc_dir
+                    output_subdir = f"{label}_smart"
+                    print(f"🎧 {label}: smart-preproc → 使用 {audio_dir}（overlay {ap_cfg['overlay_file']}）")
+                else:
+                    audio_dir = None
+                    output_subdir = f"{label}_smart"
+                    print(f"🎧 {label}: smart-preproc → 使用原始 audio（{ap_cfg['overlay_file'] or '無 overlay'}）")
+            else:
+                audio_dir = args.audio_dir
+                output_subdir = f"{label}{args.output_suffix}" if args.output_suffix else label
+            summaries.append(run_engine(
+                label,
+                force=args.force,
+                audio_dir_override=audio_dir,
+                output_subdir=output_subdir,
+            ))
         except KeyboardInterrupt:
             print(f"\n⏹️  使用者中斷")
             break

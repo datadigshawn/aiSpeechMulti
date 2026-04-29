@@ -64,5 +64,11 @@
       "note":   "sensevoice OCC 縮成 CC + 信息 的『息』粘黏（呼叫上下文）"
     }
   ],
-  "contextual_rules_remove": []
+  "contextual_rules_remove": [],
+
+  "audio_preprocess": {
+    "enabled": true,
+    "_note": "loudnorm 預處理可改善 -0.66%（baseline 65.84% → 65.18%）",
+    "filter": "loudnorm=I=-16:TP=-1.5:LRA=11"
+  }
 }

@@ -62,5 +62,10 @@
       "note":   "scribe 進站誤辨（無 prefix fallback）"
     }
   ],
-  "contextual_rules_remove": []
+  "contextual_rules_remove": [],
+
+  "audio_preprocess": {
+    "enabled": false,
+    "_note": "04-29 實測：loudnorm 對 scribe 反而 +1.58%（66.15% → 67.73%），故停用。scribe 內建 frontend 已處理音量。"
+  }
 }

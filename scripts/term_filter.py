@@ -79,6 +79,40 @@ ENGINE_ALIASES = {
     "medium":                 "whisper",
 }
 
+
+# ══════════════════════════════════════════════════════════════════════
+# 共用：依 engine_hint 查 overlay 的 audio_preprocess 設定
+# （讓 batch_stt_eval / dashboard 能根據引擎差異選擇是否預處理音檔）
+# ══════════════════════════════════════════════════════════════════════
+def get_engine_audio_preprocess(engine_hint: Optional[str]) -> dict:
+    """
+    回傳 {"enabled": bool, "filter": str | None, "overlay_file": str | None}。
+    若該引擎沒有 overlay 或沒設 audio_preprocess，預設 enabled=False。
+    """
+    default = {"enabled": False, "filter": None, "overlay_file": None}
+    if not engine_hint:
+        return default
+    # 先直接檔名
+    p = ENGINES_DIR / f"{engine_hint}.json"
+    if not p.exists():
+        # 再 alias
+        alias = ENGINE_ALIASES.get(engine_hint)
+        if alias:
+            p = ENGINES_DIR / f"{alias}.json"
+    if not p.exists():
+        return default
+    try:
+        cfg = json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return default
+    ap = cfg.get("audio_preprocess") or {}
+    return {
+        "enabled":      bool(ap.get("enabled", False)),
+        "filter":       ap.get("filter"),
+        "overlay_file": p.name,
+    }
+
+
 # Placeholder 格式（用罕見字元包住編號，避免被任何 pipeline 改到）
 _PLACEHOLDER_PREFIX = "\u2060TFPH\u2060"   # WORD JOINER 包住 "TFPH" (Term Filter PlaceHolder)
 _PLACEHOLDER_SUFFIX = "\u2060END\u2060"

@@ -14,5 +14,11 @@
   "blacklist_remove": [],
   "whitelist_add": [],
   "whitelist_remove": [],
-  "protected_patterns_add": []
+  "protected_patterns_add": [],
+
+  "audio_preprocess": {
+    "enabled": true,
+    "_note": "loudnorm 預處理可改善 -0.44%（baseline 49.34% → 48.90%）",
+    "filter": "loudnorm=I=-16:TP=-1.5:LRA=11"
+  }
 }

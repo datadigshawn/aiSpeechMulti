@@ -48,5 +48,10 @@
       "note":   "chirp3 把『清車』聽成『停車』（人員已下 NN 車後接清車完畢）"
     }
   ],
-  "contextual_rules_remove": []
+  "contextual_rules_remove": [],
+
+  "audio_preprocess": {
+    "enabled": false,
+    "_note": "04-29 實測：loudnorm 對 chirp3 反而 +2.76%（82.81% → 85.57%），故停用。chirp3 內建 frontend 已處理音量。"
+  }
 }
