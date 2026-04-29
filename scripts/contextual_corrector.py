@@ -2,7 +2,7 @@
 """
 上下文敏感修正器 (ContextualCorrector)
 ========================================
-版本: 1.0.0 (2026-04-08)
+版本: 1.1.0 (2026-04-29) — 支援 engine-specific overlay
 
 把 correction_dict（純字串替換）升級為三元組規則：
 
@@ -69,6 +69,13 @@ from typing import Optional
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG = PROJECT_ROOT / "vocabulary" / "contextual_corrections.json"
 
+# 共用 engine alias map 與 overlay 目錄（與 TermFilter 一致）
+try:
+    from scripts.term_filter import ENGINE_ALIASES, ENGINES_DIR
+except ImportError:
+    ENGINE_ALIASES = {}
+    ENGINES_DIR = PROJECT_ROOT / "vocabulary" / "engines"
+
 
 @dataclass
 class ContextualRule:
@@ -109,32 +116,115 @@ class ContextualRule:
 # 主類別
 # ══════════════════════════════════════════════════════════════════════
 class ContextualCorrector:
-    """上下文敏感修正器"""
+    """上下文敏感修正器（支援 engine-specific overlay）"""
 
-    def __init__(self, config_path: Optional[Path] = None):
+    def __init__(
+        self,
+        config_path: Optional[Path] = None,
+        engine_hint: Optional[str] = None,
+    ):
+        """
+        Args:
+            config_path: 共用基底（預設 vocabulary/contextual_corrections.json）
+            engine_hint: 引擎名稱。若 vocabulary/engines/{engine}.json 含
+                         contextual_rules_add / contextual_rules_remove 欄位則合併。
+        """
         self.config_path = Path(config_path) if config_path else DEFAULT_CONFIG
+        self.engine_hint = engine_hint
+        self.engine_overlay_path: Optional[Path] = None
         self.rules: list[ContextualRule] = []
+        self.overlay_summary: dict = {
+            "applied":           False,
+            "engine":            None,
+            "rules_added":       0,
+            "rules_removed":     0,
+        }
         self._load_rules()
 
+    def _resolve_overlay_path(self) -> Optional[Path]:
+        """依 engine_hint 找 overlay 檔（與 TermFilter 共用同一目錄）"""
+        if not self.engine_hint:
+            return None
+        direct = ENGINES_DIR / f"{self.engine_hint}.json"
+        if direct.exists():
+            return direct
+        alias_key = ENGINE_ALIASES.get(self.engine_hint)
+        if alias_key:
+            via_alias = ENGINES_DIR / f"{alias_key}.json"
+            if via_alias.exists():
+                return via_alias
+        return None
+
+    def _make_rule(self, r: dict) -> Optional[ContextualRule]:
+        if not r.get("wrong"):
+            return None
+        return ContextualRule(
+            prefix=r.get("prefix", "") or "",
+            wrong=r["wrong"],
+            suffix=r.get("suffix", "") or "",
+            right=r.get("right", "") or "",
+            gap=int(r.get("gap", 0)),
+            note=r.get("note", "") or "",
+        )
+
     def _load_rules(self) -> None:
+        # ── 基底 ─────────────────────────────────────────────
         if not self.config_path.exists():
             print(f"⚠️ 規則檔不存在: {self.config_path}")
             return
         try:
             data = json.loads(self.config_path.read_text(encoding="utf-8"))
             for r in data.get("rules", []):
-                if not r.get("wrong"):
-                    continue
-                self.rules.append(ContextualRule(
-                    prefix=r.get("prefix", "") or "",
-                    wrong=r["wrong"],
-                    suffix=r.get("suffix", "") or "",
-                    right=r.get("right", "") or "",
-                    gap=int(r.get("gap", 0)),
-                    note=r.get("note", "") or "",
-                ))
+                rule = self._make_rule(r)
+                if rule:
+                    self.rules.append(rule)
         except Exception as e:
-            print(f"⚠️ 載入規則失敗: {e}")
+            print(f"⚠️ 載入基底規則失敗: {e}")
+            return
+
+        # ── Overlay（依 engine_hint）───────────────────────────
+        self.engine_overlay_path = self._resolve_overlay_path()
+        if not self.engine_overlay_path:
+            return
+        try:
+            overlay = json.loads(self.engine_overlay_path.read_text(encoding="utf-8"))
+        except Exception as e:
+            print(f"⚠️ 載入 contextual overlay 失敗 ({self.engine_overlay_path.name}): {e}")
+            return
+
+        rules_add = overlay.get("contextual_rules_add", []) or []
+        rules_rm = overlay.get("contextual_rules_remove", []) or []
+
+        # 移除（依 wrong 字串匹配；可選 prefix/suffix 進一步過濾）
+        if rules_rm:
+            def _matches_remove(existing: ContextualRule, spec: dict) -> bool:
+                if existing.wrong != spec.get("wrong"):
+                    return False
+                if "prefix" in spec and existing.prefix != spec["prefix"]:
+                    return False
+                if "suffix" in spec and existing.suffix != spec["suffix"]:
+                    return False
+                return True
+            self.rules = [
+                r for r in self.rules
+                if not any(_matches_remove(r, spec) for spec in rules_rm)
+            ]
+
+        # 新增
+        added = 0
+        for r in rules_add:
+            rule = self._make_rule(r)
+            if rule:
+                self.rules.append(rule)
+                added += 1
+
+        self.overlay_summary = {
+            "applied":       True,
+            "engine":        self.engine_hint,
+            "overlay_file":  self.engine_overlay_path.name,
+            "rules_added":   added,
+            "rules_removed": len(rules_rm),
+        }
 
     def apply(self, text: str) -> tuple[str, list[dict]]:
         """套用所有規則
@@ -263,6 +353,7 @@ def run_tests() -> int:
 # ══════════════════════════════════════════════════════════════════════
 def main():
     p = argparse.ArgumentParser()
+    p.add_argument("--engine", help="引擎名稱（會套 vocabulary/engines/{engine}.json 中的 contextual_rules_add/remove）")
     grp = p.add_mutually_exclusive_group(required=True)
     grp.add_argument("--test", action="store_true", help="跑內建測試")
     grp.add_argument("--show-config", action="store_true", help="顯示載入的規則")
@@ -270,14 +361,19 @@ def main():
     grp.add_argument("--file", help="修正檔案")
     args = p.parse_args()
 
-    cc = ContextualCorrector()
+    cc = ContextualCorrector(engine_hint=args.engine)
 
     if args.test:
         sys.exit(run_tests())
 
     if args.show_config:
-        print(f"📋 規則檔: {cc.config_path}")
-        print(f"   規則數: {len(cc.rules)}")
+        print(f"📋 基底: {cc.config_path}")
+        if cc.overlay_summary.get("applied"):
+            print(f"📦 Overlay: {cc.engine_overlay_path}  (engine={cc.engine_hint})")
+            print(f"   contextual rules +{cc.overlay_summary['rules_added']} / -{cc.overlay_summary['rules_removed']}")
+        elif cc.engine_hint:
+            print(f"📦 Overlay: 找不到（engine={cc.engine_hint}），僅使用基底")
+        print(f"   規則數（合併後）: {len(cc.rules)}")
         print()
         for i, r in enumerate(cc.rules, 1):
             print(f"{i:2}. ({r.prefix!r:10}, {r.wrong!r:10}, {r.suffix!r:10}) → {r.right!r}")

@@ -1,0 +1,68 @@
+{
+  "_description": "SenseVoiceSmall（本地零成本）引擎專屬 overlay",
+  "_version": "1.0.0 (2026-04-29)",
+  "_source": "scripts/extract_error_pairs.py + 04-29 抽樣對照分析",
+  "_notes": [
+    "SenseVoice 主要錯誤模式：簡體輸出（信息→OCC）、英文縮寫斷字（CC息→OCC）",
+    "通用單字錯誤（主→組、為→回）需上下文限制，全部走 contextual_rules_add 而非 blacklist",
+    "高頻通用錯字（縣→線、連→聯、心→清）容易誤殺正常字串，目前不加"
+  ],
+
+  "blacklist_add": {},
+  "blacklist_remove": [],
+  "whitelist_add": [],
+  "whitelist_remove": [],
+  "protected_patterns_add": [],
+
+  "contextual_rules_add": [
+    {
+      "prefix": "回报",
+      "wrong":  "信息",
+      "suffix": "",
+      "right":  "OCC",
+      "gap":    0,
+      "note":   "sensevoice OCC 誤辨（簡體：回报+信息 → 回報 OCC）"
+    },
+    {
+      "prefix": "回報",
+      "wrong":  "資訊",
+      "suffix": "",
+      "right":  "OCC",
+      "gap":    0,
+      "note":   "sensevoice OCC 誤辨（繁體向後相容）"
+    },
+    {
+      "prefix": "呼叫",
+      "wrong":  "信息",
+      "suffix": "",
+      "right":  "OCC",
+      "gap":    0,
+      "note":   "sensevoice OCC 誤辨（簡體：呼叫+信息）"
+    },
+    {
+      "prefix": "呼叫",
+      "wrong":  "資訊",
+      "suffix": "",
+      "right":  "OCC",
+      "gap":    0,
+      "note":   "sensevoice OCC 誤辨（繁體向後相容）"
+    },
+    {
+      "prefix": "回报",
+      "wrong":  "CC息",
+      "suffix": "",
+      "right":  "OCC",
+      "gap":    0,
+      "note":   "sensevoice OCC 縮成 CC + 信息 的『息』粘黏"
+    },
+    {
+      "prefix": "呼叫",
+      "wrong":  "CC息",
+      "suffix": "",
+      "right":  "OCC",
+      "gap":    0,
+      "note":   "sensevoice OCC 縮成 CC + 信息 的『息』粘黏（呼叫上下文）"
+    }
+  ],
+  "contextual_rules_remove": []
+}

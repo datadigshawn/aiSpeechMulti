@@ -412,7 +412,7 @@ def post_process(
     if enable_contextual:
         try:
             from scripts.contextual_corrector import ContextualCorrector
-            _cc = ContextualCorrector()
+            _cc = ContextualCorrector(engine_hint=engine_hint)
             current, ctx_changes = _cc.apply(current)
             stages.append({
                 "name": "contextual",

@@ -1141,25 +1141,33 @@ def render_speech_page():
     # ── 引擎規則數顯示（vocabulary/engines/{engine}.json overlay）─────────
     try:
         from scripts.term_filter import TermFilter as _DashTermFilter
-        _dash_tf = _DashTermFilter(engine_hint=sub_model or model_type)
-        _ov = _dash_tf.overlay_summary
-        if _ov.get("applied"):
+        from scripts.contextual_corrector import ContextualCorrector as _DashCC
+        _hint = sub_model or model_type
+        _dash_tf = _DashTermFilter(engine_hint=_hint)
+        _dash_cc = _DashCC(engine_hint=_hint)
+        _tf_ov = _dash_tf.overlay_summary
+        _cc_ov = _dash_cc.overlay_summary
+        _has_overlay = _tf_ov.get("applied") or _cc_ov.get("applied")
+        if _has_overlay:
             st.success(
-                f"📦 已套用引擎專屬規則：`{_ov['overlay_file']}` "
-                f"(blacklist +{_ov['blacklist_added']} / "
-                f"whitelist +{_ov['whitelist_added']})  "
-                f"→ 合併後共 **{len(_dash_tf.blacklist)}** 條 blacklist、"
-                f"**{len(_dash_tf.whitelist)}** 條 whitelist"
+                f"📦 已套用引擎 `{_hint}` 專屬規則  "
+                f"→ blacklist **{len(_dash_tf.blacklist)}** 條 "
+                f"(+{_tf_ov.get('blacklist_added', 0)})  "
+                f"｜  whitelist **{len(_dash_tf.whitelist)}** 條 "
+                f"(+{_tf_ov.get('whitelist_added', 0)})  "
+                f"｜  contextual **{len(_dash_cc.rules)}** 條 "
+                f"(+{_cc_ov.get('rules_added', 0)})"
             )
         else:
             st.caption(
-                f"📦 引擎 `{sub_model or model_type}` 無專屬規則（僅套基底）"
-                f"：**{len(_dash_tf.blacklist)}** 條 blacklist、"
-                f"**{len(_dash_tf.whitelist)}** 條 whitelist。"
-                f" 可建立 `vocabulary/engines/{sub_model or model_type}.json` 為此引擎客製規則。"
+                f"📦 引擎 `{_hint}` 無專屬規則（僅套基底）"
+                f"：blacklist {len(_dash_tf.blacklist)} 條 / "
+                f"whitelist {len(_dash_tf.whitelist)} 條 / "
+                f"contextual {len(_dash_cc.rules)} 條。"
+                f" 可建立 `vocabulary/engines/{_hint}.json` 為此引擎客製規則。"
             )
     except Exception as _tf_err:
-        st.caption(f"⚠️ 無法載入 TermFilter 設定：{_tf_err}")
+        st.caption(f"⚠️ 無法載入 TermFilter / ContextualCorrector 設定：{_tf_err}")
 
     # ── Step 7：彙整輸出 ─────────────────────────────────────────────────
     st.write("")
