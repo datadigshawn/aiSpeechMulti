@@ -18,5 +18,49 @@
   "blacklist_remove": [],
   "whitelist_add": [],
   "whitelist_remove": [],
-  "protected_patterns_add": []
+  "protected_patterns_add": [],
+
+  "contextual_rules_add": [
+    {
+      "prefix": "",
+      "wrong":  "四为",
+      "suffix": "站",
+      "right":  "四維",
+      "gap":    0,
+      "note":   "scribe 簡體：『G05 四維站』被聽成『四为站』"
+    },
+    {
+      "prefix": "",
+      "wrong":  "四给",
+      "suffix": "站",
+      "right":  "四維",
+      "gap":    0,
+      "note":   "scribe 變體：『四給站』→ 四維"
+    },
+    {
+      "prefix": "",
+      "wrong":  "四為",
+      "suffix": "站",
+      "right":  "四維",
+      "gap":    0,
+      "note":   "scribe 繁體向後相容"
+    },
+    {
+      "prefix": "稍後",
+      "wrong":  "近戰",
+      "suffix": "",
+      "right":  "進站",
+      "gap":    2,
+      "note":   "scribe 把『進站』聽成『近戰』（稍後進站列車...）"
+    },
+    {
+      "prefix": "",
+      "wrong":  "近戰列車",
+      "suffix": "",
+      "right":  "進站列車",
+      "gap":    0,
+      "note":   "scribe 進站誤辨（無 prefix fallback）"
+    }
+  ],
+  "contextual_rules_remove": []
 }

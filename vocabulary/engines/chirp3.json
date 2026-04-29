@@ -1,0 +1,52 @@
+{
+  "_description": "Google STT chirp_3 引擎專屬 overlay",
+  "_version": "1.0.0 (2026-04-29)",
+  "_source": "scripts/extract_error_pairs.py + 04-29 抽樣對照分析",
+  "_notes": [
+    "chirp_3 在窄頻無線電場景表現弱（baseline CER 82.81%、字數僅 GT 45%）",
+    "主要錯誤模式：站名 'G05 四維' 被聽成 '九十五歲'、'車組' 被聽成 '車主'",
+    "通用單字（主→組、心→清）需上下文限制，全部走 contextual_rules_add"
+  ],
+
+  "blacklist_add": {},
+  "blacklist_remove": [],
+  "whitelist_add": [],
+  "whitelist_remove": [],
+  "protected_patterns_add": [],
+
+  "contextual_rules_add": [
+    {
+      "prefix": "九五",
+      "wrong":  "歲",
+      "suffix": "站長",
+      "right":  "四維",
+      "gap":    0,
+      "note":   "chirp3 將 G05 四維站長聽成『九十五歲站長』"
+    },
+    {
+      "prefix": "九五",
+      "wrong":  "歲",
+      "suffix": "在",
+      "right":  "四維",
+      "gap":    0,
+      "note":   "chirp3 G05 四維 變體（如 95歲在哪）"
+    },
+    {
+      "prefix": "",
+      "wrong":  "歲站長",
+      "suffix": "",
+      "right":  "四維站長",
+      "gap":    0,
+      "note":   "chirp3 fallback：未含九五 prefix 但仍是站長語境"
+    },
+    {
+      "prefix": "已下",
+      "wrong":  "停",
+      "suffix": "車完畢",
+      "right":  "清",
+      "gap":    3,
+      "note":   "chirp3 把『清車』聽成『停車』（人員已下 NN 車後接清車完畢）"
+    }
+  ],
+  "contextual_rules_remove": []
+}
