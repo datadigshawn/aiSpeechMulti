@@ -48,10 +48,13 @@ except ImportError:
     sys.exit(1)
 
 try:
-    import google.generativeai as genai
+    from utils.gemini_client import get_client, genai_types
 except ImportError:
-    print("❌ 請先安裝: pip install google-generativeai")
+    print("❌ 請先安裝: pip install google-genai")
     sys.exit(1)
+
+# 模組層 client，由 run_eval() 初始化
+_GEMINI_CLIENT = None
 
 # 匯入強化版 prompt
 from prompt_v2 import build_prompts_v2
@@ -141,16 +144,16 @@ def get_api_key() -> str:
 
 def call_gemini_correct(model_name: str, text: str, strictness: str) -> dict:
     sys_p, user_p = build_prompts_v2(text, strictness)
-    model = genai.GenerativeModel(
-        model_name=model_name,
-        system_instruction=sys_p,
-        generation_config={
-            "temperature": 0.0,
-            "response_mime_type": "application/json",
-        },
+    resp = _GEMINI_CLIENT.models.generate_content(
+        model=model_name,
+        contents=user_p,
+        config=genai_types.GenerateContentConfig(
+            temperature=0.0,
+            response_mime_type="application/json",
+            system_instruction=sys_p,
+        ),
     )
-    resp = model.generate_content(user_p)
-    raw = resp.text.strip()
+    raw = (resp.text or "").strip()
     raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw).strip()
     return json.loads(raw)
 
@@ -185,9 +188,10 @@ def run_eval(args):
     print(f"   修正強度:   {args.strictness}")
     print()
 
-    # 1. API key
+    # 1. API key + 建立 client
+    global _GEMINI_CLIENT
     try:
-        genai.configure(api_key=get_api_key())
+        _GEMINI_CLIENT = get_client(get_api_key())
     except Exception as e:
         print(f"❌ {e}")
         return

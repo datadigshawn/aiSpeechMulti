@@ -381,42 +381,29 @@ def llm_arbitrate(
         chosen_source: "A" | "B" | "merged" | "fallback"
     """
     try:
-        import google.generativeai as genai
+        from utils.gemini_client import get_client, genai_types
     except ImportError:
-        return text_a if len(text_a) >= len(text_b) else text_b, "fallback", "未安裝 google-generativeai", None
+        return text_a if len(text_a) >= len(text_b) else text_b, "fallback", "未安裝 google-genai 或 utils.gemini_client 不可用", None
 
-    # 取 API key
-    import os
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        json_path = PROJECT_ROOT / "utils" / "api_keys.json"
-        if json_path.exists():
-            try:
-                data = json.loads(json_path.read_text(encoding="utf-8"))
-                for k in ("gemini_api_key", "GEMINI_API_KEY", "google_api_key"):
-                    if data.get(k):
-                        api_key = data[k]
-                        break
-            except Exception:
-                pass
-    if not api_key:
+    try:
+        client = get_client()
+    except ValueError:
         return text_a if len(text_a) >= len(text_b) else text_b, "fallback", "找不到 API key", None
 
     try:
-        genai.configure(api_key=api_key)
-        gm = genai.GenerativeModel(
-            model_name=model,
-            generation_config={
-                "temperature": 0.0,
-                "response_mime_type": "application/json",
-            },
-        )
         prompt = LLM_ARBITRATION_PROMPT.format(
             engine_a=engine_a, engine_b=engine_b,
             text_a=text_a, text_b=text_b,
         )
-        resp = gm.generate_content(prompt)
-        raw = resp.text.strip()
+        resp = client.models.generate_content(
+            model=model,
+            contents=prompt,
+            config=genai_types.GenerateContentConfig(
+                temperature=0.0,
+                response_mime_type="application/json",
+            ),
+        )
+        raw = (resp.text or "").strip()
         raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw).strip()
         data = json.loads(raw)
         chosen = data.get("chosen", "A")

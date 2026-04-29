@@ -228,31 +228,30 @@ def apply_llm_correction(
         return text, [], None
 
     try:
-        import google.generativeai as genai
+        from utils.gemini_client import get_client, genai_types
     except ImportError:
-        return text, [], "未安裝 google-generativeai"
-
-    if not api_key:
-        api_key = _resolve_api_key()
-    if not api_key:
-        return text, [], "找不到 GEMINI_API_KEY"
+        return text, [], "未安裝 google-genai 或 utils.gemini_client 不可用"
 
     try:
-        genai.configure(api_key=api_key)
+        client = get_client(api_key)
+    except ValueError as e:
+        return text, [], str(e)
+
+    try:
         sys_prompt = LLM_SYSTEM_PROMPT.format(
             strictness=strictness,
             strictness_rules=_STRICTNESS_RULES.get(strictness, _STRICTNESS_RULES["conservative"]),
         )
-        gm = genai.GenerativeModel(
-            model_name=model,
-            system_instruction=sys_prompt,
-            generation_config={
-                "temperature": 0.0,
-                "response_mime_type": "application/json",
-            },
+        resp = client.models.generate_content(
+            model=model,
+            contents=f"請修正以下無線電辨識結果：\n\n{text}\n\n輸出 JSON。",
+            config=genai_types.GenerateContentConfig(
+                temperature=0.0,
+                response_mime_type="application/json",
+                system_instruction=sys_prompt,
+            ),
         )
-        resp = gm.generate_content(f"請修正以下無線電辨識結果：\n\n{text}\n\n輸出 JSON。")
-        raw = resp.text.strip()
+        raw = (resp.text or "").strip()
         raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw).strip()
         data = json.loads(raw)
         corrected = data.get("corrected", text)

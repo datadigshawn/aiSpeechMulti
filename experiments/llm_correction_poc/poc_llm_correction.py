@@ -41,12 +41,15 @@ DB_PATH = PROJECT_ROOT / "data" / "aiSpeechMulti.db"
 VOCAB_PATH = PROJECT_ROOT / "vocabulary" / "master_vocabulary.csv"
 OUTPUT_DIR = Path(__file__).parent
 
-# ── Gemini SDK ──────────────────────────────────────────────────────────
+# ── Gemini SDK（新版 google-genai）──────────────────────────────────────
 try:
-    import google.generativeai as genai
+    from utils.gemini_client import get_client, genai_types
 except ImportError:
-    print("❌ 請先安裝: pip install google-generativeai")
+    print("❌ 請先安裝: pip install google-genai")
     sys.exit(1)
+
+# 模組層 client，由 run_poc() 初始化
+_GEMINI_CLIENT = None
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -211,16 +214,16 @@ def call_gemini(
     sys_prompt: str,
     user_prompt: str,
 ) -> dict:
-    model = genai.GenerativeModel(
-        model_name=model_name,
-        system_instruction=sys_prompt,
-        generation_config={
-            "temperature": 0.0,
-            "response_mime_type": "application/json",
-        },
+    resp = _GEMINI_CLIENT.models.generate_content(
+        model=model_name,
+        contents=user_prompt,
+        config=genai_types.GenerateContentConfig(
+            temperature=0.0,
+            response_mime_type="application/json",
+            system_instruction=sys_prompt,
+        ),
     )
-    resp = model.generate_content(user_prompt)
-    text = resp.text.strip()
+    text = (resp.text or "").strip()
     # 移除可能的 markdown fence
     text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text).strip()
     return json.loads(text)
@@ -258,10 +261,10 @@ def run_poc(args):
     print(f"   DB:   {DB_PATH}")
     print()
 
-    # 1. 載入 API key
+    # 1. 載入 API key + 建立 client
+    global _GEMINI_CLIENT
     try:
-        api_key = get_api_key()
-        genai.configure(api_key=api_key)
+        _GEMINI_CLIENT = get_client(get_api_key())
     except Exception as e:
         print(f"❌ {e}")
         return

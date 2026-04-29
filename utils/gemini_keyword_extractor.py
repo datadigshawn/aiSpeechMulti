@@ -135,21 +135,17 @@ class GeminiKeywordExtractor:
         Args:
             model_name: Gemini 模型名稱（預設 gemini-2.5-flash）
         """
-        import google.generativeai as genai
+        from utils.gemini_client import get_client, genai_types
 
         self.logger = get_logger(self.__class__.__name__)
         self.model_name = _MODELS.get(model_name, model_name)
 
-        api_key = _load_api_key()
-        genai.configure(api_key=api_key)
-
-        self._model = genai.GenerativeModel(
-            model_name=self.model_name,
-            generation_config={
-                "temperature": 0.1,      # 低溫度確保一致性
-                "top_p": 0.95,
-                "max_output_tokens": 1024,
-            },
+        # 新版 SDK：建 client + 預備 config（呼叫時帶入）
+        self._client = get_client(_load_api_key())
+        self._config = genai_types.GenerateContentConfig(
+            temperature=0.1,
+            top_p=0.95,
+            max_output_tokens=1024,
         )
         self.logger.info(f"GeminiKeywordExtractor 初始化：模型={self.model_name}")
 
@@ -178,8 +174,12 @@ class GeminiKeywordExtractor:
         prompt = self._build_prompt(merged_transcript, event_name, max_keywords)
 
         try:
-            response = self._model.generate_content(prompt)
-            raw_text = response.text
+            response = self._client.models.generate_content(
+                model=self.model_name,
+                contents=prompt,
+                config=self._config,
+            )
+            raw_text = response.text or ""
             self.logger.debug(f"Gemini 回傳（前200字）：{raw_text[:200]!r}")
         except Exception as e:
             self.logger.error(f"Gemini API 呼叫失敗：{e}")

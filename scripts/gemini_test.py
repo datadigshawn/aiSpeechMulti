@@ -6,13 +6,15 @@
 import json
 from pathlib import Path
 
-# 嘗試導入 google.generativeai
+# 新版 SDK（2026-04 起取代 google.generativeai）
 try:
-    import google.generativeai as genai
+    from google import genai as _genai
 except ImportError:
-    print("❌ 錯誤：找不到 google.generativeai 套件")
-    print("請執行：pip install google-generativeai")
+    print("❌ 錯誤：找不到 google-genai 套件")
+    print("請執行：pip install google-genai")
     exit(1)
+
+_CLIENT = None  # 由 list_models() 建立後共用
 
 def load_api_key():
     """從配置檔案載入 API key"""
@@ -45,24 +47,28 @@ def load_api_key():
 
 def list_models(api_key):
     """列出所有可用模型"""
-    genai.configure(api_key=api_key)
-    
+    global _CLIENT
+    _CLIENT = _genai.Client(api_key=api_key)
+
     print("\n" + "=" * 70)
     print("可用的 Gemini 模型")
     print("=" * 70)
-    
+
     models_found = []
-    
+
     try:
-        for model in genai.list_models():
-            if 'generateContent' in model.supported_generation_methods:
+        for model in _CLIENT.models.list():
+            # 新版 SDK：supported_actions 是 list[str]，如 ['generateContent', 'embedContent']
+            actions = getattr(model, "supported_actions", None) or []
+            if 'generateContent' in actions:
                 models_found.append(model.name)
                 print(f"\n✅ {model.name}")
-                print(f"   顯示名稱: {model.display_name}")
-                print(f"   支援方法: {', '.join(model.supported_generation_methods)}")
-                if hasattr(model, 'description'):
+                if getattr(model, 'display_name', None):
+                    print(f"   顯示名稱: {model.display_name}")
+                print(f"   支援方法: {', '.join(actions)}")
+                if getattr(model, 'description', None):
                     print(f"   說明: {model.description}")
-    
+
     except Exception as e:
         print(f"\n❌ 列出模型失敗: {e}")
         return []
