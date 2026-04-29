@@ -1251,6 +1251,48 @@ def render_speech_page():
 
 
 # ============================================================================
+# 工具：inline diff 渲染（人工修正 UI 用）
+# ============================================================================
+def _render_inline_diff(raw: str, edited: str) -> None:
+    """字元級 inline diff：紅色刪除（含刪除線）+ 綠色新增。"""
+    import html as _html
+    from difflib import SequenceMatcher
+    sm = SequenceMatcher(None, raw or "", edited or "", autojunk=False)
+    parts = []
+    for tag, i1, i2, j1, j2 in sm.get_opcodes():
+        a = _html.escape(raw[i1:i2])
+        b = _html.escape(edited[j1:j2])
+        if tag == "equal":
+            parts.append(a)
+        elif tag == "delete":
+            parts.append(
+                f"<span style='background:#5a2a2a;color:#ffd6d6;"
+                f"text-decoration:line-through;padding:0 2px;border-radius:2px'>{a}</span>"
+            )
+        elif tag == "insert":
+            parts.append(
+                f"<span style='background:#1f4d2a;color:#c8f7c8;"
+                f"padding:0 2px;border-radius:2px'>{b}</span>"
+            )
+        elif tag == "replace":
+            parts.append(
+                f"<span style='background:#5a2a2a;color:#ffd6d6;"
+                f"text-decoration:line-through;padding:0 2px;border-radius:2px'>{a}</span>"
+            )
+            parts.append(
+                f"<span style='background:#1f4d2a;color:#c8f7c8;"
+                f"padding:0 2px;border-radius:2px'>{b}</span>"
+            )
+    body = "".join(parts).replace("\n", "<br>")
+    st.markdown(
+        f"<div style='padding:12px;background:#1e1e1e;border-radius:6px;color:#e0e0e0;"
+        f"font-family:monospace;line-height:1.7;white-space:pre-wrap;"
+        f"border:1px solid #333'>{body}</div>",
+        unsafe_allow_html=True,
+    )
+
+
+# ============================================================================
 # 工具：Gemini 長音檔自動切段辨識
 # ============================================================================
 def transcribe_gemini_with_chunking(engine, audio_file: Path, output_dir: Path, max_duration: float = 1500.0) -> dict:
@@ -2038,24 +2080,32 @@ def render_management_page():
             with st.expander(f"{status_icon}{corrected_icon} {rec_time}　{fname}"):
                 if t["status"] == "success":
                     raw_text = t["transcript"] or ""
-                    initial = t["corrected_transcript"] or raw_text
+                    edit_key = f"trans_edit_{t['id']}"
+                    # 預設值：已有修正版本則用之，否則用原文
+                    if edit_key not in st.session_state:
+                        st.session_state[edit_key] = t["corrected_transcript"] or raw_text
 
-                    # 用 form 包住，避免每次按鍵都觸發 rerun
-                    with st.form(key=f"correct_form_{t['id']}"):
-                        edited = st.text_area(
-                            "辨識文字（可直接編輯後按「💾 儲存修正」）",
-                            value=initial,
-                            height=120,
-                            key=f"trans_edit_{t['id']}",
+                    edited = st.text_area(
+                        "辨識文字（可直接編輯，diff 會即時顯示）",
+                        height=120,
+                        key=edit_key,
+                    )
+
+                    # ── inline diff highlight（即時對照原文 vs 當前編輯）─────
+                    if edited != raw_text:
+                        st.caption("🔍 與原文差異（紅刪/綠增）")
+                        _render_inline_diff(raw_text, edited)
+                    else:
+                        st.caption("（與原文相同）")
+
+                    col_a, col_b, col_c = st.columns([1, 1, 4])
+                    save_clicked = col_a.button("💾 儲存修正", key=f"save_{t['id']}", type="primary")
+                    revert_clicked = col_b.button("↩️ 還原原文", key=f"revert_{t['id']}")
+                    if t["corrected_transcript"]:
+                        col_c.caption(
+                            f"上次修正：{(t['corrected_at'] or '')[:19]}"
+                            + (f"  ｜  引擎：{t['engine_hint']}" if t['engine_hint'] else "")
                         )
-                        col_a, col_b, col_c = st.columns([1, 1, 4])
-                        save_clicked = col_a.form_submit_button("💾 儲存修正", type="primary")
-                        revert_clicked = col_b.form_submit_button("↩️ 還原原文")
-                        if t["corrected_transcript"]:
-                            col_c.caption(
-                                f"上次修正：{(t['corrected_at'] or '')[:19]}"
-                                + (f"  ｜  引擎：{t['engine_hint']}" if t['engine_hint'] else "")
-                            )
 
                     if save_clicked:
                         if edited.strip() == raw_text.strip():
@@ -2068,10 +2118,14 @@ def render_management_page():
                     elif revert_clicked:
                         if t["corrected_transcript"]:
                             db.update_corrected_transcript(t["id"], "")  # 空字串 = 清除修正
+                            # 清掉 session state 的編輯內容，下次 rerun 會用 raw_text
+                            st.session_state.pop(edit_key, None)
                             st.success("已清除人工修正，恢復原文")
                             st.rerun()
                         else:
-                            st.info("尚無修正紀錄可清除")
+                            # 還沒儲存的編輯狀態：把 textarea 內容重置為原文
+                            st.session_state[edit_key] = raw_text
+                            st.rerun()
                 else:
                     st.error(f"辨識失敗：{t['transcript']}")
 
@@ -3629,6 +3683,49 @@ def render_cer_trend_page():
     if df.empty:
         st.info("索引為空")
         return
+
+    # ── Regression detection（防靜默退步）────────────────────────────────
+    # 對每個 (engine, post_process) 組合：取「最新一筆」與「歷史最佳」對照
+    # 若最新 final CER 比歷史最佳高 > 5 個百分點，視為 regression 警告
+    REGRESSION_THRESHOLD_PCT = 5.0  # 5 個百分點絕對差
+    df_sorted = df.sort_values("timestamp")
+    regressions: list[dict] = []
+    for (eng, pp), grp in df_sorted.groupby(["engine_label", "post_process"]):
+        if len(grp) < 2:
+            continue
+        latest = grp.iloc[-1]
+        best = grp.loc[grp["avg_cer_final"].idxmin()]
+        latest_pct = float(latest["avg_cer_final"]) * 100
+        best_pct = float(best["avg_cer_final"]) * 100
+        delta = latest_pct - best_pct
+        if delta > REGRESSION_THRESHOLD_PCT:
+            regressions.append({
+                "engine": eng,
+                "post_process": pp,
+                "latest_pct": latest_pct,
+                "best_pct": best_pct,
+                "delta_pct": delta,
+                "latest_ts": latest["timestamp"],
+                "best_ts": best["timestamp"],
+                "latest_source": latest["source_json"],
+            })
+
+    if regressions:
+        st.error(
+            f"🚨 偵測到 **{len(regressions)}** 個組合疑似退步（最新 final CER 高於歷史最佳 > "
+            f"{REGRESSION_THRESHOLD_PCT}%）"
+        )
+        with st.expander("查看 regression 明細", expanded=True):
+            for r in regressions:
+                st.warning(
+                    f"**{r['engine']} / {r['post_process']}**："
+                    f"最新 {r['latest_pct']:.2f}% (`{r['latest_ts']}`) vs "
+                    f"歷史最佳 {r['best_pct']:.2f}% (`{r['best_ts']}`) "
+                    f"→ **+{r['delta_pct']:.2f}%**"
+                )
+                st.caption(f"     對應 JSON: `{r['latest_source']}`")
+    else:
+        st.success("✅ 無 regression：所有組合最新跑分皆在歷史最佳 + 5% 以內")
 
     # 統計摘要
     col_s1, col_s2, col_s3, col_s4 = st.columns(4)
