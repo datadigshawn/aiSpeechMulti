@@ -1,0 +1,3 @@
+engine,id,event_type,cer_raw,cer_final,cer_delta,stages,misfix_count
+scribe,063,daily,0.8,0.8308,0.0308,"number_norm,dict",0
+gemini25pro,005,daily,0.5714,0.619,0.0476,term_blacklist,0
