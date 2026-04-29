@@ -1964,22 +1964,59 @@ def render_management_page():
 
     st.divider()
 
-    # ── 辨識結果 ──────────────────────────────────────────────────────────
+    # ── 辨識結果（含人工修正） ─────────────────────────────────────────────
     st.subheader("📄 辨識結果")
     transcriptions = db.get_event_transcriptions(event_id)
     if not transcriptions:
         st.info("此事件無辨識結果。")
     else:
+        # 統計：已修正幾筆
+        _corrected_n = sum(1 for t in transcriptions if t["corrected_transcript"])
+        if _corrected_n > 0:
+            st.caption(f"✏️ 已人工修正 **{_corrected_n}** / {len(transcriptions)} 筆")
+
         for t in transcriptions:
             rec_time    = (t["recorded_at"] or "??:??:??")[:19]
             fname       = t["original_filename"]
             status_icon = "✅" if t["status"] == "success" else "❌"
-            with st.expander(f"{status_icon} {rec_time}　{fname}"):
+            corrected_icon = "  ✏️" if t["corrected_transcript"] else ""
+            with st.expander(f"{status_icon}{corrected_icon} {rec_time}　{fname}"):
                 if t["status"] == "success":
-                    st.text_area(
-                        "辨識文字", value=t["transcript"] or "（無辨識結果）",
-                        height=100, key=f"trans_{t['id']}", disabled=True, label_visibility="collapsed",
-                    )
+                    raw_text = t["transcript"] or ""
+                    initial = t["corrected_transcript"] or raw_text
+
+                    # 用 form 包住，避免每次按鍵都觸發 rerun
+                    with st.form(key=f"correct_form_{t['id']}"):
+                        edited = st.text_area(
+                            "辨識文字（可直接編輯後按「💾 儲存修正」）",
+                            value=initial,
+                            height=120,
+                            key=f"trans_edit_{t['id']}",
+                        )
+                        col_a, col_b, col_c = st.columns([1, 1, 4])
+                        save_clicked = col_a.form_submit_button("💾 儲存修正", type="primary")
+                        revert_clicked = col_b.form_submit_button("↩️ 還原原文")
+                        if t["corrected_transcript"]:
+                            col_c.caption(
+                                f"上次修正：{(t['corrected_at'] or '')[:19]}"
+                                + (f"  ｜  引擎：{t['engine_hint']}" if t['engine_hint'] else "")
+                            )
+
+                    if save_clicked:
+                        if edited.strip() == raw_text.strip():
+                            st.info("與原文相同，未儲存修正")
+                        else:
+                            _hint = st.session_state.get("pp_engine_hint")
+                            db.update_corrected_transcript(t["id"], edited, engine_hint=_hint)
+                            st.success("✅ 修正已儲存（將供 extract_error_pairs 抽規則用）")
+                            st.rerun()
+                    elif revert_clicked:
+                        if t["corrected_transcript"]:
+                            db.update_corrected_transcript(t["id"], "")  # 空字串 = 清除修正
+                            st.success("已清除人工修正，恢復原文")
+                            st.rerun()
+                        else:
+                            st.info("尚無修正紀錄可清除")
                 else:
                     st.error(f"辨識失敗：{t['transcript']}")
 

@@ -167,6 +167,23 @@ class DBManager:
         self._conn.execute("UPDATE transcriptions SET use_vad=CAST(use_vad AS INTEGER), "
                            "use_denoise=CAST(use_denoise AS INTEGER) "
                            "WHERE typeof(use_vad)='text' OR typeof(use_denoise)='text'")
+
+        # 錯字回饋（#15）：人工修正欄位
+        # corrected_transcript：使用者修正後的版本（NULL 表示尚未修正）
+        # corrected_at：修正時間戳
+        # engine_hint：辨識用的引擎名（用於後續 overlay 抽規則時知道哪個引擎修的）
+        for col, decl in [
+            ("corrected_transcript", "TEXT"),
+            ("corrected_at",         "TIMESTAMP"),
+            ("engine_hint",          "TEXT"),
+        ]:
+            try:
+                self._conn.execute(
+                    f"ALTER TABLE transcriptions ADD COLUMN {col} {decl}"
+                )
+            except Exception:
+                pass
+
         self._conn.commit()
 
     # ── 事件 ────────────────────────────────────────────────────────────────
@@ -494,10 +511,11 @@ class DBManager:
         ).fetchall()
 
     def get_event_transcriptions(self, event_id: int) -> list:
-        """取得某事件的所有辨識結果（含音檔名稱、錄製時間）。"""
+        """取得某事件的所有辨識結果（含音檔名稱、錄製時間、人工修正版本）。"""
         return self._conn.execute(
             """
             SELECT t.id, t.transcript, t.status, t.created_at,
+                   t.corrected_transcript, t.corrected_at, t.engine_hint,
                    a.original_filename, a.recorded_at
             FROM transcriptions t
             JOIN audio_files a ON a.id = t.audio_file_id
@@ -506,6 +524,60 @@ class DBManager:
             """,
             (event_id,),
         ).fetchall()
+
+    # ── 錯字回饋（#15） ────────────────────────────────────────────────────
+    def update_corrected_transcript(
+        self,
+        transcription_id: int,
+        corrected_text: str,
+        engine_hint: str | None = None,
+    ) -> None:
+        """
+        儲存人工修正後的逐字稿。
+        - corrected_text 為空字串 → 視為「清除修正」（恢復為 NULL）
+        - engine_hint 用於後續抽規則時知道對應引擎（可選）
+        """
+        if corrected_text:
+            self._conn.execute(
+                """
+                UPDATE transcriptions
+                SET corrected_transcript = ?,
+                    corrected_at = CURRENT_TIMESTAMP,
+                    engine_hint = COALESCE(?, engine_hint)
+                WHERE id = ?
+                """,
+                (corrected_text, engine_hint, transcription_id),
+            )
+        else:
+            self._conn.execute(
+                """
+                UPDATE transcriptions
+                SET corrected_transcript = NULL,
+                    corrected_at = NULL
+                WHERE id = ?
+                """,
+                (transcription_id,),
+            )
+        self._conn.commit()
+
+    def get_correction_pairs(self, engine_hint: str | None = None, limit: int = 1000) -> list:
+        """
+        匯出 (raw, corrected, engine_hint, corrected_at) 的修正對清單。
+        供 export_correction_feedback.py 與 extract_error_pairs 抽規則使用。
+        """
+        sql = """
+            SELECT id, transcript, corrected_transcript, engine_hint, corrected_at
+            FROM transcriptions
+            WHERE corrected_transcript IS NOT NULL
+              AND corrected_transcript != transcript
+        """
+        params: list = []
+        if engine_hint:
+            sql += " AND engine_hint = ?"
+            params.append(engine_hint)
+        sql += " ORDER BY corrected_at DESC LIMIT ?"
+        params.append(limit)
+        return self._conn.execute(sql, tuple(params)).fetchall()
 
     # ── P3：統計查詢 ─────────────────────────────────────────────────────────
 
