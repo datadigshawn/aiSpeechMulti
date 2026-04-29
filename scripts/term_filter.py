@@ -72,11 +72,15 @@ ENGINE_ALIASES = {
     "chirp_3":                "chirp3",
     "chirp_2":                "chirp3",
     "chirp":                  "chirp3",
+    "chirp_telephony":        "chirp3",
     "google_stt":             "chirp3",
     # Whisper 子模型
     "large-v3":               "whisper",
     "turbo":                  "whisper",
     "medium":                 "whisper",
+    # SenseVoice 子模型
+    "iic/SenseVoiceSmall":    "sensevoice",
+    "sensevoice":             "sensevoice",
 }
 
 

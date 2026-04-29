@@ -1141,13 +1141,16 @@ def render_speech_page():
     # ── 引擎規則數顯示（vocabulary/engines/{engine}.json overlay）─────────
     try:
         from scripts.term_filter import TermFilter as _DashTermFilter
+        from scripts.term_filter import get_engine_audio_preprocess as _get_ap
         from scripts.contextual_corrector import ContextualCorrector as _DashCC
         _hint = sub_model or model_type
         _dash_tf = _DashTermFilter(engine_hint=_hint)
         _dash_cc = _DashCC(engine_hint=_hint)
+        _ap_cfg = _get_ap(_hint)
         _tf_ov = _dash_tf.overlay_summary
         _cc_ov = _dash_cc.overlay_summary
         _has_overlay = _tf_ov.get("applied") or _cc_ov.get("applied")
+        _audio_label = "🎧 ON" if _ap_cfg.get("enabled") else "🎧 OFF"
         if _has_overlay:
             st.success(
                 f"📦 已套用引擎 `{_hint}` 專屬規則  "
@@ -1156,14 +1159,15 @@ def render_speech_page():
                 f"｜  whitelist **{len(_dash_tf.whitelist)}** 條 "
                 f"(+{_tf_ov.get('whitelist_added', 0)})  "
                 f"｜  contextual **{len(_dash_cc.rules)}** 條 "
-                f"(+{_cc_ov.get('rules_added', 0)})"
+                f"(+{_cc_ov.get('rules_added', 0)})  "
+                f"｜  音訊預處理 {_audio_label}"
             )
         else:
             st.caption(
                 f"📦 引擎 `{_hint}` 無專屬規則（僅套基底）"
                 f"：blacklist {len(_dash_tf.blacklist)} 條 / "
                 f"whitelist {len(_dash_tf.whitelist)} 條 / "
-                f"contextual {len(_dash_cc.rules)} 條。"
+                f"contextual {len(_dash_cc.rules)} 條 / 音訊預處理 {_audio_label}。"
                 f" 可建立 `vocabulary/engines/{_hint}.json` 為此引擎客製規則。"
             )
     except Exception as _tf_err:
@@ -1620,6 +1624,37 @@ def render_running_page():
 
                 if _skipped:
                     continue
+
+                # ── smart-preproc：依引擎 overlay 自動套用 ffmpeg loudnorm ────
+                # 規則：vocabulary/engines/{engine}.json 的 audio_preprocess.enabled=true 才套
+                # 04-29 baseline 實證：gemini-2.5-pro / sensevoice 可改善 -0.5%；
+                #                       chirp3 / scribe 反而退步，已停用
+                try:
+                    from scripts.term_filter import get_engine_audio_preprocess as _get_ap
+                    _ap_cfg = _get_ap(sub_model or model_type)
+                    if _ap_cfg.get("enabled") and preproc_file.suffix.lower() == ".wav":
+                        import subprocess as _subp
+                        import tempfile as _tempfile
+                        _ap_fd, _ap_path = _tempfile.mkstemp(suffix=".wav", prefix="loudnorm_")
+                        os.close(_ap_fd)
+                        _ap_filter = _ap_cfg.get("filter") or "loudnorm=I=-16:TP=-1.5:LRA=11"
+                        _ap_cmd = [
+                            "ffmpeg", "-y", "-i", str(preproc_file),
+                            "-af", _ap_filter,
+                            "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le",
+                            _ap_path,
+                        ]
+                        _ap_proc = _subp.run(_ap_cmd, capture_output=True, timeout=120)
+                        if _ap_proc.returncode == 0:
+                            # 若原 preproc_file 是 denoise/vad 產生的暫存檔，先 unlink
+                            if preproc_file != audio_file:
+                                preproc_file.unlink(missing_ok=True)
+                            preproc_file = Path(_ap_path)
+                        else:
+                            Path(_ap_path).unlink(missing_ok=True)
+                            st.caption(f"　　ℹ️ {audio_file.name}：smart-preproc loudnorm 失敗，使用原始音訊")
+                except Exception as _ape:
+                    st.caption(f"　　ℹ️ smart-preproc 略過：{_ape}")
 
                 if model_type == "whisper":
                     raw_text = whisper_transcribe(str(preproc_file), model_size=sub_model)

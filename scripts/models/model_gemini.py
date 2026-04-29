@@ -22,7 +22,9 @@ from pathlib import Path
 from typing import Dict, List, Optional
 import os
 
-import google.generativeai as genai
+# Google GenAI SDK（新版，2026/04 起 google.generativeai 已停止維護）
+from google import genai
+from google.genai import types as genai_types
 
 # 修正後的 logger 導入（加入 fallback 機制）
 try:
@@ -97,30 +99,25 @@ class GeminiModel:
         """
         self.model_name = model
         self.temperature = temperature
-        
+
         # 取得 API 金鑰（多層級 fallback）
         api_key = self._get_api_key(api_key)
-        
-        # 設定 API
-        genai.configure(api_key=api_key)
-        
-        # 初始化模型
+
+        # 初始化新版 SDK Client（取代舊版 genai.configure + GenerativeModel）
         try:
-            model_identifier = self.MODELS.get(model, model)
-            self.model = genai.GenerativeModel(
-                model_name=model_identifier,
-                generation_config={
-                    'temperature': temperature,
-                    'top_p': 0.95,
-                    'top_k': 40,
-                    'max_output_tokens': 8192,
-                }
+            self.client = genai.Client(api_key=api_key)
+            self.model_identifier = self.MODELS.get(model, model)
+            self.generate_config = genai_types.GenerateContentConfig(
+                temperature=temperature,
+                top_p=0.95,
+                top_k=40,
+                max_output_tokens=8192,
             )
-            
-            logger.info(f"Gemini 模型初始化成功")
-            logger.info(f"  模型: {model_identifier}")
+
+            logger.info("Gemini 模型初始化成功（google-genai SDK）")
+            logger.info(f"  模型: {self.model_identifier}")
             logger.info(f"  溫度: {temperature}")
-            
+
         except Exception as e:
             logger.error(f"初始化 Gemini 模型失敗: {e}")
             raise
@@ -218,27 +215,27 @@ class GeminiModel:
             display_name = audio_path.name
         
         try:
-            # 上傳檔案
+            # 上傳檔案（新版 SDK：client.files.upload）
             logger.info(f"正在上傳音檔: {audio_path.name}")
-            uploaded_file = genai.upload_file(
-                path=str(audio_path),
-                display_name=display_name
+            uploaded_file = self.client.files.upload(
+                file=str(audio_path),
+                config=genai_types.UploadFileConfig(display_name=display_name),
             )
-            
+
             logger.info(f"檔案上傳成功: {uploaded_file.name}")
-            
-            # 等待檔案處理完成
-            while uploaded_file.state.name == "PROCESSING":
+
+            # 等待檔案處理完成（state 是 FileState enum，.name 為 'PROCESSING'/'ACTIVE'/'FAILED'）
+            while uploaded_file.state and uploaded_file.state.name == "PROCESSING":
                 time.sleep(1)
-                uploaded_file = genai.get_file(uploaded_file.name)
-            
-            if uploaded_file.state.name == "FAILED":
+                uploaded_file = self.client.files.get(name=uploaded_file.name)
+
+            if uploaded_file.state and uploaded_file.state.name == "FAILED":
                 raise Exception(f"檔案處理失敗: {uploaded_file.state.name}")
-            
+
             logger.info(f"檔案處理完成，可以開始辨識")
-            
+
             return uploaded_file
-            
+
         except Exception as e:
             logger.error(f"上傳音檔失敗: {e}")
             raise
@@ -273,16 +270,17 @@ class GeminiModel:
             prompt = self._create_default_prompt(context)
         
         try:
-            # 生成內容
+            # 生成內容（新版 SDK：client.models.generate_content）
             logger.info(f"正在進行語音辨識...")
-            response = self.model.generate_content([
-                uploaded_file,
-                prompt
-            ])
-            
+            response = self.client.models.generate_content(
+                model=self.model_identifier,
+                contents=[uploaded_file, prompt],
+                config=self.generate_config,
+            )
+
             # 提取逐字稿
-            transcript = response.text.strip()
-            
+            transcript = (response.text or "").strip()
+
             # 清理可能的 Markdown 格式
             if transcript.startswith('```') and transcript.endswith('```'):
                 # 移除 Markdown code block
@@ -294,29 +292,29 @@ class GeminiModel:
 
             logger.info(f"辨識完成: {Path(audio_file).name}")
             logger.info(f"  逐字稿: {transcript[:50]}...")
-            
+
             # 刪除已上傳的檔案 (節省配額)
             try:
-                genai.delete_file(uploaded_file.name)
+                self.client.files.delete(name=uploaded_file.name)
                 logger.debug(f"已刪除上傳的檔案: {uploaded_file.name}")
-            except:
+            except Exception:
                 pass
-            
+
             return {
                 'transcript': transcript,
                 'transcript_raw': transcript,
                 'model': self.model_name
             }
-            
+
         except Exception as e:
             logger.error(f"辨識失敗 ({audio_file}): {e}")
-            
+
             # 嘗試刪除檔案
             try:
-                genai.delete_file(uploaded_file.name)
-            except:
+                self.client.files.delete(name=uploaded_file.name)
+            except Exception:
                 pass
-            
+
             raise
     
     def _create_default_prompt(self, context: Optional[str] = None) -> str:
