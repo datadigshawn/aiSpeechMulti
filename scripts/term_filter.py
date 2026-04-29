@@ -2,7 +2,7 @@
 """
 術語黑白名單過濾器 (TermFilter)
 ==================================
-版本: 1.0.0 (2026-04-08)
+版本: 1.1.0 (2026-04-29) — 支援 engine-specific overlay
 
 在後處理 pipeline 最外層運作：
 
@@ -57,6 +57,27 @@ from typing import Optional
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG = PROJECT_ROOT / "vocabulary" / "term_filter.json"
+ENGINES_DIR = PROJECT_ROOT / "vocabulary" / "engines"
+
+# Engine alias：把 dashboard / sub-model 名映射到 overlay 檔名
+# overlay 路徑：vocabulary/engines/{value}.json
+ENGINE_ALIASES = {
+    # Gemini 子模型
+    "gemini-2.5-pro":         "gemini25pro",
+    "gemini-3.1-pro-preview": "gemini31pro",
+    "gemini-2.5-flash":       "gemini",
+    "gemini-2.5-flash-lite":  "gemini",
+    "gemini-2.0-flash":       "gemini",
+    # Google STT 子模型
+    "chirp_3":                "chirp3",
+    "chirp_2":                "chirp3",
+    "chirp":                  "chirp3",
+    "google_stt":             "chirp3",
+    # Whisper 子模型
+    "large-v3":               "whisper",
+    "turbo":                  "whisper",
+    "medium":                 "whisper",
+}
 
 # Placeholder 格式（用罕見字元包住編號，避免被任何 pipeline 改到）
 _PLACEHOLDER_PREFIX = "\u2060TFPH\u2060"   # WORD JOINER 包住 "TFPH" (Term Filter PlaceHolder)
@@ -78,26 +99,107 @@ class TermFilterChange:
 class TermFilter:
     """術語黑白名單過濾器"""
 
-    def __init__(self, config_path: Optional[Path] = None):
+    def __init__(
+        self,
+        config_path: Optional[Path] = None,
+        engine_hint: Optional[str] = None,
+    ):
+        """
+        Args:
+            config_path: 共用基底設定（預設 vocabulary/term_filter.json）
+            engine_hint: 引擎名稱（如 "gemini25pro"、"scribe"、"gemini-2.5-pro"）。
+                         若有對應的 vocabulary/engines/{key}.json overlay 則合併。
+        """
         self.config_path = Path(config_path) if config_path else DEFAULT_CONFIG
+        self.engine_hint = engine_hint
+        self.engine_overlay_path: Optional[Path] = None
         self.blacklist: dict[str, str] = {}
         self.whitelist: list[str] = []
         self.protected_patterns: list[re.Pattern] = []
+        self.overlay_summary: dict = {
+            "applied": False,
+            "engine": None,
+            "blacklist_added": 0,
+            "blacklist_removed": 0,
+            "whitelist_added": 0,
+            "whitelist_removed": 0,
+        }
         self._load_config()
 
+    def _resolve_overlay_path(self) -> Optional[Path]:
+        """依 engine_hint 找 overlay 檔，找不到回傳 None"""
+        if not self.engine_hint:
+            return None
+        # 1) 直接匹配 vocabulary/engines/{engine_hint}.json
+        direct = ENGINES_DIR / f"{self.engine_hint}.json"
+        if direct.exists():
+            return direct
+        # 2) 透過 alias map 對應
+        alias_key = ENGINE_ALIASES.get(self.engine_hint)
+        if alias_key:
+            via_alias = ENGINES_DIR / f"{alias_key}.json"
+            if via_alias.exists():
+                return via_alias
+        return None
+
     def _load_config(self) -> None:
-        """從 JSON 載入設定"""
+        """先載基底，再依 engine_hint 套 overlay"""
+        # ── 基底 ─────────────────────────────────────────────
         if not self.config_path.exists():
             print(f"⚠️ term_filter 設定檔不存在: {self.config_path}")
             return
         try:
             data = json.loads(self.config_path.read_text(encoding="utf-8"))
-            self.blacklist = data.get("blacklist", {})
-            self.whitelist = data.get("whitelist", [])
+            self.blacklist = dict(data.get("blacklist", {}))
+            self.whitelist = list(data.get("whitelist", []))
             patterns = data.get("protected_patterns", [])
             self.protected_patterns = [re.compile(p) for p in patterns]
         except Exception as e:
-            print(f"⚠️ 載入 term_filter 設定失敗: {e}")
+            print(f"⚠️ 載入 term_filter 基底設定失敗: {e}")
+            return
+
+        # ── Overlay（依 engine_hint）───────────────────────────
+        self.engine_overlay_path = self._resolve_overlay_path()
+        if not self.engine_overlay_path:
+            return
+        try:
+            overlay = json.loads(self.engine_overlay_path.read_text(encoding="utf-8"))
+        except Exception as e:
+            print(f"⚠️ 載入 engine overlay 失敗 ({self.engine_overlay_path.name}): {e}")
+            return
+
+        bl_add = overlay.get("blacklist_add", {}) or {}
+        bl_rm = overlay.get("blacklist_remove", []) or []
+        wl_add = overlay.get("whitelist_add", []) or []
+        wl_rm = overlay.get("whitelist_remove", []) or []
+        pat_add = overlay.get("protected_patterns_add", []) or []
+
+        for k, v in bl_add.items():
+            self.blacklist[k] = v
+        for k in bl_rm:
+            self.blacklist.pop(k, None)
+        for term in wl_add:
+            if term not in self.whitelist:
+                self.whitelist.append(term)
+        for term in wl_rm:
+            if term in self.whitelist:
+                self.whitelist.remove(term)
+        for p in pat_add:
+            try:
+                self.protected_patterns.append(re.compile(p))
+            except re.error as e:
+                print(f"⚠️ overlay protected_patterns 編譯失敗: {p} ({e})")
+
+        self.overlay_summary = {
+            "applied":           True,
+            "engine":            self.engine_hint,
+            "overlay_file":      self.engine_overlay_path.name,
+            "blacklist_added":   len(bl_add),
+            "blacklist_removed": len(bl_rm),
+            "whitelist_added":   len(wl_add),
+            "whitelist_removed": len(wl_rm),
+            "patterns_added":    len(pat_add),
+        }
 
     # ══════════════════════════════════════════════════════════════
     # Blacklist: 強制替換
@@ -208,16 +310,26 @@ def main():
     p.add_argument("--text", help="輸入文字")
     p.add_argument("--file", help="輸入檔案路徑")
     p.add_argument("--config", help="自訂設定檔路徑")
+    p.add_argument("--engine", help="引擎名稱（會套用 vocabulary/engines/{engine}.json overlay）")
     p.add_argument("--show-config", action="store_true", help="顯示目前載入的設定")
     p.add_argument("--test", action="store_true", help="跑內建測試")
     args = p.parse_args()
 
-    tf = TermFilter(config_path=Path(args.config) if args.config else None)
+    tf = TermFilter(
+        config_path=Path(args.config) if args.config else None,
+        engine_hint=args.engine,
+    )
 
     if args.show_config:
-        print(f"📋 設定檔: {tf.config_path}")
-        print(f"   Blacklist: {len(tf.blacklist)} 條")
-        print(f"   Whitelist: {len(tf.whitelist)} 條")
+        print(f"📋 基底: {tf.config_path}")
+        if tf.overlay_summary.get("applied"):
+            print(f"📦 Overlay: {tf.engine_overlay_path}  (engine={tf.engine_hint})")
+            print(f"   blacklist +{tf.overlay_summary['blacklist_added']} / -{tf.overlay_summary['blacklist_removed']}")
+            print(f"   whitelist +{tf.overlay_summary['whitelist_added']} / -{tf.overlay_summary['whitelist_removed']}")
+        elif tf.engine_hint:
+            print(f"📦 Overlay: 找不到（engine={tf.engine_hint}），僅使用基底")
+        print(f"   Blacklist (合併後): {len(tf.blacklist)} 條")
+        print(f"   Whitelist (合併後): {len(tf.whitelist)} 條")
         print(f"   Protected patterns: {len(tf.protected_patterns)} 條")
         print()
         print("--- Blacklist ---")

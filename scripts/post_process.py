@@ -337,7 +337,7 @@ def post_process(
     if enable_term_filter:
         try:
             from scripts.term_filter import TermFilter
-            _tf = TermFilter()
+            _tf = TermFilter(engine_hint=engine_hint)
             current, tf_changes = _tf.apply_blacklist_with_log(current)
             stages.append({
                 "name": "term_blacklist",
@@ -457,7 +457,7 @@ def post_process(
             if enable_term_filter:
                 try:
                     from scripts.term_filter import TermFilter
-                    _tf = TermFilter()
+                    _tf = TermFilter(engine_hint=engine_hint)
                     current, _placeholder_map = _tf.protect_whitelist(current)
                 except Exception:
                     _placeholder_map = {}
@@ -479,7 +479,7 @@ def post_process(
             # 還原 whitelist placeholder
             if _placeholder_map:
                 from scripts.term_filter import TermFilter
-                _tf = TermFilter()
+                _tf = TermFilter(engine_hint=engine_hint)
                 corrected = _tf.restore_whitelist(corrected, _placeholder_map)
                 current = _tf.restore_whitelist(current, _placeholder_map)
                 stage["whitelist_protected"] = len(_placeholder_map)

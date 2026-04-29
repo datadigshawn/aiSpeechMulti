@@ -1,6 +1,6 @@
 {
-  "_description": "術語黑白名單 — 在 post_process pipeline 最外層運作",
-  "_version": "1.1.0 (2026-04-29)",
+  "_description": "術語黑白名單共用基底 — 所有引擎都該套用的通用錯字。引擎專屬規則放 vocabulary/engines/{engine}.json overlay。",
+  "_version": "2.0.0 (2026-04-29)",
   "_usage": {
     "blacklist": "絕對錯字：pipeline 最開始就強制替換",
     "whitelist": "關鍵術語：用 placeholder 保護，避免 car_norm/dict/LLM 誤改",
@@ -30,12 +30,7 @@
     "清查": "清車",
     "噢飛": "over",
     "喔飛": "over",
-    "毆飛": "over",
-
-    "行控中心": "OCC",
-    "兩勾三洞": "29/30",
-    "兩溝三洞": "29/30",
-    "兩管兩半": "27/28"
+    "毆飛": "over"
   },
 
   "whitelist": [

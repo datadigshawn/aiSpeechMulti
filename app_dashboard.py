@@ -1133,7 +1133,33 @@ def render_speech_page():
     st.session_state["pp_llm_model"] = pp_llm_model
     st.session_state["pp_llm_strict"] = pp_llm_strict
     st.session_state["pp_llm_smart_skip"] = pp_llm_smart_skip
-    st.session_state["pp_engine_hint"] = model_type
+    # engine_hint 優先用 sub_model（讓 TermFilter overlay 能精準匹配
+    # 例如 gemini-2.5-pro → vocabulary/engines/gemini25pro.json），
+    # 沒有 sub_model 才退回 model_type
+    st.session_state["pp_engine_hint"] = sub_model or model_type
+
+    # ── 引擎規則數顯示（vocabulary/engines/{engine}.json overlay）─────────
+    try:
+        from scripts.term_filter import TermFilter as _DashTermFilter
+        _dash_tf = _DashTermFilter(engine_hint=sub_model or model_type)
+        _ov = _dash_tf.overlay_summary
+        if _ov.get("applied"):
+            st.success(
+                f"📦 已套用引擎專屬規則：`{_ov['overlay_file']}` "
+                f"(blacklist +{_ov['blacklist_added']} / "
+                f"whitelist +{_ov['whitelist_added']})  "
+                f"→ 合併後共 **{len(_dash_tf.blacklist)}** 條 blacklist、"
+                f"**{len(_dash_tf.whitelist)}** 條 whitelist"
+            )
+        else:
+            st.caption(
+                f"📦 引擎 `{sub_model or model_type}` 無專屬規則（僅套基底）"
+                f"：**{len(_dash_tf.blacklist)}** 條 blacklist、"
+                f"**{len(_dash_tf.whitelist)}** 條 whitelist。"
+                f" 可建立 `vocabulary/engines/{sub_model or model_type}.json` 為此引擎客製規則。"
+            )
+    except Exception as _tf_err:
+        st.caption(f"⚠️ 無法載入 TermFilter 設定：{_tf_err}")
 
     # ── Step 7：彙整輸出 ─────────────────────────────────────────────────
     st.write("")

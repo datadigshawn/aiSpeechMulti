@@ -1,0 +1,18 @@
+{
+  "_description": "gemini-2.5-pro 引擎專屬 overlay — 補充基底 term_filter.json 中該引擎特有的錯字模式",
+  "_version": "1.0.0 (2026-04-29)",
+  "_source": "由 scripts/extract_error_pairs.py --engine gemini25pro 自動抽取（出現 ≥2 次） + 人工 review",
+  "_baseline_cer_improvement": "v1.0.0 加入 4 條後 gemini-2.5-pro CER 48.77% → 48.35%（-0.42%）",
+
+  "blacklist_add": {
+    "行控中心": "OCC",
+    "兩勾三洞": "29/30",
+    "兩溝三洞": "29/30",
+    "兩管兩半": "27/28"
+  },
+
+  "blacklist_remove": [],
+  "whitelist_add": [],
+  "whitelist_remove": [],
+  "protected_patterns_add": []
+}
