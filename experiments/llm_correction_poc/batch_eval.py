@@ -398,6 +398,25 @@ def run_batch(args):
 
     md_path.write_text("\n".join(md), encoding="utf-8")
 
+    # 自動 append 到 cer_history.csv（趨勢看板用）
+    try:
+        from scripts.build_cer_index import CERRow, append_row, _ts_to_iso
+        append_row(CERRow(
+            timestamp=       ts,
+            timestamp_iso=   _ts_to_iso(ts),
+            engine_label=    args.engine_label,
+            post_process=    "+".join(pp_stages) if pp_stages else "raw",
+            sample_count=    len(results),
+            success_count=   len(success),
+            avg_cer_raw=     round(avg_cer_raw, 4),
+            avg_cer_final=   round(avg_cer_final, 4),
+            avg_improvement= round(avg_improve, 4),
+            avg_wer_final=   round(avg_wer, 4),
+            source_json=     json_path.name,
+        ))
+    except Exception as _ce:
+        print(f"⚠️ append cer_history.csv 失敗: {_ce}")
+
     print()
     print(f"📄 JSON: {json_path}")
     print(f"📄 報告: {md_path}")

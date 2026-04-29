@@ -716,6 +716,26 @@ def render_home_page():
             st.session_state["page"] = "offline_monitor"
             st.rerun()
 
+    st.write("")
+
+    # 第三列：CER 趨勢（單張卡片置左）
+    col9, _, _, _ = st.columns(4, gap="large")
+    with col9:
+        st.markdown(
+            """
+            <div style='padding:24px; border:1.5px solid #ff7e5f; border-radius:12px; min-height:160px;'>
+                <h3 style='margin-top:0; color:#ffa07a;'>📈 CER 趨勢看板</h3>
+                <p style='color:#aaa;'>歷次 batch_eval 跑分結果聚合，看每引擎 final CER 隨時間變化，避免靜默退步。</p>
+                <p style='color:#667; font-size:0.85em;'>cer_history.csv ／ Plotly 折線圖 ／ 多引擎對照</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.write("")
+        if st.button("進入 CER 趨勢看板", use_container_width=True, key="btn_cer_trend"):
+            st.session_state["page"] = "cer_trend"
+            st.rerun()
+
 
 # ============================================================================
 # 頁面：即時多路監控
@@ -3581,6 +3601,147 @@ def render_offline_monitor_page():
 
 
 # ============================================================================
+# 頁面：CER 趨勢看板
+# ============================================================================
+def render_cer_trend_page():
+    if st.button("← 回首頁", key="cer_trend_back"):
+        st.session_state["page"] = "home"
+        st.rerun()
+
+    st.title("📈 CER 趨勢看板")
+    st.caption("歷次 batch_eval 跑分結果聚合 — 看每引擎 final CER 隨時間變化")
+
+    history_csv = PROJECT_ROOT / "experiments" / "llm_correction_poc" / "cer_history.csv"
+    if not history_csv.exists():
+        st.warning(
+            "尚無 cer_history.csv。請先跑 `python3 scripts/build_cer_index.py --rebuild` "
+            "從現有 batch_eval JSON 報告建索引。"
+        )
+        return
+
+    import pandas as pd
+    try:
+        df = pd.read_csv(history_csv)
+    except Exception as e:
+        st.error(f"讀取失敗：{e}")
+        return
+
+    if df.empty:
+        st.info("索引為空")
+        return
+
+    # 統計摘要
+    col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+    col_s1.metric("總跑分數", len(df))
+    col_s2.metric("引擎數", df["engine_label"].nunique())
+    col_s3.metric("最新時間", df["timestamp_iso"].max()[:19] if not df["timestamp_iso"].isna().all() else "—")
+    best_row = df.loc[df["avg_cer_final"].idxmin()]
+    col_s4.metric(
+        "歷史最佳",
+        f"{float(best_row['avg_cer_final']) * 100:.2f}%",
+        f"{best_row['engine_label']} / {best_row['post_process']}",
+    )
+
+    st.divider()
+
+    # 篩選器
+    col_f1, col_f2 = st.columns([2, 2])
+    engines_all = sorted(df["engine_label"].unique().tolist())
+    with col_f1:
+        sel_engines = st.multiselect(
+            "引擎",
+            engines_all,
+            default=engines_all,
+            key="cer_trend_engines",
+        )
+    with col_f2:
+        pp_all = sorted(df["post_process"].unique().tolist())
+        sel_pp = st.multiselect(
+            "後處理組合",
+            pp_all,
+            default=pp_all,
+            key="cer_trend_pp",
+        )
+
+    df_f = df[df["engine_label"].isin(sel_engines) & df["post_process"].isin(sel_pp)].copy()
+    if df_f.empty:
+        st.info("篩選後無資料")
+        return
+
+    # 折線圖
+    df_f["dt"] = pd.to_datetime(df_f["timestamp_iso"], errors="coerce")
+    df_f = df_f.sort_values("dt")
+    df_f["cer_final_pct"] = df_f["avg_cer_final"].astype(float) * 100
+    df_f["cer_raw_pct"] = df_f["avg_cer_raw"].astype(float) * 100
+    df_f["label"] = df_f["engine_label"] + " / " + df_f["post_process"]
+
+    try:
+        import plotly.express as px
+        fig = px.line(
+            df_f,
+            x="dt",
+            y="cer_final_pct",
+            color="label",
+            markers=True,
+            title="各引擎 + 後處理組合 final CER 隨時間趨勢",
+            labels={"dt": "時間", "cer_final_pct": "final CER (%)", "label": "engine / post_process"},
+        )
+        fig.update_layout(height=520, hovermode="x unified")
+        st.plotly_chart(fig, use_container_width=True)
+    except ImportError:
+        st.warning("⚠️ plotly 未安裝，改用內建折線圖（pip install plotly 可看完整版）")
+        st.line_chart(
+            df_f.pivot_table(index="dt", columns="label", values="cer_final_pct"),
+        )
+
+    st.divider()
+
+    # 各引擎最佳表
+    st.subheader("📊 各引擎歷史最佳（final CER 最低）")
+    best_by_engine = (
+        df_f.sort_values("avg_cer_final")
+        .groupby("engine_label")
+        .first()
+        .reset_index()[
+            ["engine_label", "post_process", "avg_cer_raw", "avg_cer_final",
+             "avg_improvement", "timestamp"]
+        ]
+    )
+    best_by_engine["raw %"] = (best_by_engine["avg_cer_raw"].astype(float) * 100).round(2)
+    best_by_engine["final %"] = (best_by_engine["avg_cer_final"].astype(float) * 100).round(2)
+    best_by_engine["improve %"] = (best_by_engine["avg_improvement"].astype(float) * 100).round(2)
+    st.dataframe(
+        best_by_engine[["engine_label", "post_process", "raw %", "final %", "improve %", "timestamp"]],
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    st.divider()
+
+    # 完整明細
+    with st.expander(f"📋 完整明細（{len(df_f)} 筆）", expanded=False):
+        df_show = df_f[[
+            "timestamp", "engine_label", "post_process",
+            "avg_cer_raw", "avg_cer_final", "avg_improvement",
+            "sample_count", "source_json",
+        ]].copy()
+        df_show["raw %"] = (df_show["avg_cer_raw"].astype(float) * 100).round(2)
+        df_show["final %"] = (df_show["avg_cer_final"].astype(float) * 100).round(2)
+        df_show["improve %"] = (df_show["avg_improvement"].astype(float) * 100).round(2)
+        st.dataframe(
+            df_show[["timestamp", "engine_label", "post_process",
+                     "raw %", "final %", "improve %", "sample_count", "source_json"]],
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    st.caption(
+        "💡 索引由 `scripts/build_cer_index.py` 維護；"
+        "每次 `batch_eval.py` 跑完會自動 append 新的一筆。"
+    )
+
+
+# ============================================================================
 # 主程式
 # ============================================================================
 def main():
@@ -3609,6 +3770,8 @@ def main():
         render_evaluation_page()
     elif page == "offline_monitor":
         render_offline_monitor_page()
+    elif page == "cer_trend":
+        render_cer_trend_page()
     else:
         st.session_state["page"] = "home"
         st.rerun()
