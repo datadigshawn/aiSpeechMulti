@@ -32,7 +32,7 @@ import argparse
 import csv
 import re
 import sys
-from collections import Counter, defaultdict
+from collections import Counter
 from datetime import date
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -127,12 +127,16 @@ def process_engine(
     misfix_pairs: Counter = Counter()
     stage_blame: Counter = Counter()
 
-    for sample in manifest:
+    n = len(manifest)
+    for i, sample in enumerate(manifest, 1):
         sid = sample["id"]
         gt_path = PROJECT_ROOT / sample["gt_file"]
         stt_path = cache_dir / f"{sid}.txt"
         if not gt_path.exists() or not stt_path.exists():
             continue
+        # 進度（每 5 段或最後一段印一次，避免每段都 flush）
+        if i == 1 or i % 5 == 0 or i == n:
+            print(f"  [{i:3}/{n}] {sid} ...", flush=True)
 
         gt_raw = gt_path.read_text(encoding="utf-8")
         stt_raw = stt_path.read_text(encoding="utf-8")
