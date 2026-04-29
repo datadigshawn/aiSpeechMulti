@@ -93,3 +93,6 @@ experiments/llm_correction_poc/ab_test_*.json
 experiments/llm_correction_poc/coverage_*.json
 experiments/llm_correction_poc/eval_gt_*.json
 experiments/llm_correction_poc/results_*.json
+
+# STT 跑分快取（含實際辨識文字，不入 git）
+experiments/golden_dataset/stt_outputs/
