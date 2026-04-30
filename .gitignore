@@ -96,3 +96,6 @@ experiments/llm_correction_poc/results_*.json
 
 # STT 跑分快取（含實際辨識文字，不入 git）
 experiments/golden_dataset/stt_outputs/
+
+# Phase 5 fine-tune 訓練資料（含絕對路徑、可由 build_finetune_dataset.py 重建）
+experiments/finetune_dataset/*.jsonl
