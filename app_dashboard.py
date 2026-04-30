@@ -718,8 +718,8 @@ def render_home_page():
 
     st.write("")
 
-    # 第三列：CER 趨勢（單張卡片置左）
-    col9, _, _, _ = st.columns(4, gap="large")
+    # 第三列：CER 趨勢 + 修正歷程
+    col9, col10, _, _ = st.columns(4, gap="large")
     with col9:
         st.markdown(
             """
@@ -734,6 +734,22 @@ def render_home_page():
         st.write("")
         if st.button("進入 CER 趨勢看板", use_container_width=True, key="btn_cer_trend"):
             st.session_state["page"] = "cer_trend"
+            st.rerun()
+
+    with col10:
+        st.markdown(
+            """
+            <div style='padding:24px; border:1.5px solid #f39c12; border-radius:12px; min-height:160px;'>
+                <h3 style='margin-top:0; color:#ffd687;'>✏️ 修正歷程查詢</h3>
+                <p style='color:#aaa;'>看人工修正了哪些段、哪些字 pattern 最常出現 — 錯字回饋飛輪可視化。</p>
+                <p style='color:#667; font-size:0.85em;'>依引擎篩選 ／ 高頻錯字對 ／ inline diff 對照</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.write("")
+        if st.button("進入修正歷程查詢", use_container_width=True, key="btn_correction_history"):
+            st.session_state["page"] = "correction_history"
             st.rerun()
 
 
@@ -3871,6 +3887,102 @@ def render_cer_trend_page():
 
 
 # ============================================================================
+# 頁面：修正歷程查詢（#15 飛輪可視化）
+# ============================================================================
+def render_correction_history_page():
+    if st.button("← 回首頁", key="ch_back"):
+        st.session_state["page"] = "home"
+        st.rerun()
+
+    st.title("✏️ 修正歷程查詢")
+    st.caption("看人工修正了哪些段、哪些字 pattern 最常出現 — #15 錯字回饋飛輪可視化")
+
+    from utils.db_manager import DBManager
+    from difflib import SequenceMatcher
+    from collections import Counter
+    db = DBManager(DB_PATH)
+    rows = db.get_correction_pairs(limit=10000)
+    if not rows:
+        st.info("尚無人工修正紀錄。請到事件管理頁編輯辨識結果並儲存修正。")
+        return
+
+    # 4 個 metric cards
+    col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+    col_s1.metric("總修正筆數", len(rows))
+    engines = [r["engine_hint"] or "_unknown" for r in rows]
+    col_s2.metric("涵蓋引擎數", len(set(engines)))
+    latest_ts = max((r["corrected_at"] or "" for r in rows), default="—")
+    col_s3.metric("最新修正", latest_ts[:19] if latest_ts else "—")
+    # 抽出所有替換對統計
+    all_pairs: Counter = Counter()
+    for r in rows:
+        raw = (r["transcript"] or "")
+        cor = (r["corrected_transcript"] or "")
+        sm = SequenceMatcher(None, raw, cor, autojunk=False)
+        for tag, i1, i2, j1, j2 in sm.get_opcodes():
+            if tag != "replace":
+                continue
+            w, right = raw[i1:i2], cor[j1:j2]
+            if w and right and w != right and len(w) <= 10 and len(right) <= 10:
+                all_pairs[(w, right)] += 1
+    col_s4.metric("獨特錯字對", len(all_pairs))
+
+    st.divider()
+
+    # 篩選
+    engine_options = ["（全部）"] + sorted(set(engines))
+    sel_engine = st.selectbox("依引擎篩選", engine_options, key="ch_engine_sel")
+
+    rows_f = rows if sel_engine == "（全部）" else [r for r in rows if (r["engine_hint"] or "_unknown") == sel_engine]
+    st.caption(f"目前顯示 **{len(rows_f)}** 筆修正紀錄")
+
+    # 高頻錯字對 Top 30
+    if sel_engine != "（全部）":
+        pairs_f: Counter = Counter()
+        for r in rows_f:
+            raw = (r["transcript"] or "")
+            cor = (r["corrected_transcript"] or "")
+            sm = SequenceMatcher(None, raw, cor, autojunk=False)
+            for tag, i1, i2, j1, j2 in sm.get_opcodes():
+                if tag != "replace":
+                    continue
+                w, right = raw[i1:i2], cor[j1:j2]
+                if w and right and w != right and len(w) <= 10 and len(right) <= 10:
+                    pairs_f[(w, right)] += 1
+    else:
+        pairs_f = all_pairs
+
+    if pairs_f:
+        st.subheader("📊 高頻錯字 pattern Top 30")
+        import pandas as pd
+        df_pairs = pd.DataFrame([
+            {"次數": c, "raw（被改前）": w, "corrected（改後）": r, "字長": len(w)}
+            for (w, r), c in pairs_f.most_common(30)
+        ])
+        st.dataframe(df_pairs, use_container_width=True, hide_index=True)
+
+    st.divider()
+
+    # 修正紀錄明細
+    st.subheader(f"📋 修正紀錄明細（顯示前 50 筆）")
+    for r in rows_f[:50]:
+        raw = r["transcript"] or ""
+        cor = r["corrected_transcript"] or ""
+        ts = (r["corrected_at"] or "")[:19]
+        eng = r["engine_hint"] or "_unknown"
+        with st.expander(f"id={r['id']} ｜ {ts} ｜ 引擎={eng}"):
+            st.caption("**raw（STT 原文）**")
+            st.code(raw[:300] + ("…" if len(raw) > 300 else ""), language=None)
+            st.caption("**corrected（人工修正後）**")
+            st.code(cor[:300] + ("…" if len(cor) > 300 else ""), language=None)
+            st.caption("**inline diff**")
+            _render_inline_diff(raw, cor)
+
+    if len(rows_f) > 50:
+        st.caption(f"⋯ 還有 {len(rows_f) - 50} 筆未顯示")
+
+
+# ============================================================================
 # 主程式
 # ============================================================================
 def main():
@@ -3901,6 +4013,8 @@ def main():
         render_offline_monitor_page()
     elif page == "cer_trend":
         render_cer_trend_page()
+    elif page == "correction_history":
+        render_correction_history_page()
     else:
         st.session_state["page"] = "home"
         st.rerun()
