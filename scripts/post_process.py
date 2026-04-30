@@ -331,6 +331,8 @@ def post_process(
     stages = []
     current = text or ""
     original = current
+    # snapshots：紀錄 pipeline 關鍵節點的版本，供 #17 版本管理 / dashboard 對照
+    snapshots: dict[str, str] = {"raw": original}
 
     # Stage 0: Term filter blacklist（強制替換絕對錯字）
     if enable_term_filter:
@@ -395,6 +397,9 @@ def post_process(
         stages.append({"name": "number_norm", "applied": False,
                        "changes": [], "change_count": 0})
 
+    # snapshot：到此為止「車號 + 數字正規化」結束
+    snapshots["after_car_norm"] = current
+
     # Stage 2: correction_dict
     if enable_dict:
         current, dict_changes = apply_correction_dict(current)
@@ -430,6 +435,9 @@ def post_process(
     else:
         stages.append({"name": "contextual", "applied": False,
                        "changes": [], "change_count": 0})
+
+    # snapshot：到此為止「dict + contextual」結束
+    snapshots["after_dict"] = current
 
     # Stage 3: LLM（含 smart skip + whitelist 保護）
     if enable_llm:
@@ -488,12 +496,18 @@ def post_process(
     else:
         stages.append({"name": "llm", "applied": False, "changes": [], "change_count": 0})
 
+    # snapshot：pipeline 終點（含 LLM 階段）
+    snapshots["after_llm"] = current
+
     report = {
         "stages": stages,
         "total_changes": sum(s["change_count"] for s in stages),
         "elapsed_sec": round(time.time() - t0, 3),
         "original_length": len(original),
         "final_length": len(current),
+        # 各階段 snapshot：keys = raw / after_car_norm / after_dict / after_llm
+        # 供 #17 版本管理 + dashboard 對照
+        "snapshots": snapshots,
     }
     return current, report
 

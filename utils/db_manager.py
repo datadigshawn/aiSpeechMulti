@@ -184,6 +184,22 @@ class DBManager:
             except Exception:
                 pass
 
+        # 版本管理（#17）：保留 post_process 各階段中間版本
+        # transcript 欄位定位為「final」（與 corrected_transcript 並存）
+        # 新增 4 個版本欄位，方便比對 / rollback / 抽規則
+        for col, decl in [
+            ("raw_transcript",  "TEXT"),  # STT 原始輸出（無任何後處理）
+            ("after_car_norm",  "TEXT"),  # Stage 1.5 後（含車號 + 數字正規化）
+            ("after_dict",      "TEXT"),  # Stage 2.5 後（含 dict + contextual）
+            ("after_llm",       "TEXT"),  # Stage 3 後（含 LLM；無 LLM 時 = after_dict）
+        ]:
+            try:
+                self._conn.execute(
+                    f"ALTER TABLE transcriptions ADD COLUMN {col} {decl}"
+                )
+            except Exception:
+                pass
+
         self._conn.commit()
 
     # ── 事件 ────────────────────────────────────────────────────────────────
@@ -524,6 +540,54 @@ class DBManager:
             """,
             (event_id,),
         ).fetchall()
+
+    # ── 版本管理（#17） ────────────────────────────────────────────────────
+    def update_transcript_stages(
+        self,
+        transcription_id: int,
+        snapshots: dict,
+        engine_hint: str | None = None,
+    ) -> None:
+        """
+        儲存 post_process 各階段的中間版本。
+        snapshots: 來自 post_process report 的 'snapshots' dict
+                   keys = raw / after_car_norm / after_dict / after_llm
+        engine_hint: 沒設過就帶入；已設過則保留原值（COALESCE）
+        """
+        self._conn.execute(
+            """
+            UPDATE transcriptions
+            SET raw_transcript = ?,
+                after_car_norm = ?,
+                after_dict     = ?,
+                after_llm      = ?,
+                engine_hint    = COALESCE(engine_hint, ?)
+            WHERE id = ?
+            """,
+            (
+                snapshots.get("raw"),
+                snapshots.get("after_car_norm"),
+                snapshots.get("after_dict"),
+                snapshots.get("after_llm"),
+                engine_hint,
+                transcription_id,
+            ),
+        )
+        self._conn.commit()
+
+    def get_transcript_stages(self, transcription_id: int) -> dict | None:
+        """讀回某筆 transcription 的 5 個版本（raw / after_car_norm / after_dict / after_llm / final / corrected）"""
+        row = self._conn.execute(
+            """
+            SELECT raw_transcript, after_car_norm, after_dict, after_llm,
+                   transcript AS final_transcript, corrected_transcript,
+                   engine_hint, corrected_at
+            FROM transcriptions
+            WHERE id = ?
+            """,
+            (transcription_id,),
+        ).fetchone()
+        return dict(row) if row else None
 
     # ── 錯字回饋（#15） ────────────────────────────────────────────────────
     def update_corrected_transcript(

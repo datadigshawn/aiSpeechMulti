@@ -1942,7 +1942,7 @@ def render_running_page():
                     file_size=file_size,
                     recorded_at=filename_datetimes.get(Path(fname).stem),
                 )
-                db.save_transcription(
+                _tid = db.save_transcription(
                     audio_file_id=audio_id,
                     event_id=event_id,
                     transcript=result.get("transcript", ""),
@@ -1951,6 +1951,19 @@ def render_running_page():
                     use_vad=use_vad,
                     use_denoise=use_denoise,
                 )
+
+                # #17 版本管理：寫入 raw / after_car_norm / after_dict / after_llm
+                _pp_rep = result.get("post_process") or {}
+                _snapshots = _pp_rep.get("snapshots") or {}
+                if _snapshots and _tid:
+                    try:
+                        db.update_transcript_stages(
+                            transcription_id=_tid,
+                            snapshots=_snapshots,
+                            engine_hint=sub_model or model_type,
+                        )
+                    except Exception as _vse:
+                        st.caption(f"　　⚠️ 版本快照寫入失敗（不影響辨識結果）：{_vse}")
 
             db.close()
             st.session_state["last_event_id"] = event_id
@@ -2097,6 +2110,25 @@ def render_management_page():
                         _render_inline_diff(raw_text, edited)
                     else:
                         st.caption("（與原文相同）")
+
+                    # ── #17 版本管理：各階段對照 ─────────────────────────────
+                    _stages = db.get_transcript_stages(t["id"])
+                    if _stages and any(_stages.get(k) for k in
+                                       ("raw_transcript", "after_car_norm", "after_dict", "after_llm")):
+                        with st.expander("📊 各階段對照（raw → car_norm → dict → llm → final）", expanded=False):
+                            _ss = [
+                                ("raw",            _stages.get("raw_transcript"),  "原始 STT"),
+                                ("after_car_norm", _stages.get("after_car_norm"),  "車號+數字正規化後"),
+                                ("after_dict",     _stages.get("after_dict"),      "dict + contextual 後"),
+                                ("after_llm",      _stages.get("after_llm"),       "LLM 後修正後"),
+                                ("final",          _stages.get("final_transcript"),"最終（= transcript 欄）"),
+                                ("corrected",      _stages.get("corrected_transcript"), "✏️ 人工修正"),
+                            ]
+                            for _name, _val, _desc in _ss:
+                                if not _val:
+                                    continue
+                                st.caption(f"**{_name}** — {_desc}")
+                                st.code(_val[:300] + ("…" if len(_val) > 300 else ""), language=None)
 
                     col_a, col_b, col_c = st.columns([1, 1, 4])
                     save_clicked = col_a.button("💾 儲存修正", key=f"save_{t['id']}", type="primary")
