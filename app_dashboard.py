@@ -2023,6 +2023,14 @@ def render_running_page():
                     except Exception as _vse:
                         st.caption(f"　　⚠️ 版本快照寫入失敗（不影響辨識結果）：{_vse}")
 
+                # #5 逐字 confidence：scribe 才有 'words' 欄位
+                _words = result.get("words") or []
+                if _words and _tid:
+                    try:
+                        db.update_word_confidences(transcription_id=_tid, words=_words)
+                    except Exception as _wce:
+                        st.caption(f"　　⚠️ 逐字 confidence 寫入失敗（不影響辨識結果）：{_wce}")
+
             db.close()
             st.session_state["last_event_id"] = event_id
             st.info(f"💾 已儲存至資料庫（事件 ID: {event_id}，共 {len(all_results)} 筆）")
@@ -2168,6 +2176,49 @@ def render_management_page():
                         _render_inline_diff(raw_text, edited)
                     else:
                         st.caption("（與原文相同）")
+
+                    # ── #5 逐字 confidence 標記（低信心字標黃底）─────────────
+                    _words_conf = db.get_word_confidences(t["id"])
+                    if _words_conf:
+                        # 統計信心分布
+                        _high = sum(1 for w in _words_conf if w.get("confidence", 1.0) >= 0.9)
+                        _mid  = sum(1 for w in _words_conf if 0.7 <= w.get("confidence", 1.0) < 0.9)
+                        _low  = sum(1 for w in _words_conf if w.get("confidence", 1.0) < 0.7)
+                        _total = len(_words_conf)
+                        with st.expander(
+                            f"🟡 逐字 confidence 標記（{_total} 字 · "
+                            f"🟢{_high} 🟡{_mid} 🔴{_low}）",
+                            expanded=(_low > 0),
+                        ):
+                            import html as _html
+                            parts = []
+                            for w in _words_conf:
+                                txt = _html.escape(w.get("text", ""))
+                                conf = w.get("confidence", 1.0)
+                                if conf < 0.7:
+                                    parts.append(
+                                        f"<span style='background:#5a4a1a;color:#fff3cd;"
+                                        f"padding:0 2px;border-radius:2px' "
+                                        f"title='conf={conf:.3f}'>{txt}</span>"
+                                    )
+                                elif conf < 0.9:
+                                    parts.append(
+                                        f"<span style='background:#3a3a1a;color:#e8e0a0;"
+                                        f"padding:0 2px;border-radius:2px' "
+                                        f"title='conf={conf:.3f}'>{txt}</span>"
+                                    )
+                                else:
+                                    parts.append(txt)
+                            html_str = "".join(parts).replace("\n", "<br>")
+                            st.markdown(
+                                f"<div style='padding:12px;background:#1e1e1e;border-radius:6px;"
+                                f"color:#e0e0e0;font-family:monospace;line-height:1.8;"
+                                f"white-space:pre-wrap;border:1px solid #333'>{html_str}</div>",
+                                unsafe_allow_html=True,
+                            )
+                            st.caption(
+                                "💡 黃底：信心 0.7~0.9 ｜ 深黃底：信心 < 0.7（重點檢查）"
+                            )
 
                     # ── #17 版本管理：各階段對照 ─────────────────────────────
                     _stages = db.get_transcript_stages(t["id"])

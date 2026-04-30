@@ -88,15 +88,21 @@ class ScribeSTTModel:
     # 主要介面
     # ─────────────────────────────────────────────────────────────────────────
 
-    def transcribe_file(self, audio_file) -> dict:
+    def transcribe_file(self, audio_file, with_word_confidence: bool = True) -> dict:
         """
         辨識音檔，回傳格式與 GoogleSTTModel 完全相容。
 
         Args:
             audio_file: 音檔路徑（str 或 Path），建議使用 16kHz mono WAV
+            with_word_confidence: True 時取 word-level timestamps + logprob
+                                  並回傳 'words' 欄位（#5 逐字 confidence 標記用）
 
         Returns:
-            成功：{"transcript": str, "confidence": float}
+            成功：{
+                "transcript": str,
+                "confidence": float,
+                "words": list[{text, start, end, confidence}]  # 若 with_word_confidence=True
+            }
             失敗：{"transcript": "", "confidence": 0.0, "error": str}
         """
         audio_path = Path(audio_file)
@@ -108,7 +114,8 @@ class ScribeSTTModel:
             form_data: dict = {
                 "model_id":               self.MODEL_ID,
                 "diarize":                "true" if self.diarize else "false",
-                "timestamps_granularity": "none",   # 不需要字詞時間戳，加快回應
+                # word-level：取得逐字時間戳 + logprob（用於 confidence 標記）
+                "timestamps_granularity": "word" if with_word_confidence else "none",
             }
             if self.language_code:
                 form_data["language_code"] = self.language_code
@@ -131,12 +138,40 @@ class ScribeSTTModel:
                 }
 
             data = resp.json()
-            return {
+            result = {
                 "transcript": (data.get("text") or "").strip(),
                 # language_confidence：Scribe 對語言偵測的信心值（0.0–1.0）
                 # 注意：與 Google chirp_3 的 word confidence 定義不同，僅供參考
                 "confidence": float(data.get("language_confidence") or 0.0),
             }
+
+            # word-level confidence（若有要求）
+            if with_word_confidence:
+                words = data.get("words") or []
+                # 每個 word 物件含 text/type/start/end/logprob/speaker_id
+                # confidence ≈ exp(logprob)（logprob 通常為負，越接近 0 越高信心）
+                import math
+                normalized_words = []
+                for w in words:
+                    if w.get("type") not in ("word", None):
+                        continue  # 跳過 spacing / audio_event
+                    logprob = w.get("logprob")
+                    if logprob is None:
+                        conf = 1.0  # 無資訊預設高信心，避免誤標
+                    else:
+                        try:
+                            conf = float(math.exp(float(logprob)))
+                        except Exception:
+                            conf = 1.0
+                    normalized_words.append({
+                        "text":       w.get("text", ""),
+                        "start":      w.get("start"),
+                        "end":        w.get("end"),
+                        "confidence": round(conf, 4),
+                    })
+                result["words"] = normalized_words
+
+            return result
 
         except httpx.TimeoutException:
             return {

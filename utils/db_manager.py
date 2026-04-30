@@ -200,6 +200,16 @@ class DBManager:
             except Exception:
                 pass
 
+        # 逐字 confidence（#5）：JSON 字串
+        # 結構：[{"text": "字", "start": 0.0, "end": 0.2, "confidence": 0.85}, ...]
+        # 主要由 Scribe 提供（其他引擎暫不支援）
+        try:
+            self._conn.execute(
+                "ALTER TABLE transcriptions ADD COLUMN word_confidences TEXT"
+            )
+        except Exception:
+            pass
+
         self._conn.commit()
 
     # ── 事件 ────────────────────────────────────────────────────────────────
@@ -574,6 +584,38 @@ class DBManager:
             ),
         )
         self._conn.commit()
+
+    def update_word_confidences(
+        self,
+        transcription_id: int,
+        words: list[dict],
+    ) -> None:
+        """
+        儲存逐字 confidence（#5）。
+        words: [{text, start, end, confidence}, ...]
+        傳空 list 視為清除。
+        """
+        import json as _json
+        json_str = _json.dumps(words, ensure_ascii=False) if words else None
+        self._conn.execute(
+            "UPDATE transcriptions SET word_confidences = ? WHERE id = ?",
+            (json_str, transcription_id),
+        )
+        self._conn.commit()
+
+    def get_word_confidences(self, transcription_id: int) -> list:
+        """讀回某筆 transcription 的逐字 confidence；無資料回空 list。"""
+        import json as _json
+        row = self._conn.execute(
+            "SELECT word_confidences FROM transcriptions WHERE id = ?",
+            (transcription_id,),
+        ).fetchone()
+        if not row or not row["word_confidences"]:
+            return []
+        try:
+            return _json.loads(row["word_confidences"])
+        except Exception:
+            return []
 
     def get_transcript_stages(self, transcription_id: int) -> dict | None:
         """讀回某筆 transcription 的 5 個版本（raw / after_car_norm / after_dict / after_llm / final / corrected）"""
