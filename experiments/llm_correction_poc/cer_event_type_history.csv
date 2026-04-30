@@ -263,3 +263,10 @@ timestamp,timestamp_iso,engine_label,post_process,event_type,count,avg_cer_raw,a
 20260430_094054,2026-04-30T09:40:54,sensevoice,raw,emergency,1,0.5959,0.5959,0.0,batch_eval_20260430_094054_sensevoice_raw.json
 20260430_094054,2026-04-30T09:40:54,sensevoice,raw,track,6,0.6086,0.5909,0.0177,batch_eval_20260430_094054_sensevoice_raw.json
 20260430_094054,2026-04-30T09:40:54,sensevoice,raw,train,1,1.0,1.0,0.0,batch_eval_20260430_094054_sensevoice_raw.json
+20260430_114809,2026-04-30T11:48:09,ensemble_v1,raw,control,19,0.4431,0.4361,0.007,batch_eval_20260430_114809_ensemble_v1_raw.json
+20260430_114809,2026-04-30T11:48:09,ensemble_v1,raw,daily,26,0.5753,0.5718,0.0036,batch_eval_20260430_114809_ensemble_v1_raw.json
+20260430_114809,2026-04-30T11:48:09,ensemble_v1,raw,door,4,0.4346,0.4346,0.0,batch_eval_20260430_114809_ensemble_v1_raw.json
+20260430_114809,2026-04-30T11:48:09,ensemble_v1,raw,emergency,1,0.3836,0.3836,0.0,batch_eval_20260430_114809_ensemble_v1_raw.json
+20260430_114809,2026-04-30T11:48:09,ensemble_v1,raw,track,4,0.369,0.3571,0.0119,batch_eval_20260430_114809_ensemble_v1_raw.json
+20260430_114809,2026-04-30T11:48:09,ensemble_v1,raw,train,1,0.95,0.95,0.0,batch_eval_20260430_114809_ensemble_v1_raw.json
+-30T11:48:09,ensemble_v1,car_norm+dict,train,1,0.95,0.95,0.0,batch_eval_20260430_114809_ensemble_v1_car_norm+dict.json

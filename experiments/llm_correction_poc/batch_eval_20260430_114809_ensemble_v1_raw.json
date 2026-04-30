@@ -1,0 +1,1097 @@
+{
+  "timestamp": "20260430_114809",
+  "engine_label": "ensemble_v1",
+  "post_process_stages": [],
+  "sample_count": 63,
+  "success_count": 55,
+  "avg_cer_raw": 0.5077,
+  "avg_cer_final": 0.5028,
+  "avg_improvement": 0.005,
+  "avg_wer_final": 0.6381,
+  "by_event_type": {
+    "daily": {
+      "count": 26,
+      "cer_raw": 14.958599999999997,
+      "cer_final": 14.865899999999998,
+      "improve": 0.0927,
+      "avg_cer_raw": 0.5753,
+      "avg_cer_final": 0.5718,
+      "avg_improve": 0.0036
+    },
+    "track": {
+      "count": 4,
+      "cer_raw": 1.4759,
+      "cer_final": 1.4283000000000001,
+      "improve": 0.0476,
+      "avg_cer_raw": 0.369,
+      "avg_cer_final": 0.3571,
+      "avg_improve": 0.0119
+    },
+    "door": {
+      "count": 4,
+      "cer_raw": 1.7386,
+      "cer_final": 1.7386,
+      "improve": 0.0,
+      "avg_cer_raw": 0.4346,
+      "avg_cer_final": 0.4346,
+      "avg_improve": 0.0
+    },
+    "train": {
+      "count": 1,
+      "cer_raw": 0.95,
+      "cer_final": 0.95,
+      "improve": 0.0,
+      "avg_cer_raw": 0.95,
+      "avg_cer_final": 0.95,
+      "avg_improve": 0.0
+    },
+    "control": {
+      "count": 19,
+      "cer_raw": 8.4183,
+      "cer_final": 8.285699999999999,
+      "improve": 0.1327,
+      "avg_cer_raw": 0.4431,
+      "avg_cer_final": 0.4361,
+      "avg_improve": 0.007
+    },
+    "emergency": {
+      "count": 1,
+      "cer_raw": 0.3836,
+      "cer_final": 0.3836,
+      "improve": 0.0,
+      "avg_cer_raw": 0.3836,
+      "avg_cer_final": 0.3836,
+      "avg_improve": 0.0
+    }
+  },
+  "samples": [
+    {
+      "id": "001",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/001_daily_UltraLog060_20260321_154438.wav",
+      "gt_chars": 27,
+      "stt_chars": 23,
+      "final_chars": 23,
+      "cer_raw": 0.5185,
+      "cer_final": 0.5185,
+      "cer_improvement": 0.0,
+      "wer_final": 0.8,
+      "pp_changes": {},
+      "elapsed_sec": 0.011,
+      "error": null
+    },
+    {
+      "id": "002",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/002_daily_UltraLog060_20260321_154456.wav",
+      "gt_chars": 19,
+      "stt_chars": 21,
+      "final_chars": 21,
+      "cer_raw": 0.7895,
+      "cer_final": 0.7895,
+      "cer_improvement": 0.0,
+      "wer_final": 0.9,
+      "pp_changes": {
+        "number_norm": 1
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "003",
+      "event_type": "track",
+      "audio_file": "experiments/golden_dataset/audio/003_track_UltraLog060_20260321_154513.wav",
+      "gt_chars": 24,
+      "stt_chars": 28,
+      "final_chars": 28,
+      "cer_raw": 0.4583,
+      "cer_final": 0.4583,
+      "cer_improvement": 0.0,
+      "wer_final": 0.5,
+      "pp_changes": {
+        "number_norm": 1
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "004",
+      "event_type": "track",
+      "audio_file": "experiments/golden_dataset/audio/004_track_UltraLog060_20260321_154613.wav",
+      "gt_chars": 115,
+      "stt_chars": 117,
+      "final_chars": 117,
+      "cer_raw": 0.4087,
+      "cer_final": 0.4087,
+      "cer_improvement": 0.0,
+      "wer_final": 0.6349,
+      "pp_changes": {
+        "term_blacklist": 1,
+        "number_norm": 5
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "005",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/005_daily_UltraLog060_20260321_154657.wav",
+      "gt_chars": 42,
+      "stt_chars": 42,
+      "final_chars": 42,
+      "cer_raw": 0.6905,
+      "cer_final": 0.6905,
+      "cer_improvement": 0.0,
+      "wer_final": 1.0476,
+      "pp_changes": {},
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "006",
+      "event_type": "door",
+      "audio_file": "experiments/golden_dataset/audio/006_door_UltraLog060_20260321_154928.wav",
+      "gt_chars": 35,
+      "stt_chars": 38,
+      "final_chars": 38,
+      "cer_raw": 0.4286,
+      "cer_final": 0.4286,
+      "cer_improvement": 0.0,
+      "wer_final": 0.7222,
+      "pp_changes": {
+        "number_norm": 2
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "007",
+      "event_type": "train",
+      "audio_file": "experiments/golden_dataset/audio/007_train_UltraLog060_20260321_155302.wav",
+      "gt_chars": 20,
+      "stt_chars": 16,
+      "final_chars": 16,
+      "cer_raw": 0.95,
+      "cer_final": 0.95,
+      "cer_improvement": 0.0,
+      "wer_final": 0.8889,
+      "pp_changes": {},
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "008",
+      "event_type": "track",
+      "audio_file": "experiments/golden_dataset/audio/008_track_UltraLog060_20260321_155711.wav",
+      "gt_chars": 0,
+      "stt_chars": 0,
+      "final_chars": 0,
+      "cer_raw": 0,
+      "cer_final": 0,
+      "cer_improvement": 0,
+      "wer_final": 0,
+      "pp_changes": {},
+      "elapsed_sec": 0,
+      "error": "STT cache not found"
+    },
+    {
+      "id": "009",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/009_daily_UltraLog060_20260321_155903.wav",
+      "gt_chars": 28,
+      "stt_chars": 25,
+      "final_chars": 25,
+      "cer_raw": 0.4643,
+      "cer_final": 0.4643,
+      "cer_improvement": 0.0,
+      "wer_final": 0.7692,
+      "pp_changes": {
+        "number_norm": 1
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "010",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/010_control_UltraLog060_20260321_155930.wav",
+      "gt_chars": 126,
+      "stt_chars": 116,
+      "final_chars": 121,
+      "cer_raw": 0.2698,
+      "cer_final": 0.254,
+      "cer_improvement": 0.0159,
+      "wer_final": 0.3485,
+      "pp_changes": {
+        "number_norm": 7
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "011",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/011_control_UltraLog060_20260321_160115.wav",
+      "gt_chars": 116,
+      "stt_chars": 103,
+      "final_chars": 103,
+      "cer_raw": 0.25,
+      "cer_final": 0.25,
+      "cer_improvement": 0.0,
+      "wer_final": 0.3818,
+      "pp_changes": {
+        "number_norm": 1
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "012",
+      "event_type": "emergency",
+      "audio_file": "experiments/golden_dataset/audio/012_emergency_UltraLog060_20260321_160216.wav",
+      "gt_chars": 146,
+      "stt_chars": 112,
+      "final_chars": 112,
+      "cer_raw": 0.3836,
+      "cer_final": 0.3836,
+      "cer_improvement": 0.0,
+      "wer_final": 0.3913,
+      "pp_changes": {
+        "number_norm": 2
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "013",
+      "event_type": "track",
+      "audio_file": "experiments/golden_dataset/audio/013_track_UltraLog060_20260321_160523.wav",
+      "gt_chars": 84,
+      "stt_chars": 77,
+      "final_chars": 81,
+      "cer_raw": 0.2381,
+      "cer_final": 0.1905,
+      "cer_improvement": 0.0476,
+      "wer_final": 0.2619,
+      "pp_changes": {
+        "number_norm": 4
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "014",
+      "event_type": "track",
+      "audio_file": "experiments/golden_dataset/audio/014_track_UltraLog060_20260321_160625.wav",
+      "gt_chars": 89,
+      "stt_chars": 86,
+      "final_chars": 88,
+      "cer_raw": 0.3708,
+      "cer_final": 0.3708,
+      "cer_improvement": 0.0,
+      "wer_final": 0.5455,
+      "pp_changes": {
+        "number_norm": 4
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "015",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/015_daily_UltraLog060_20260321_160823.wav",
+      "gt_chars": 38,
+      "stt_chars": 23,
+      "final_chars": 23,
+      "cer_raw": 0.6579,
+      "cer_final": 0.6579,
+      "cer_improvement": 0.0,
+      "wer_final": 0.85,
+      "pp_changes": {},
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "016",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/016_daily_UltraLog060_20260321_160844.wav",
+      "gt_chars": 38,
+      "stt_chars": 37,
+      "final_chars": 37,
+      "cer_raw": 0.7895,
+      "cer_final": 0.7895,
+      "cer_improvement": 0.0,
+      "wer_final": 0.95,
+      "pp_changes": {},
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "017",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/017_daily_UltraLog060_20260321_160946.wav",
+      "gt_chars": 74,
+      "stt_chars": 57,
+      "final_chars": 57,
+      "cer_raw": 0.6216,
+      "cer_final": 0.5946,
+      "cer_improvement": 0.027,
+      "wer_final": 0.6667,
+      "pp_changes": {
+        "number_norm": 2
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "018",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/018_daily_UltraLog060_20260321_161315.wav",
+      "gt_chars": 84,
+      "stt_chars": 59,
+      "final_chars": 59,
+      "cer_raw": 0.3929,
+      "cer_final": 0.3929,
+      "cer_improvement": 0.0,
+      "wer_final": 0.4878,
+      "pp_changes": {
+        "number_norm": 3
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "019",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/019_daily_UltraLog060_20260321_161355.wav",
+      "gt_chars": 70,
+      "stt_chars": 50,
+      "final_chars": 50,
+      "cer_raw": 0.6,
+      "cer_final": 0.6,
+      "cer_improvement": 0.0,
+      "wer_final": 0.5882,
+      "pp_changes": {
+        "number_norm": 2
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "020",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/020_daily_UltraLog060_20260321_161434.wav",
+      "gt_chars": 16,
+      "stt_chars": 12,
+      "final_chars": 12,
+      "cer_raw": 0.8125,
+      "cer_final": 0.8125,
+      "cer_improvement": 0.0,
+      "wer_final": 1.1667,
+      "pp_changes": {},
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "021",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/021_control_UltraLog060_20260321_161519.wav",
+      "gt_chars": 130,
+      "stt_chars": 106,
+      "final_chars": 106,
+      "cer_raw": 0.3692,
+      "cer_final": 0.3692,
+      "cer_improvement": 0.0,
+      "wer_final": 0.4091,
+      "pp_changes": {
+        "number_norm": 3
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "022",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/022_control_UltraLog060_20260321_161624.wav",
+      "gt_chars": 225,
+      "stt_chars": 202,
+      "final_chars": 208,
+      "cer_raw": 0.2178,
+      "cer_final": 0.1911,
+      "cer_improvement": 0.0267,
+      "wer_final": 0.2477,
+      "pp_changes": {
+        "number_norm": 6
+      },
+      "elapsed_sec": 0.001,
+      "error": null
+    },
+    {
+      "id": "023",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/023_control_UltraLog060_20260321_161737.wav",
+      "gt_chars": 125,
+      "stt_chars": 107,
+      "final_chars": 107,
+      "cer_raw": 0.36,
+      "cer_final": 0.36,
+      "cer_improvement": 0.0,
+      "wer_final": 0.403,
+      "pp_changes": {
+        "number_norm": 1
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "024",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/024_daily_UltraLog060_20260321_161845.wav",
+      "gt_chars": 0,
+      "stt_chars": 0,
+      "final_chars": 0,
+      "cer_raw": 0,
+      "cer_final": 0,
+      "cer_improvement": 0,
+      "wer_final": 0,
+      "pp_changes": {},
+      "elapsed_sec": 0,
+      "error": "STT cache not found"
+    },
+    {
+      "id": "025",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/025_daily_UltraLog060_20260321_162057.wav",
+      "gt_chars": 32,
+      "stt_chars": 19,
+      "final_chars": 19,
+      "cer_raw": 0.5,
+      "cer_final": 0.5,
+      "cer_improvement": 0.0,
+      "wer_final": 0.4667,
+      "pp_changes": {
+        "number_norm": 1
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "026",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/026_daily_UltraLog060_20260321_162335.wav",
+      "gt_chars": 42,
+      "stt_chars": 34,
+      "final_chars": 35,
+      "cer_raw": 0.4286,
+      "cer_final": 0.4048,
+      "cer_improvement": 0.0238,
+      "wer_final": 0.6667,
+      "pp_changes": {
+        "number_norm": 2
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "027",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/027_control_UltraLog060_20260321_162356.wav",
+      "gt_chars": 98,
+      "stt_chars": 92,
+      "final_chars": 93,
+      "cer_raw": 0.0918,
+      "cer_final": 0.0816,
+      "cer_improvement": 0.0102,
+      "wer_final": 0.1698,
+      "pp_changes": {
+        "number_norm": 1
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "028",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/028_control_UltraLog060_20260321_162441.wav",
+      "gt_chars": 65,
+      "stt_chars": 52,
+      "final_chars": 54,
+      "cer_raw": 0.5692,
+      "cer_final": 0.5231,
+      "cer_improvement": 0.0462,
+      "wer_final": 0.5758,
+      "pp_changes": {
+        "number_norm": 4
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "029",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/029_control_UltraLog060_20260321_162528.wav",
+      "gt_chars": 473,
+      "stt_chars": 173,
+      "final_chars": 173,
+      "cer_raw": 0.6998,
+      "cer_final": 0.6998,
+      "cer_improvement": 0.0,
+      "wer_final": 0.7468,
+      "pp_changes": {
+        "number_norm": 1
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "030",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/030_control_UltraLog060_20260321_162750.wav",
+      "gt_chars": 245,
+      "stt_chars": 210,
+      "final_chars": 210,
+      "cer_raw": 0.4204,
+      "cer_final": 0.4204,
+      "cer_improvement": 0.0,
+      "wer_final": 0.5603,
+      "pp_changes": {
+        "number_norm": 5
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "031",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/031_daily_UltraLog060_20260321_163005.wav",
+      "gt_chars": 34,
+      "stt_chars": 26,
+      "final_chars": 26,
+      "cer_raw": 0.5882,
+      "cer_final": 0.5882,
+      "cer_improvement": 0.0,
+      "wer_final": 0.7333,
+      "pp_changes": {},
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "032",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/032_control_UltraLog060_20260321_163035.wav",
+      "gt_chars": 158,
+      "stt_chars": 135,
+      "final_chars": 136,
+      "cer_raw": 0.3797,
+      "cer_final": 0.3734,
+      "cer_improvement": 0.0063,
+      "wer_final": 0.4819,
+      "pp_changes": {
+        "number_norm": 3
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "033",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/033_control_UltraLog060_20260321_163124.wav",
+      "gt_chars": 580,
+      "stt_chars": 212,
+      "final_chars": 212,
+      "cer_raw": 0.7017,
+      "cer_final": 0.7017,
+      "cer_improvement": 0.0,
+      "wer_final": 0.7647,
+      "pp_changes": {
+        "number_norm": 5
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "034",
+      "event_type": "door",
+      "audio_file": "experiments/golden_dataset/audio/034_door_UltraLog060_20260321_163420.wav",
+      "gt_chars": 176,
+      "stt_chars": 169,
+      "final_chars": 169,
+      "cer_raw": 0.233,
+      "cer_final": 0.233,
+      "cer_improvement": 0.0,
+      "wer_final": 0.3068,
+      "pp_changes": {
+        "number_norm": 1
+      },
+      "elapsed_sec": 0.001,
+      "error": null
+    },
+    {
+      "id": "035",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/035_control_UltraLog060_20260321_163553.wav",
+      "gt_chars": 260,
+      "stt_chars": 224,
+      "final_chars": 224,
+      "cer_raw": 0.5692,
+      "cer_final": 0.5692,
+      "cer_improvement": 0.0,
+      "wer_final": 0.7705,
+      "pp_changes": {},
+      "elapsed_sec": 0.001,
+      "error": null
+    },
+    {
+      "id": "036",
+      "event_type": "track",
+      "audio_file": "experiments/golden_dataset/audio/036_track_UltraLog060_20260321_163737.wav",
+      "gt_chars": 0,
+      "stt_chars": 0,
+      "final_chars": 0,
+      "cer_raw": 0,
+      "cer_final": 0,
+      "cer_improvement": 0,
+      "wer_final": 0,
+      "pp_changes": {},
+      "elapsed_sec": 0,
+      "error": "STT cache not found"
+    },
+    {
+      "id": "037",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/037_control_UltraLog060_20260321_163759.wav",
+      "gt_chars": 391,
+      "stt_chars": 195,
+      "final_chars": 195,
+      "cer_raw": 0.6317,
+      "cer_final": 0.6317,
+      "cer_improvement": 0.0,
+      "wer_final": 0.7474,
+      "pp_changes": {
+        "number_norm": 1
+      },
+      "elapsed_sec": 0.001,
+      "error": null
+    },
+    {
+      "id": "038",
+      "event_type": "door",
+      "audio_file": "experiments/golden_dataset/audio/038_door_UltraLog060_20260321_164000.wav",
+      "gt_chars": 282,
+      "stt_chars": 263,
+      "final_chars": 263,
+      "cer_raw": 0.3723,
+      "cer_final": 0.3723,
+      "cer_improvement": 0.0,
+      "wer_final": 0.5379,
+      "pp_changes": {
+        "number_norm": 3
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "039",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/039_control_UltraLog060_20260321_164141.wav",
+      "gt_chars": 123,
+      "stt_chars": 105,
+      "final_chars": 105,
+      "cer_raw": 0.5528,
+      "cer_final": 0.5528,
+      "cer_improvement": 0.0,
+      "wer_final": 0.7069,
+      "pp_changes": {},
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "040",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/040_control_UltraLog060_20260321_164233.wav",
+      "gt_chars": 219,
+      "stt_chars": 190,
+      "final_chars": 190,
+      "cer_raw": 0.4064,
+      "cer_final": 0.4064,
+      "cer_improvement": 0.0,
+      "wer_final": 0.53,
+      "pp_changes": {
+        "number_norm": 1
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "041",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/041_control_UltraLog060_20260321_164400.wav",
+      "gt_chars": 0,
+      "stt_chars": 0,
+      "final_chars": 0,
+      "cer_raw": 0,
+      "cer_final": 0,
+      "cer_improvement": 0,
+      "wer_final": 0,
+      "pp_changes": {},
+      "elapsed_sec": 0,
+      "error": "STT cache not found"
+    },
+    {
+      "id": "042",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/042_control_UltraLog060_20260321_164604.wav",
+      "gt_chars": 0,
+      "stt_chars": 0,
+      "final_chars": 0,
+      "cer_raw": 0,
+      "cer_final": 0,
+      "cer_improvement": 0,
+      "wer_final": 0,
+      "pp_changes": {},
+      "elapsed_sec": 0,
+      "error": "STT cache not found"
+    },
+    {
+      "id": "043",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/043_daily_UltraLog060_20260321_164736.wav",
+      "gt_chars": 68,
+      "stt_chars": 49,
+      "final_chars": 49,
+      "cer_raw": 0.5882,
+      "cer_final": 0.5882,
+      "cer_improvement": 0.0,
+      "wer_final": 0.8065,
+      "pp_changes": {},
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "044",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/044_control_UltraLog060_20260321_164802.wav",
+      "gt_chars": 210,
+      "stt_chars": 203,
+      "final_chars": 207,
+      "cer_raw": 0.281,
+      "cer_final": 0.2619,
+      "cer_improvement": 0.019,
+      "wer_final": 0.5149,
+      "pp_changes": {
+        "number_norm": 6
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "045",
+      "event_type": "door",
+      "audio_file": "experiments/golden_dataset/audio/045_door_UltraLog060_20260321_164941.wav",
+      "gt_chars": 508,
+      "stt_chars": 209,
+      "final_chars": 209,
+      "cer_raw": 0.7047,
+      "cer_final": 0.7047,
+      "cer_improvement": 0.0,
+      "wer_final": 0.817,
+      "pp_changes": {},
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "046",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/046_control_UltraLog060_20260321_165221.wav",
+      "gt_chars": 0,
+      "stt_chars": 0,
+      "final_chars": 0,
+      "cer_raw": 0,
+      "cer_final": 0,
+      "cer_improvement": 0,
+      "wer_final": 0,
+      "pp_changes": {},
+      "elapsed_sec": 0,
+      "error": "STT cache not found"
+    },
+    {
+      "id": "047",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/047_control_UltraLog060_20260321_165237.wav",
+      "gt_chars": 477,
+      "stt_chars": 180,
+      "final_chars": 184,
+      "cer_raw": 0.7505,
+      "cer_final": 0.7463,
+      "cer_improvement": 0.0042,
+      "wer_final": 0.7788,
+      "pp_changes": {
+        "number_norm": 5
+      },
+      "elapsed_sec": 0.001,
+      "error": null
+    },
+    {
+      "id": "048",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/048_daily_UltraLog060_20260321_165453.wav",
+      "gt_chars": 50,
+      "stt_chars": 48,
+      "final_chars": 48,
+      "cer_raw": 0.54,
+      "cer_final": 0.54,
+      "cer_improvement": 0.0,
+      "wer_final": 0.75,
+      "pp_changes": {},
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "049",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/049_daily_UltraLog060_20260321_165541.wav",
+      "gt_chars": 127,
+      "stt_chars": 129,
+      "final_chars": 129,
+      "cer_raw": 0.5197,
+      "cer_final": 0.5197,
+      "cer_improvement": 0.0,
+      "wer_final": 0.6552,
+      "pp_changes": {
+        "number_norm": 1
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "050",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/050_control_UltraLog060_20260321_165654.wav",
+      "gt_chars": 238,
+      "stt_chars": 201,
+      "final_chars": 203,
+      "cer_raw": 0.5,
+      "cer_final": 0.4958,
+      "cer_improvement": 0.0042,
+      "wer_final": 0.5583,
+      "pp_changes": {
+        "number_norm": 2
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "051",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/051_daily_UltraLog060_20260321_165823.wav",
+      "gt_chars": 36,
+      "stt_chars": 28,
+      "final_chars": 28,
+      "cer_raw": 0.3889,
+      "cer_final": 0.3889,
+      "cer_improvement": 0.0,
+      "wer_final": 0.6471,
+      "pp_changes": {},
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "052",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/052_daily_UltraLog060_20260321_165913.wav",
+      "gt_chars": 161,
+      "stt_chars": 115,
+      "final_chars": 115,
+      "cer_raw": 0.5342,
+      "cer_final": 0.528,
+      "cer_improvement": 0.0062,
+      "wer_final": 0.622,
+      "pp_changes": {
+        "number_norm": 1
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "053",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/053_daily_UltraLog060_20260321_170130.wav",
+      "gt_chars": 95,
+      "stt_chars": 78,
+      "final_chars": 78,
+      "cer_raw": 0.4737,
+      "cer_final": 0.4737,
+      "cer_improvement": 0.0,
+      "wer_final": 0.6087,
+      "pp_changes": {
+        "number_norm": 2
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "054",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/054_control_UltraLog060_20260321_170204.wav",
+      "gt_chars": 219,
+      "stt_chars": 159,
+      "final_chars": 159,
+      "cer_raw": 0.3973,
+      "cer_final": 0.3973,
+      "cer_improvement": 0.0,
+      "wer_final": 0.5315,
+      "pp_changes": {
+        "number_norm": 5
+      },
+      "elapsed_sec": 0.001,
+      "error": null
+    },
+    {
+      "id": "055",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/055_daily_UltraLog060_20260321_170456.wav",
+      "gt_chars": 50,
+      "stt_chars": 33,
+      "final_chars": 33,
+      "cer_raw": 0.52,
+      "cer_final": 0.52,
+      "cer_improvement": 0.0,
+      "wer_final": 0.68,
+      "pp_changes": {},
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "056",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/056_daily_UltraLog060_20260321_170524.wav",
+      "gt_chars": 72,
+      "stt_chars": 61,
+      "final_chars": 61,
+      "cer_raw": 0.3333,
+      "cer_final": 0.3333,
+      "cer_improvement": 0.0,
+      "wer_final": 0.4848,
+      "pp_changes": {
+        "number_norm": 1
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "057",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/057_daily_UltraLog060_20260321_170550.wav",
+      "gt_chars": 89,
+      "stt_chars": 74,
+      "final_chars": 74,
+      "cer_raw": 0.3034,
+      "cer_final": 0.3034,
+      "cer_improvement": 0.0,
+      "wer_final": 0.5,
+      "pp_changes": {
+        "number_norm": 2
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "058",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/058_daily_UltraLog060_20260321_170719.wav",
+      "gt_chars": 28,
+      "stt_chars": 18,
+      "final_chars": 19,
+      "cer_raw": 0.5357,
+      "cer_final": 0.5,
+      "cer_improvement": 0.0357,
+      "wer_final": 0.7692,
+      "pp_changes": {
+        "number_norm": 2
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "059",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/059_daily_UltraLog060_20260321_170738.wav",
+      "gt_chars": 0,
+      "stt_chars": 0,
+      "final_chars": 0,
+      "cer_raw": 0,
+      "cer_final": 0,
+      "cer_improvement": 0,
+      "wer_final": 0,
+      "pp_changes": {},
+      "elapsed_sec": 0,
+      "error": "STT cache not found"
+    },
+    {
+      "id": "060",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/060_daily_UltraLog060_20260321_170848.wav",
+      "gt_chars": 0,
+      "stt_chars": 0,
+      "final_chars": 0,
+      "cer_raw": 0,
+      "cer_final": 0,
+      "cer_improvement": 0,
+      "wer_final": 0,
+      "pp_changes": {},
+      "elapsed_sec": 0,
+      "error": "STT cache not found"
+    },
+    {
+      "id": "061",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/061_daily_UltraLog060_20260321_170957.wav",
+      "gt_chars": 63,
+      "stt_chars": 48,
+      "final_chars": 48,
+      "cer_raw": 0.4444,
+      "cer_final": 0.4444,
+      "cer_improvement": 0.0,
+      "wer_final": 0.6154,
+      "pp_changes": {
+        "number_norm": 1
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "062",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/062_daily_UltraLog060_20260321_171023.wav",
+      "gt_chars": 65,
+      "stt_chars": 51,
+      "final_chars": 51,
+      "cer_raw": 0.3077,
+      "cer_final": 0.3077,
+      "cer_improvement": 0.0,
+      "wer_final": 0.3438,
+      "pp_changes": {
+        "number_norm": 2
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    },
+    {
+      "id": "063",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/063_daily_UltraLog060_20260321_171101.wav",
+      "gt_chars": 65,
+      "stt_chars": 117,
+      "final_chars": 117,
+      "cer_raw": 1.6154,
+      "cer_final": 1.6154,
+      "cer_improvement": 0.0,
+      "wer_final": 1.6875,
+      "pp_changes": {
+        "number_norm": 2
+      },
+      "elapsed_sec": 0.0,
+      "error": null
+    }
+  ]
+}

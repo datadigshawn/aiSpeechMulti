@@ -43,3 +43,5 @@ timestamp,timestamp_iso,engine_label,post_process,sample_count,success_count,avg
 20260429_114656,2026-04-29T11:46:56,sensevoice,raw,63,62,0.6518,0.6457,0.0061,0.7884,batch_eval_20260429_114656_sensevoice_raw.json
 20260430_094054,2026-04-30T09:40:54,sensevoice,car_norm+dict,63,63,0.6581,0.6493,0.0087,0.802,batch_eval_20260430_094054_sensevoice_car_norm+dict.json
 20260430_094054,2026-04-30T09:40:54,sensevoice,raw,63,63,0.6581,0.6499,0.0081,0.8033,batch_eval_20260430_094054_sensevoice_raw.json
+20260430_114809,2026-04-30T11:48:09,ensemble_v1,raw,63,55,0.5077,0.5028,0.005,0.6381,batch_eval_20260430_114809_ensemble_v1_raw.json
+r_norm+dict.json
