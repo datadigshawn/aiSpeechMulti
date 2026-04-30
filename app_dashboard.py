@@ -1206,6 +1206,48 @@ def render_speech_page():
                 f"contextual {len(_dash_cc.rules)} 條 / 音訊預處理 {_audio_label}。"
                 f" 可建立 `vocabulary/engines/{_hint}.json` 為此引擎客製規則。"
             )
+
+        # Phase 1.C：規則明細彈出（可展開查看當前生效的所有規則）
+        with st.expander(f"🔍 查看 `{_hint}` 規則明細", expanded=False):
+            tab_bl, tab_wl, tab_ctx = st.tabs([
+                f"Blacklist ({len(_dash_tf.blacklist)})",
+                f"Whitelist ({len(_dash_tf.whitelist)})",
+                f"Contextual ({len(_dash_cc.rules)})",
+            ])
+            with tab_bl:
+                if _dash_tf.blacklist:
+                    import pandas as pd
+                    st.dataframe(
+                        pd.DataFrame(
+                            [{"wrong (錯字)": w, "right (修正)": r}
+                             for w, r in _dash_tf.blacklist.items()]
+                        ),
+                        use_container_width=True, hide_index=True,
+                    )
+                else:
+                    st.caption("（無）")
+            with tab_wl:
+                if _dash_tf.whitelist:
+                    st.write(", ".join(f"`{w}`" for w in _dash_tf.whitelist))
+                else:
+                    st.caption("（無）")
+                if _dash_tf.protected_patterns:
+                    st.caption("**Protected patterns（regex）**")
+                    st.code("\n".join(p.pattern for p in _dash_tf.protected_patterns), language="regex")
+            with tab_ctx:
+                if _dash_cc.rules:
+                    import pandas as pd
+                    st.dataframe(
+                        pd.DataFrame(
+                            [{"prefix": r.prefix, "wrong (錯字)": r.wrong,
+                              "suffix": r.suffix, "right (修正)": r.right,
+                              "gap": r.gap, "note": r.note}
+                             for r in _dash_cc.rules]
+                        ),
+                        use_container_width=True, hide_index=True,
+                    )
+                else:
+                    st.caption("（無）")
     except Exception as _tf_err:
         st.caption(f"⚠️ 無法載入 TermFilter / ContextualCorrector 設定：{_tf_err}")
 
