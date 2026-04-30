@@ -35,6 +35,8 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 REPORTS_DIR = PROJECT_ROOT / "experiments" / "llm_correction_poc"
 HISTORY_CSV = REPORTS_DIR / "cer_history.csv"
+# 事件類型分組（細粒度）— 每筆跑分依 by_event_type 拆出多筆
+EVENT_TYPE_CSV = REPORTS_DIR / "cer_event_type_history.csv"
 
 
 @dataclass
@@ -53,6 +55,21 @@ class CERRow:
     source_json:      str   # 原始檔名（debug 用）
 
 
+@dataclass
+class CEREventTypeRow:
+    """事件類型分組（每跑分 × 每事件類型一筆）"""
+    timestamp:        str
+    timestamp_iso:    str
+    engine_label:     str
+    post_process:     str
+    event_type:       str
+    count:            int
+    avg_cer_raw:      float
+    avg_cer_final:    float
+    avg_improvement:  float
+    source_json:      str
+
+
 # ══════════════════════════════════════════════════════════════════════
 # 抽取邏輯
 # ══════════════════════════════════════════════════════════════════════
@@ -63,6 +80,32 @@ def _ts_to_iso(ts: str) -> str:
         return dt.isoformat()
     except Exception:
         return ts
+
+
+def parse_event_type_rows(json_path: Path) -> list[CEREventTypeRow]:
+    """從一個 JSON 抽 N 筆（每事件類型一筆）"""
+    try:
+        d = json.loads(json_path.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    by_et = d.get("by_event_type") or {}
+    rows: list[CEREventTypeRow] = []
+    stages = d.get("post_process_stages") or []
+    pp_label = "+".join(stages) if stages else "raw"
+    for et, m in by_et.items():
+        rows.append(CEREventTypeRow(
+            timestamp=       d.get("timestamp", ""),
+            timestamp_iso=   _ts_to_iso(d.get("timestamp", "")),
+            engine_label=    d.get("engine_label", ""),
+            post_process=    pp_label,
+            event_type=      et,
+            count=           int(m.get("count", 0)),
+            avg_cer_raw=     round(float(m.get("avg_cer_raw", 0)), 4),
+            avg_cer_final=   round(float(m.get("avg_cer_final", 0)), 4),
+            avg_improvement= round(float(m.get("avg_improve", 0)), 4),
+            source_json=     json_path.name,
+        ))
+    return rows
 
 
 def parse_one(json_path: Path) -> CERRow | None:
@@ -120,6 +163,32 @@ def append_row(row: CERRow) -> None:
     write_csv(list(existing.values()))
 
 
+def load_existing_event_type() -> list[dict]:
+    if not EVENT_TYPE_CSV.exists():
+        return []
+    with open(EVENT_TYPE_CSV, encoding="utf-8") as f:
+        return list(csv.DictReader(f))
+
+
+def write_event_type_csv(rows: list[dict]) -> None:
+    rows_sorted = sorted(rows, key=lambda r: (r["timestamp"], r["engine_label"], r["post_process"], r["event_type"]))
+    field_names = [f.name for f in fields(CEREventTypeRow)]
+    with open(EVENT_TYPE_CSV, "w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=field_names)
+        writer.writeheader()
+        writer.writerows(rows_sorted)
+
+
+def append_event_type_rows(rows: list[CEREventTypeRow]) -> None:
+    """供 batch_eval.py 跑完直接 append N 筆（每事件類型一筆）"""
+    existing = load_existing_event_type()
+    # 用 (source_json, event_type) 當 key 去重
+    by_key = {(r.get("source_json", ""), r.get("event_type", "")): r for r in existing}
+    for row in rows:
+        by_key[(row.source_json, row.event_type)] = asdict(row)
+    write_event_type_csv(list(by_key.values()))
+
+
 # ══════════════════════════════════════════════════════════════════════
 # 主流程
 # ══════════════════════════════════════════════════════════════════════
@@ -140,6 +209,7 @@ def main():
         print(f"➕ 模式：增量（既有 {len(existing)} 筆）")
 
     new_rows = []
+    new_et_rows: list[dict] = []
     skipped = 0
     failed = 0
     for jp in json_files:
@@ -151,14 +221,21 @@ def main():
             failed += 1
             continue
         new_rows.append(asdict(row))
+        # 同時抽事件類型分組
+        for et_row in parse_event_type_rows(jp):
+            new_et_rows.append(asdict(et_row))
 
     if args.rebuild:
         all_rows = new_rows
+        all_et_rows = new_et_rows
     else:
         all_rows = list(existing.values()) + new_rows
+        all_et_rows = load_existing_event_type() + new_et_rows
 
     write_csv(all_rows)
+    write_event_type_csv(all_et_rows)
     print(f"✅ 已寫入 {HISTORY_CSV}")
+    print(f"✅ 已寫入 {EVENT_TYPE_CSV}（{len(all_et_rows)} 筆事件類型分組）")
     print(f"   新增 {len(new_rows)} 筆 / 略過 {skipped} 筆 / 失敗 {failed} 筆 / 共 {len(all_rows)} 筆")
 
     if args.show or args.rebuild:

@@ -398,14 +398,18 @@ def run_batch(args):
 
     md_path.write_text("\n".join(md), encoding="utf-8")
 
-    # 自動 append 到 cer_history.csv（趨勢看板用）
+    # 自動 append 到 cer_history.csv + cer_event_type_history.csv（趨勢看板用）
     try:
-        from scripts.build_cer_index import CERRow, append_row, _ts_to_iso
+        from scripts.build_cer_index import (
+            CERRow, CEREventTypeRow,
+            append_row, append_event_type_rows, _ts_to_iso,
+        )
+        pp_label = "+".join(pp_stages) if pp_stages else "raw"
         append_row(CERRow(
             timestamp=       ts,
             timestamp_iso=   _ts_to_iso(ts),
             engine_label=    args.engine_label,
-            post_process=    "+".join(pp_stages) if pp_stages else "raw",
+            post_process=    pp_label,
             sample_count=    len(results),
             success_count=   len(success),
             avg_cer_raw=     round(avg_cer_raw, 4),
@@ -414,6 +418,22 @@ def run_batch(args):
             avg_wer_final=   round(avg_wer, 4),
             source_json=     json_path.name,
         ))
+        # 事件類型分組（每事件一筆）
+        et_rows = []
+        for et, m in by_type.items():
+            et_rows.append(CEREventTypeRow(
+                timestamp=       ts,
+                timestamp_iso=   _ts_to_iso(ts),
+                engine_label=    args.engine_label,
+                post_process=    pp_label,
+                event_type=      et,
+                count=           int(m.get("count", 0)),
+                avg_cer_raw=     round(float(m.get("avg_cer_raw", 0)), 4),
+                avg_cer_final=   round(float(m.get("avg_cer_final", 0)), 4),
+                avg_improvement= round(float(m.get("avg_improve", 0)), 4),
+                source_json=     json_path.name,
+            ))
+        append_event_type_rows(et_rows)
     except Exception as _ce:
         print(f"⚠️ append cer_history.csv 失敗: {_ce}")
 

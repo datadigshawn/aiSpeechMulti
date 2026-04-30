@@ -3922,6 +3922,65 @@ def render_cer_trend_page():
             hide_index=True,
         )
 
+    # 事件類型分組（細粒度）
+    et_csv = PROJECT_ROOT / "experiments" / "llm_correction_poc" / "cer_event_type_history.csv"
+    if et_csv.exists():
+        st.divider()
+        st.subheader("🗂️ 依事件類型分組")
+        st.caption("細粒度看 daily / track / door / emergency / control / train 各自走勢")
+        try:
+            df_et = pd.read_csv(et_csv)
+            df_et = df_et[df_et["engine_label"].isin(sel_engines) & df_et["post_process"].isin(sel_pp)].copy()
+            if not df_et.empty:
+                df_et["dt"] = pd.to_datetime(df_et["timestamp_iso"], errors="coerce")
+                df_et = df_et.sort_values("dt")
+                df_et["cer_final_pct"] = df_et["avg_cer_final"].astype(float) * 100
+
+                event_types_all = sorted(df_et["event_type"].unique().tolist())
+                sel_et = st.multiselect(
+                    "事件類型",
+                    event_types_all,
+                    default=event_types_all,
+                    key="cer_trend_et",
+                )
+                df_et_f = df_et[df_et["event_type"].isin(sel_et)]
+
+                # 每引擎一張小圖（依事件類型上色）
+                try:
+                    import plotly.express as px
+                    eng_options = sorted(df_et_f["engine_label"].unique().tolist())
+                    sel_eng_for_et = st.selectbox(
+                        "看哪個引擎的事件類型走勢", eng_options, key="cer_trend_et_eng",
+                    )
+                    df_eng_et = df_et_f[df_et_f["engine_label"] == sel_eng_for_et].copy()
+                    df_eng_et["label"] = df_eng_et["event_type"] + " / " + df_eng_et["post_process"]
+                    fig_et = px.line(
+                        df_eng_et, x="dt", y="cer_final_pct",
+                        color="label", markers=True,
+                        title=f"{sel_eng_for_et} 各事件類型 final CER 趨勢",
+                        labels={"dt": "時間", "cer_final_pct": "final CER (%)", "label": "event_type / pp"},
+                    )
+                    fig_et.update_layout(height=440, hovermode="x unified")
+                    st.plotly_chart(fig_et, use_container_width=True)
+                except ImportError:
+                    st.warning("⚠️ plotly 未安裝，事件類型走勢圖暫時無法顯示")
+
+                # 各引擎 × 各事件類型最佳值表
+                st.caption("**各引擎 × 各事件類型歷史最佳 final CER**")
+                pivot = (
+                    df_et_f.sort_values("avg_cer_final")
+                    .groupby(["engine_label", "event_type"])
+                    .first()
+                    .reset_index()
+                )
+                pivot["final %"] = (pivot["avg_cer_final"].astype(float) * 100).round(2)
+                pivot_table = pivot.pivot_table(
+                    index="engine_label", columns="event_type", values="final %", aggfunc="min",
+                )
+                st.dataframe(pivot_table, use_container_width=True)
+        except Exception as e:
+            st.caption(f"⚠️ 事件類型分組載入失敗：{e}")
+
     st.caption(
         "💡 索引由 `scripts/build_cer_index.py` 維護；"
         "每次 `batch_eval.py` 跑完會自動 append 新的一筆。"
