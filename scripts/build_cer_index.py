@@ -198,8 +198,9 @@ def main():
     ap.add_argument("--show", action="store_true", help="顯示目前索引摘要")
     args = ap.parse_args()
 
-    json_files = sorted(REPORTS_DIR.glob("batch_eval_*.json"))
-    print(f"📂 掃描 {REPORTS_DIR}：{len(json_files)} 個 JSON 報告")
+    # 遞歸 glob：包含 _archive/ 等子目錄裡的歷史報告
+    json_files = sorted(REPORTS_DIR.rglob("batch_eval_*.json"))
+    print(f"📂 掃描 {REPORTS_DIR}（含子目錄）：{len(json_files)} 個 JSON 報告")
 
     if args.rebuild or not HISTORY_CSV.exists():
         existing = {}
