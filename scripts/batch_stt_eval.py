@@ -116,7 +116,13 @@ def load_manifest() -> list[dict]:
 # ══════════════════════════════════════════════════════════════════════
 # 主流程
 # ══════════════════════════════════════════════════════════════════════
-def run_engine(label: str, force: bool = False, audio_dir_override: str | None = None, output_subdir: str | None = None) -> dict:
+def run_engine(
+    label: str,
+    force: bool = False,
+    audio_dir_override: str | None = None,
+    output_subdir: str | None = None,
+    use_event_type: bool = False,
+) -> dict:
     print(f"\n{'═' * 70}")
     print(f"🎯 引擎：{label}" + (f"  /  audio_dir={audio_dir_override}" if audio_dir_override else ""))
     print(f"{'═' * 70}")
@@ -176,7 +182,12 @@ def run_engine(label: str, force: bool = False, audio_dir_override: str | None =
 
         t0 = time.time()
         try:
-            result = engine.transcribe_file(str(audio_path))
+            # 若 --use-event-type 啟用，且引擎支援 event_type 參數（sensevoice / whisper），
+            # 把 manifest 的 event_type 傳給 transcribe_file（強化版 prompt / hotwords）
+            if use_event_type and label in ("sensevoice",):
+                result = engine.transcribe_file(str(audio_path), event_type=event_type)
+            else:
+                result = engine.transcribe_file(str(audio_path))
             transcript = (result.get("transcript") or "").strip()
             elapsed = time.time() - t0
 
@@ -223,6 +234,8 @@ def main():
                     help="--smart-preproc 啟用時，預處理音檔目錄（預設 audio_preprocessed/）")
     ap.add_argument("--output-suffix", default="",
                     help="輸出目錄後綴（避免與既有 baseline 衝突），如 '_preproc'")
+    ap.add_argument("--use-event-type", action="store_true",
+                    help="把 manifest 的 event_type 傳給 transcribe_file（目前僅 sensevoice 支援）")
     args = ap.parse_args()
 
     if args.engines:
@@ -259,6 +272,7 @@ def main():
                 force=args.force,
                 audio_dir_override=audio_dir,
                 output_subdir=output_subdir,
+                use_event_type=args.use_event_type,
             ))
         except KeyboardInterrupt:
             print(f"\n⏹️  使用者中斷")
