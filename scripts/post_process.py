@@ -283,6 +283,98 @@ def _resolve_api_key() -> Optional[str]:
 
 
 # ══════════════════════════════════════════════════════════════════════
+# CER-aware rollback（#9）：用 4-gram LM 偵測 LLM 過度修正
+# ══════════════════════════════════════════════════════════════════════
+# 載一次後 cache，不每次 post_process 都 unpickle
+_NGRAM_LM_CACHE: dict = {"loaded": False, "lm": None, "available": False}
+
+
+class _LMUnpickler:
+    """Custom Unpickler 解決 pickle 存的 class 路徑為 '__main__' 的問題
+    （build_ngram_lm.py 用 CLI 訓練時 class 屬於 __main__）"""
+
+    def __init__(self, file):
+        import pickle as _pickle
+        # 動態建一個子類覆寫 find_class
+        class _Wrapper(_pickle.Unpickler):
+            def find_class(self, module, name):
+                if name == "CharNgramLM":
+                    from scripts.build_ngram_lm import CharNgramLM
+                    return CharNgramLM
+                return super().find_class(module, name)
+        self._inner = _Wrapper(file)
+
+    def load(self):
+        return self._inner.load()
+
+
+def _get_ngram_lm():
+    """惰性載入 4-gram LM（experiments/ngram_lm/char_4gram.pkl）"""
+    if _NGRAM_LM_CACHE["loaded"]:
+        return _NGRAM_LM_CACHE["lm"]
+    _NGRAM_LM_CACHE["loaded"] = True
+    try:
+        from pathlib import Path as _Path
+        lm_path = _Path(__file__).resolve().parent.parent / "experiments" / "ngram_lm" / "char_4gram.pkl"
+        if not lm_path.exists():
+            _NGRAM_LM_CACHE["available"] = False
+            return None
+        with open(lm_path, "rb") as f:
+            lm = _LMUnpickler(f).load()
+        _NGRAM_LM_CACHE["lm"] = lm
+        _NGRAM_LM_CACHE["available"] = True
+        return lm
+    except Exception as e:
+        _NGRAM_LM_CACHE["available"] = False
+        _NGRAM_LM_CACHE["error"] = str(e)
+        return None
+
+
+def _check_perplexity_rollback(
+    pre: str,
+    post: str,
+    threshold_ratio: float = 2.0,
+) -> tuple[bool, dict]:
+    """
+    依 4-gram LM 判斷 LLM 後修正是否「過度修改」需要 rollback。
+
+    Args:
+        pre: LLM 修正前文字
+        post: LLM 修正後文字
+        threshold_ratio: post_pp / pre_pp 比例超過此值就 rollback（預設 2.0 = 變兩倍）
+
+    Returns:
+        (should_rollback: bool, info: dict)
+        info 含 pre_pp / post_pp / ratio / available
+    """
+    lm = _get_ngram_lm()
+    info = {"available": lm is not None, "threshold_ratio": threshold_ratio}
+    if lm is None or not pre or not post or pre == post:
+        info.update({"pre_pp": None, "post_pp": None, "ratio": None})
+        return False, info
+
+    try:
+        pre_pp = lm.perplexity(pre)
+        post_pp = lm.perplexity(post)
+        info["pre_pp"] = round(pre_pp, 2)
+        info["post_pp"] = round(post_pp, 2)
+        # 處理極端值（無限大時直接視為 rollback）
+        import math as _math
+        if _math.isinf(post_pp) and not _math.isinf(pre_pp):
+            info["ratio"] = float("inf")
+            return True, info
+        if pre_pp <= 0:
+            info["ratio"] = None
+            return False, info
+        ratio = post_pp / pre_pp
+        info["ratio"] = round(ratio, 3)
+        return ratio > threshold_ratio, info
+    except Exception as e:
+        info["error"] = str(e)[:200]
+        return False, info
+
+
+# ══════════════════════════════════════════════════════════════════════
 # 主流程
 # ══════════════════════════════════════════════════════════════════════
 # ── 高品質引擎清單（LLM smart skip 用）──────────────────────────────
@@ -296,6 +388,8 @@ def post_process(
     enable_car_norm: bool = True,
     enable_dict: bool = True,
     enable_llm: bool = False,
+    enable_cer_rollback: bool = True,
+    cer_rollback_threshold: float = 2.0,
     llm_model: str = "gemini-2.5-flash",
     llm_strictness: str = "conservative",
     engine_hint: Optional[str] = None,
@@ -490,6 +584,22 @@ def post_process(
                 corrected = _tf.restore_whitelist(corrected, _placeholder_map)
                 current = _tf.restore_whitelist(current, _placeholder_map)
                 stage["whitelist_protected"] = len(_placeholder_map)
+
+            # CER-aware rollback (#9)：用 4-gram LM 判斷 LLM 是否過度修正
+            # 若修正後 perplexity / 修正前 perplexity > threshold（預設 2x）→ 回退
+            if enable_cer_rollback and not err and corrected != current:
+                should_rollback, rb_info = _check_perplexity_rollback(
+                    pre=current, post=corrected,
+                    threshold_ratio=cer_rollback_threshold,
+                )
+                stage["rollback_check"] = rb_info
+                if should_rollback:
+                    stage["rolled_back"] = True
+                    stage["change_count"] = 0
+                    stage["changes"] = []
+                    # 不改 current，保留 LLM 修正前的版本
+                else:
+                    current = corrected
             else:
                 current = corrected
             stages.append(stage)

@@ -44,4 +44,8 @@ timestamp,timestamp_iso,engine_label,post_process,sample_count,success_count,avg
 20260430_094054,2026-04-30T09:40:54,sensevoice,car_norm+dict,63,63,0.6581,0.6493,0.0087,0.802,batch_eval_20260430_094054_sensevoice_car_norm+dict.json
 20260430_094054,2026-04-30T09:40:54,sensevoice,raw,63,63,0.6581,0.6499,0.0081,0.8033,batch_eval_20260430_094054_sensevoice_raw.json
 20260430_114809,2026-04-30T11:48:09,ensemble_v1,raw,63,55,0.5077,0.5028,0.005,0.6381,batch_eval_20260430_114809_ensemble_v1_raw.json
-r_norm+dict.json
+20260430_143158,2026-04-30T14:31:58,gemini25pro,car_norm+dict+llm,63,55,0.4934,0.484,0.0094,0.626,batch_eval_20260430_143158_gemini25pro_car_norm+dict+llm.json
+20260430_143447,2026-04-30T14:34:47,chirp3,car_norm+dict+llm,63,63,0.8281,0.817,0.0111,0.8226,batch_eval_20260430_143447_chirp3_car_norm+dict+llm.json
+20260430_144336,2026-04-30T14:43:36,sensevoice,car_norm+dict+llm,63,63,0.6584,0.6342,0.0242,0.7816,batch_eval_20260430_144336_sensevoice_car_norm+dict+llm.json
+20260430_144833,2026-04-30T14:48:33,scribe,car_norm+dict+llm,63,63,0.6615,0.6243,0.0372,0.768,batch_eval_20260430_144833_scribe_car_norm+dict+llm.json
+r_norm+dict.json,,,,,,,,,,
