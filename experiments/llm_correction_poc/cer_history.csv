@@ -48,4 +48,6 @@ timestamp,timestamp_iso,engine_label,post_process,sample_count,success_count,avg
 20260430_143447,2026-04-30T14:34:47,chirp3,car_norm+dict+llm,63,63,0.8281,0.817,0.0111,0.8226,batch_eval_20260430_143447_chirp3_car_norm+dict+llm.json
 20260430_144336,2026-04-30T14:43:36,sensevoice,car_norm+dict+llm,63,63,0.6584,0.6342,0.0242,0.7816,batch_eval_20260430_144336_sensevoice_car_norm+dict+llm.json
 20260430_144833,2026-04-30T14:48:33,scribe,car_norm+dict+llm,63,63,0.6615,0.6243,0.0372,0.768,batch_eval_20260430_144833_scribe_car_norm+dict+llm.json
+20260501_214541,2026-05-01T21:45:41,sensevoice_ft_r32,car_norm+dict,63,10,0.3078,0.2868,0.021,0.4556,batch_eval_20260501_214541_sensevoice_ft_r32_car_norm+dict.json
+20260501_215235,2026-05-01T21:52:35,sensevoice_ft_r32,car_norm+dict+llm,63,10,0.3078,0.2647,0.043,0.4226,batch_eval_20260501_215235_sensevoice_ft_r32_car_norm+dict+llm.json
 r_norm+dict.json,,,,,,,,,,
