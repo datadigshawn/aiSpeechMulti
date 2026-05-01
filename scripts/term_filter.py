@@ -81,6 +81,10 @@ ENGINE_ALIASES = {
     # SenseVoice 子模型
     "iic/SenseVoiceSmall":    "sensevoice",
     "sensevoice":             "sensevoice",
+    # Fine-tuned SenseVoice (LoRA r32_e60)
+    "sensevoice_ft":          "sensevoice_ft",
+    "sensevoice_ft_r32":      "sensevoice_ft",
+    "sensevoice_ft_r32_full": "sensevoice_ft",
 }
 
 

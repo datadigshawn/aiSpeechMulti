@@ -1,0 +1,26 @@
+{
+  "_description": "Fine-tuned SenseVoice (LoRA r32_e60) 引擎專屬 overlay",
+  "_version": "1.0.0 (2026-05-01)",
+  "_source": "全 63 段評測：raw 29.50% → +car_norm+dict+llm 28.12% (-1.38pp)",
+  "_notes": [
+    "fine-tuned 模型已內化詞彙正規化（OCC / G05 等英數縮寫）",
+    "sensevoice base overlay 的 OCC/CC息 contextual rules 對 ft 已無新增效益",
+    "唯一仍有效益：loudnorm 音訊預處理（與 base 同源，audio_preprocess 沿用）",
+    "dict 對 ft 僅 +0.08pp（28.74% → 28.66%），LLM 後修正才是主力（-0.46pp 至 28.12%）"
+  ],
+
+  "blacklist_add": {},
+  "blacklist_remove": [],
+  "whitelist_add": [],
+  "whitelist_remove": [],
+  "protected_patterns_add": [],
+
+  "contextual_rules_add": [],
+  "contextual_rules_remove": [],
+
+  "audio_preprocess": {
+    "enabled": true,
+    "_note": "loudnorm 對 SenseVoice 系列均有效（base -0.66pp）；fine-tuned 沿用",
+    "filter": "loudnorm=I=-16:TP=-1.5:LRA=11"
+  }
+}

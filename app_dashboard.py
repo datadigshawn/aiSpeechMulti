@@ -76,6 +76,7 @@ MODEL_OPTIONS = {
     "OpenAI Whisper":           "whisper",
     "🔀 混合模式（Google + Gemini）": "hybrid",
     "🔒 SenseVoiceSmall（離線）": "sensevoice",
+    "⭐ SenseVoice Fine-tuned（捷運專用）": "sensevoice_ft",
 }
 
 SUB_MODEL_OPTIONS = {
@@ -107,6 +108,10 @@ SUB_MODEL_OPTIONS = {
     # SenseVoice：只有一個模型
     "sensevoice": [
         ("SenseVoiceSmall — 🔒 離線、含情緒辨識（推薦）", "iic/SenseVoiceSmall"),
+    ],
+    # Fine-tuned SenseVoice（LoRA r32_e60，2026-05-01 訓練）
+    "sensevoice_ft": [
+        ("SenseVoice + LoRA r32 e60 — ⭐ 捷運通訊專用（CER 28.12%）", "sensevoice_ft_r32"),
     ],
 }
 
@@ -901,6 +906,16 @@ def render_speech_page():
             "• ⚠️ 首次使用會自動下載模型（約 500MB），需要網路"
         )
 
+    if model_type == "sensevoice_ft":
+        st.info(
+            "⭐ **SenseVoice Fine-tuned（捷運通訊專用）**  \n"
+            "• 在 SenseVoiceSmall 上以 LoRA (rank=32) 微調 60 epoch（46 段訓練語料）  \n"
+            "• **全 63 段 CER**：raw 29.50% / +全 pipeline **28.12%** ⭐（baseline 65.84%）  \n"
+            "• **完全離線**、含情緒/事件辨識（同基礎模型）  \n"
+            "• 需要 LoRA checkpoint：`experiments/finetune_runs/sensevoice_lora_r32_e60/best.pt`  \n"
+            "• ⚠️ 首次使用須安裝 `peft`，且該 checkpoint 不在 git，需從訓練機複製"
+        )
+
     st.write("")
 
     # ── Step 3：音檔載入 ────────────────────────────────────────────────
@@ -1679,6 +1694,12 @@ def render_running_page():
                 output_dir=str(output_dir),
                 model_type="sensevoice",
             )
+        elif model_type == "sensevoice_ft":
+            engine = BatchInference(
+                input_dir=str(audio_paths[0].parent),
+                output_dir=str(output_dir),
+                model_type="sensevoice_ft",
+            )
         else:
             engine = BatchInference(
                 input_dir=str(audio_paths[0].parent),
@@ -1784,7 +1805,7 @@ def render_running_page():
                 elif model_type == "gemini":
                     result = transcribe_gemini_with_chunking(engine, preproc_file, output_dir)
                 else:
-                    # hybrid / sensevoice 共用此路徑
+                    # hybrid / sensevoice / sensevoice_ft 共用此路徑
                     result = engine.transcribe_file(preproc_file)
 
                 # 暫存檔清理
@@ -1794,7 +1815,7 @@ def render_running_page():
                 transcript = result.get("transcript", "")
 
                 # SenseVoice / Whisper 輸出為簡體中文，轉換為繁體中文（台灣用詞）
-                if model_type in ("sensevoice", "whisper") and transcript:
+                if model_type in ("sensevoice", "sensevoice_ft", "whisper") and transcript:
                     try:
                         import opencc as _opencc
                         _cc = _opencc.OpenCC("s2twp")
@@ -1914,7 +1935,7 @@ def render_running_page():
                             st.text(_m_text or "（無結果）")
 
                 # SenseVoice 模式：顯示情緒/事件偵測結果
-                if model_type == "sensevoice":
+                if model_type in ("sensevoice", "sensevoice_ft"):
                     _emotion_label = result.get("emotion_label")
                     _events        = result.get("events", [])
                     _segments      = result.get("segments", [])

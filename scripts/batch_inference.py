@@ -520,6 +520,8 @@ class BatchInference:
             return None   # hybrid 不使用 self.model，由 _init_hybrid 初始化各子模型
         elif self.model_type == "sensevoice":
             return self._init_sensevoice()
+        elif self.model_type == "sensevoice_ft":
+            return self._init_sensevoice_ft()
         else:
             raise ValueError(f"不支援的模型類型: {self.model_type}")
 
@@ -608,6 +610,27 @@ class BatchInference:
             logger.error(f"找不到 SenseVoice 模組: {e}")
             raise
 
+    def _init_sensevoice_ft(self):
+        """初始化 fine-tuned SenseVoiceSmall（LoRA r32_e60）。"""
+        try:
+            from scripts.models.model_sensevoice_ft import SenseVoiceFTModel
+
+            logger.info("初始化 SenseVoiceSmall + LoRA（fine-tuned）")
+
+            vocab_csv = PROJECT_ROOT / "vocabulary" / "master_vocabulary.csv"
+            import torch as _torch
+            device = "cuda" if _torch.cuda.is_available() else "cpu"
+            return SenseVoiceFTModel(
+                model_name="iic/SenseVoiceSmall",
+                language="zh",
+                device=device,
+                vocabulary_csv=str(vocab_csv) if vocab_csv.exists() else None,
+            )
+
+        except ImportError as e:
+            logger.error(f"找不到 fine-tuned SenseVoice 模組: {e}")
+            raise
+
     def transcribe_file(self, audio_file: Path) -> dict:
         """
         辨識單一音檔
@@ -629,6 +652,8 @@ class BatchInference:
         elif self.model_type == "hybrid":
             return self._transcribe_hybrid(audio_file)
         elif self.model_type == "sensevoice":
+            return self._transcribe_sensevoice(audio_file)
+        elif self.model_type == "sensevoice_ft":
             return self._transcribe_sensevoice(audio_file)
         else:
             raise ValueError(f"不支援的模型類型: {self.model_type}")
