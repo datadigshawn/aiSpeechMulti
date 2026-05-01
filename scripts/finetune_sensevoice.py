@@ -156,7 +156,11 @@ def compute_cer(refs: list[str], hyps: list[str]) -> float:
 def setup_model(device: str, lora_rank: int = 8, mode: str = "lora"):
     """
     載入 SenseVoice 並依模式設定可訓練參數。
-    回傳 (model, tokenizer)，model 可用於 forward + backward。
+    回傳 (base, torch_model, tokenizer)，可用於 forward + backward。
+
+    base：funasr.AutoModel（用於 inference / generate）
+    torch_model：底層 nn.Module（已套 LoRA / freeze 等）
+    tokenizer：funasr SenseVoice tokenizer（含特殊 token 編碼）
     """
     from funasr import AutoModel
 
@@ -167,8 +171,11 @@ def setup_model(device: str, lora_rank: int = 8, mode: str = "lora"):
         device=device,
         disable_update=True,
     )
-    # FunASR AutoModel 取出底層 torch.nn.Module
+    # FunASR AutoModel 取出底層 torch.nn.Module + tokenizer
     torch_model = base.model
+    tokenizer = base.kwargs.get("tokenizer")
+    if tokenizer is None:
+        raise RuntimeError("base.kwargs['tokenizer'] 不存在，funasr 版本可能不相容")
 
     if mode == "lora":
         print(f"🪶 LoRA 模式 (rank={lora_rank})")
@@ -210,7 +217,170 @@ def setup_model(device: str, lora_rank: int = 8, mode: str = "lora"):
     n_total = sum(p.numel() for p in torch_model.parameters())
     print(f"   可訓練參數: {n_train:,} / {n_total:,} ({100*n_train/n_total:.2f}%)")
 
-    return base, torch_model
+    return base, torch_model, tokenizer
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 訓練 Dataset / Collate
+# ══════════════════════════════════════════════════════════════════════
+class AudioFeatureDataset:
+    """讀 jsonl + 音檔 → 用 SenseVoice WavFrontend 算 (T, 560) 特徵"""
+
+    def __init__(self, jsonl_path: Path, frontend, target_sr: int = 16000, max_dur: float = 30.0):
+        self.samples = JSONLDataset(jsonl_path).samples
+        self.frontend = frontend     # 來自 base.kwargs["frontend"]，WavFrontend
+        self.target_sr = target_sr
+        self.max_samples = int(max_dur * target_sr)
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, idx):
+        import torch
+        import soundfile as sf
+        s = self.samples[idx]
+        wav_np, sr = sf.read(s.audio_path, dtype="float32")
+        wav = torch.from_numpy(wav_np).float()
+        if wav.dim() == 2:  # stereo → mono
+            wav = wav.mean(dim=1)
+        if sr != self.target_sr:
+            import torchaudio
+            wav = torchaudio.functional.resample(wav, sr, self.target_sr)
+        if wav.shape[0] > self.max_samples:
+            wav = wav[:self.max_samples]
+        # WavFrontend(wav (1,T_samples), lens) → speech (1, T_frames, 560)
+        wav_b = wav.unsqueeze(0)
+        lens = torch.tensor([wav.shape[0]])
+        speech, _ = self.frontend(wav_b, lens)  # (1, T, 560)
+        return {
+            "key":     s.key,
+            "speech":  speech.squeeze(0),  # (T, 560)
+            "text":    s.text,
+        }
+
+
+def _build_text_ids(tokenizer, text: str) -> "list[int]":
+    """SenseVoice 訓練 token 結構：[<|zh|>, <|NEUTRAL|>, <|Speech|>, <|withitn|>, ...實際文字 tokens]"""
+    ids = []
+    for sp in ("<|zh|>", "<|NEUTRAL|>", "<|Speech|>", "<|withitn|>"):
+        ids.extend(tokenizer.encode(sp, allowed_special="all"))
+    ids.extend(tokenizer.encode(text, allowed_special="all"))
+    return ids
+
+
+def make_collate(tokenizer):
+    """回傳 collate_fn：speech (T_i, 560) 不一致 → pad；text 同樣"""
+    import torch
+
+    def collate(batch):
+        feat_dim = batch[0]["speech"].shape[-1]  # 通常 560
+        max_T = max(b["speech"].shape[0] for b in batch)
+        speech = torch.zeros(len(batch), max_T, feat_dim)
+        speech_lengths = torch.zeros(len(batch), dtype=torch.int32)
+        for i, b in enumerate(batch):
+            T = b["speech"].shape[0]
+            speech[i, :T] = b["speech"]
+            speech_lengths[i] = T
+
+        ids_list = [_build_text_ids(tokenizer, b["text"]) for b in batch]
+        max_L = max(len(ids) for ids in ids_list)
+        text = torch.zeros(len(batch), max_L, dtype=torch.int64)
+        text_lengths = torch.zeros(len(batch), dtype=torch.int32)
+        for i, ids in enumerate(ids_list):
+            L = len(ids)
+            text[i, :L] = torch.tensor(ids, dtype=torch.int64)
+            text_lengths[i] = L
+
+        return {
+            "speech":         speech,
+            "speech_lengths": speech_lengths,
+            "text":           text,
+            "text_lengths":   text_lengths,
+            "raw_texts":      [b["text"] for b in batch],
+            "keys":           [b["key"] for b in batch],
+        }
+
+    return collate
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 訓練 / 評估
+# ══════════════════════════════════════════════════════════════════════
+def train_one_epoch(model, loader, optimizer, scheduler, scaler, device, epoch, total_epochs):
+    """跑一個 epoch，回傳平均 loss"""
+    import torch
+    model.train()
+    total_loss = 0.0
+    n_batches = 0
+    for i, batch in enumerate(loader):
+        speech = batch["speech"].to(device)
+        speech_lengths = batch["speech_lengths"].to(device)
+        text = batch["text"].to(device)
+        text_lengths = batch["text_lengths"].to(device)
+
+        optimizer.zero_grad()
+        # SenseVoice forward → (loss, stats, weight)
+        if scaler is not None:
+            with torch.amp.autocast(device_type=device.split(":")[0], dtype=torch.float16):
+                loss, stats, weight = model(speech=speech, speech_lengths=speech_lengths, text=text, text_lengths=text_lengths)
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+        else:
+            loss, stats, weight = model(speech=speech, speech_lengths=speech_lengths, text=text, text_lengths=text_lengths)
+            loss.backward()
+            optimizer.step()
+        if scheduler is not None:
+            scheduler.step()
+
+        total_loss += loss.item()
+        n_batches += 1
+        if (i + 1) % 5 == 0 or i == len(loader) - 1:
+            print(f"  [epoch {epoch}/{total_epochs}] batch {i+1}/{len(loader)}  "
+                  f"loss={loss.item():.4f}  lr={optimizer.param_groups[0]['lr']:.2e}")
+
+    return total_loss / max(n_batches, 1)
+
+
+def evaluate_cer(base, val_samples, device) -> float:
+    """val set 跑 inference → CER"""
+    import re
+    try:
+        import jiwer
+    except ImportError:
+        return float("nan")
+    refs, hyps = [], []
+    for s in val_samples:
+        try:
+            results = base.generate(input=s.audio_path, cache={}, language="zh", use_itn=True)
+            txt = results[0].get("text", "") if results else ""
+            txt = re.sub(r"<\|[^|]+\|>", "", txt).strip()
+            refs.append(s.text)
+            hyps.append(txt)
+        except Exception as e:
+            print(f"  ⚠️ eval {s.key}: {e}")
+    if not refs:
+        return float("inf")
+    return jiwer.cer(refs, hyps)
+
+
+def save_checkpoint(model, out_dir: Path, tag: str = "best") -> Path:
+    """儲存 LoRA 或 full state_dict"""
+    import torch
+    out_dir.mkdir(parents=True, exist_ok=True)
+    ckpt_path = out_dir / f"{tag}.pt"
+    # PEFT model 用 get_peft_model_state_dict（只存 LoRA params）
+    try:
+        from peft import get_peft_model_state_dict
+        if hasattr(model, "peft_config"):
+            state = get_peft_model_state_dict(model)
+            torch.save({"lora_state_dict": state}, ckpt_path)
+            return ckpt_path
+    except Exception:
+        pass
+    # Fallback：存全部 state_dict
+    torch.save(model.state_dict(), ckpt_path)
+    return ckpt_path
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -278,7 +448,7 @@ def main():
         print(f"   驗證資料: {len(val_ds)} 段")
 
     # ── 載模型 ────────────────────────────────────────────
-    base, model = setup_model(device, lora_rank=args.lora_rank, mode=args.mode)
+    base, model, tokenizer = setup_model(device, lora_rank=args.lora_rank, mode=args.mode)
 
     if args.dry_run:
         print("\n✅ Dry run：模型載入成功、可訓練參數確認，結束")
@@ -290,13 +460,91 @@ def main():
         out_dir = PROJECT_ROOT / out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    import torch
+    from torch.utils.data import DataLoader
+
+    # Mixed precision 自動選
+    use_scaler = (device.startswith("cuda")) and (args.mixed_precision in ("auto", "fp16"))
+    scaler = torch.amp.GradScaler() if use_scaler else None
+    print(f"   mixed precision: {'fp16 (autocast + scaler)' if scaler else 'fp32'}")
+
+    # DataLoader
+    frontend = base.kwargs.get("frontend")
+    if frontend is None:
+        raise RuntimeError("base.kwargs['frontend'] 不存在（WavFrontend）")
+    train_audio_ds = AudioFeatureDataset(train_jsonl, frontend=frontend)
+    val_audio_ds = AudioFeatureDataset(val_jsonl, frontend=frontend) if val_jsonl.exists() else None
+    collate = make_collate(tokenizer)
+
+    train_loader = DataLoader(
+        train_audio_ds, batch_size=args.batch_size, shuffle=True,
+        num_workers=0, collate_fn=collate,
+    )
+    print(f"   train batches: {len(train_loader)}（batch_size={args.batch_size}）")
+
+    # Optimizer 只更新可訓練參數（LoRA params）
+    trainable = [p for p in model.parameters() if p.requires_grad]
+    optimizer = torch.optim.AdamW(trainable, lr=args.lr, weight_decay=0.01)
+    # Cosine scheduler
+    n_steps = max(1, args.epochs * len(train_loader))
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=n_steps)
+
+    # 訓練主迴圈
+    metrics_log = []
+    best_val_cer = float("inf")
+    patience = 0
     print()
-    print("⚠️  訓練主迴圈尚未實作（待 B2 v2 完成）")
-    print("    當前版本為「環境驗證 + 模型載入 + 參數統計」階段")
-    print(f"    輸出目錄已準備：{out_dir}")
+    print(f"🚀 開始訓練（epochs={args.epochs}, lr={args.lr}, mode={args.mode}）")
+    print("=" * 60)
+
+    for epoch in range(1, args.epochs + 1):
+        t_epoch = time.time()
+        train_loss = train_one_epoch(
+            model, train_loader, optimizer, scheduler, scaler,
+            device, epoch, args.epochs,
+        )
+        epoch_sec = time.time() - t_epoch
+
+        # Val CER
+        if val_audio_ds and val_audio_ds.samples:
+            val_cer = evaluate_cer(base, val_audio_ds.samples, device)
+            print(f"📊 epoch {epoch}: train_loss={train_loss:.4f}  "
+                  f"val_cer={val_cer*100:.2f}%  ({epoch_sec:.1f}s)")
+        else:
+            val_cer = float("nan")
+            print(f"📊 epoch {epoch}: train_loss={train_loss:.4f}  ({epoch_sec:.1f}s)")
+
+        metrics_log.append({
+            "epoch":       epoch,
+            "train_loss":  round(train_loss, 4),
+            "val_cer":     round(val_cer, 4) if not (val_cer != val_cer) else None,
+            "epoch_sec":   round(epoch_sec, 1),
+            "lr":          optimizer.param_groups[0]["lr"],
+        })
+
+        # Save best + early stopping
+        if val_cer < best_val_cer:
+            best_val_cer = val_cer
+            ckpt = save_checkpoint(model, out_dir, tag="best")
+            print(f"   💾 best 更新 → {ckpt} (val_cer={val_cer*100:.2f}%)")
+            patience = 0
+        else:
+            patience += 1
+            if patience >= args.early_stop_patience:
+                print(f"⏹️  Early stopping（連續 {patience} epoch 未改善）")
+                break
+
+        # 每 epoch 都存一份 last checkpoint
+        save_checkpoint(model, out_dir, tag=f"epoch_{epoch}")
+
+    # 訓練結束
     print()
-    print("    下一步：寫實際 forward/backward 訓練 loop")
-    print("    或：改用 FunASR 官方 finetune.py（funasr.bin.train）")
+    print(f"🎯 訓練完成。best val CER = {best_val_cer*100:.2f}%")
+    (out_dir / "metrics.json").write_text(
+        json.dumps(metrics_log, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    print(f"📄 metrics.json: {out_dir / 'metrics.json'}")
 
     # 寫一份 metadata 紀錄這次訓練設定
     meta = {
@@ -306,6 +554,7 @@ def main():
         "batch_size":  args.batch_size,
         "lr":          args.lr,
         "device":      device,
+        "best_val_cer": best_val_cer,
         "data_dir":    str(data_dir.relative_to(PROJECT_ROOT)),
         "train_n":     len(train_ds),
         "val_n":       len(val_ds) if val_ds else 0,
