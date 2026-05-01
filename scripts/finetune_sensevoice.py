@@ -359,26 +359,44 @@ def train_one_epoch(model, loader, optimizer, scheduler, scaler, device, epoch, 
     return total_loss / max(n_batches, 1) if n_batches > 0 else float("nan")
 
 
-def evaluate_cer(base, val_samples, device) -> float:
+def evaluate_cer(base, val_samples, device, verbose: bool = False) -> float:
     """val set 跑 inference → CER"""
     import re
     try:
         import jiwer
     except ImportError:
+        print("  ⚠️ jiwer 未安裝，無法算 CER")
         return float("nan")
     refs, hyps = [], []
+    n_fail = 0
     for s in val_samples:
         try:
             results = base.generate(input=s.audio_path, cache={}, language="zh", use_itn=True)
-            txt = results[0].get("text", "") if results else ""
+            if not results:
+                n_fail += 1
+                continue
+            txt = results[0].get("text", "") if isinstance(results[0], dict) else str(results[0])
             txt = re.sub(r"<\|[^|]+\|>", "", txt).strip()
-            refs.append(s.text)
-            hyps.append(txt)
+            ref = (s.text or "").strip()
+            if not ref:
+                continue
+            refs.append(ref)
+            hyps.append(txt or " ")  # jiwer 對空字串會出錯，給空格代替
+            if verbose:
+                print(f"     {s.key}: ref={ref[:30]!r} | hyp={txt[:30]!r}")
         except Exception as e:
-            print(f"  ⚠️ eval {s.key}: {e}")
+            n_fail += 1
+            print(f"  ⚠️ eval {s.key}: {type(e).__name__}: {str(e)[:100]}")
     if not refs:
-        return float("inf")
-    return jiwer.cer(refs, hyps)
+        print(f"  ⚠️ val 全數失敗（{n_fail}/{len(val_samples)}）")
+        return float("nan")
+    try:
+        return jiwer.cer(refs, hyps)
+    except Exception as e:
+        print(f"  ⚠️ jiwer.cer 失敗：{e}")
+        print(f"     refs sample: {refs[0][:50]!r}")
+        print(f"     hyps sample: {hyps[0][:50]!r}")
+        return float("nan")
 
 
 def save_checkpoint(model, out_dir: Path, tag: str = "best") -> Path:
@@ -509,10 +527,13 @@ def main():
     # 訓練主迴圈
     metrics_log = []
     best_val_cer = float("inf")
+    best_train_loss = float("inf")
     patience = 0
     print()
     print(f"🚀 開始訓練（epochs={args.epochs}, lr={args.lr}, mode={args.mode}）")
     print("=" * 60)
+
+    import math as _math
 
     for epoch in range(1, args.epochs + 1):
         t_epoch = time.time()
@@ -522,28 +543,37 @@ def main():
         )
         epoch_sec = time.time() - t_epoch
 
-        # Val CER
+        # Val CER（每 5 個 epoch 跑一次 verbose 看 ref/hyp 對照）
+        verbose_eval = (epoch == 1 or epoch % 5 == 0)
         if val_audio_ds and val_audio_ds.samples:
-            val_cer = evaluate_cer(base, val_audio_ds.samples, device)
-            print(f"📊 epoch {epoch}: train_loss={train_loss:.4f}  "
-                  f"val_cer={val_cer*100:.2f}%  ({epoch_sec:.1f}s)")
+            val_cer = evaluate_cer(base, val_audio_ds.samples, device, verbose=verbose_eval)
+            cer_str = f"val_cer={val_cer*100:.2f}%" if _math.isfinite(val_cer) else "val_cer=nan"
+            print(f"📊 epoch {epoch}: train_loss={train_loss:.4f}  {cer_str}  ({epoch_sec:.1f}s)")
         else:
             val_cer = float("nan")
             print(f"📊 epoch {epoch}: train_loss={train_loss:.4f}  ({epoch_sec:.1f}s)")
 
         metrics_log.append({
             "epoch":       epoch,
-            "train_loss":  round(train_loss, 4),
-            "val_cer":     round(val_cer, 4) if not (val_cer != val_cer) else None,
+            "train_loss":  round(train_loss, 4) if _math.isfinite(train_loss) else None,
+            "val_cer":     round(val_cer, 4) if _math.isfinite(val_cer) else None,
             "epoch_sec":   round(epoch_sec, 1),
             "lr":          optimizer.param_groups[0]["lr"],
         })
 
-        # Save best + early stopping
-        if val_cer < best_val_cer:
+        # Save best + early stopping（val_cer fail 時 fallback 到 train_loss）
+        improved = False
+        if _math.isfinite(val_cer) and val_cer < best_val_cer:
             best_val_cer = val_cer
-            ckpt = save_checkpoint(model, out_dir, tag="best")
-            print(f"   💾 best 更新 → {ckpt} (val_cer={val_cer*100:.2f}%)")
+            improved = True
+            print(f"   💾 best 更新 (依 val_cer) → val_cer={val_cer*100:.2f}%")
+        elif (not _math.isfinite(val_cer)) and _math.isfinite(train_loss) and train_loss < best_train_loss:
+            best_train_loss = train_loss
+            improved = True
+            print(f"   💾 best 更新 (依 train_loss，val_cer 不可用) → train_loss={train_loss:.4f}")
+
+        if improved:
+            save_checkpoint(model, out_dir, tag="best")
             patience = 0
         else:
             patience += 1
