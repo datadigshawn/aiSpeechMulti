@@ -102,3 +102,6 @@ experiments/finetune_dataset/*.jsonl
 
 # Phase 5 4-gram LM 模型（可由 build_ngram_lm.py 重建）
 experiments/ngram_lm/*.pkl
+
+# Phase 5 fine-tune 訓練 checkpoint + metrics（含 LoRA weights、可重訓）
+experiments/finetune_runs/
