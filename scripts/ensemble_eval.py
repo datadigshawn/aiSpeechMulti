@@ -37,7 +37,7 @@ from utils.gemini_client import get_client, genai_types  # noqa: E402
 MANIFEST_PATH = PROJECT_ROOT / "experiments" / "golden_dataset" / "manifest.csv"
 STT_DIR = PROJECT_ROOT / "experiments" / "golden_dataset" / "stt_outputs"
 
-ENGINES = ["gemini25pro", "scribe", "sensevoice"]
+ENGINES = ["gemini25pro", "scribe", "sensevoice"]  # 預設 3 引擎（可由 --engines override）
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -93,9 +93,15 @@ def load_stt(engine: str, sid: str) -> str | None:
     return p.read_text(encoding="utf-8")
 
 
-def ensemble_one(client, model: str, a: str, b: str, c: str) -> str:
-    """讓 LLM 對三引擎結果做仲裁，回傳整合後文字"""
-    user_prompt = USER_TEMPLATE.format(a=a, b=b, c=c)
+def ensemble_one(client, model: str, texts: dict, engines: list[str], engine_descs: dict) -> str:
+    """讓 LLM 對 N 引擎結果做仲裁。texts={engine: text}"""
+    parts = ["請整合以下多個 STT 引擎對同一段音訊的辨識結果。\n"]
+    for i, eng in enumerate(engines):
+        desc = engine_descs.get(eng, eng)
+        parts.append(f"\n引擎 {chr(65+i)} ({desc}):\n{texts.get(eng, '')}\n")
+    parts.append("\n請輸出整合後的版本（直接輸出文字，不加說明）：")
+    user_prompt = "".join(parts)
+
     resp = client.models.generate_content(
         model=model,
         contents=user_prompt,
@@ -108,21 +114,34 @@ def ensemble_one(client, model: str, a: str, b: str, c: str) -> str:
     return (resp.text or "").strip()
 
 
+# 引擎描述（給 LLM 仲裁時當 prompt 提示）
+ENGINE_DESCS = {
+    "gemini25pro": "Gemini 2.5 Pro（通用大模型，CER 較低）",
+    "scribe": "ElevenLabs Scribe（字數對齊度高）",
+    "sensevoice": "SenseVoice 本地（簡體輸出）",
+    "sensevoice_ft_r32": "本地 fine-tuned SenseVoice（捷運通訊專用，最佳辨識）",
+    "chirp3": "Google Chirp 3（窄頻表現弱）",
+}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="gemini-2.5-flash",
                     help="仲裁用 LLM 模型（gemini-2.5-flash / pro）")
+    ap.add_argument("--engines", default=",".join(ENGINES),
+                    help="參與 ensemble 的引擎（逗號分隔，需對應 stt_outputs/{engine}/ 已存在）")
     ap.add_argument("--out-label", default="ensemble_v1",
                     help="輸出子目錄名（stt_outputs/{out-label}/）")
     ap.add_argument("--force", action="store_true", help="覆寫已存在輸出")
     args = ap.parse_args()
+    engines = [e.strip() for e in args.engines.split(",") if e.strip()]
 
     out_dir = STT_DIR / args.out_label
     out_dir.mkdir(parents=True, exist_ok=True)
 
     manifest = load_manifest()
     print(f"🔀 多引擎 Ensemble PoC")
-    print(f"   引擎組合：{ENGINES}")
+    print(f"   引擎組合：{engines}")
     print(f"   仲裁模型：{args.model}")
     print(f"   輸出目錄：{out_dir.relative_to(PROJECT_ROOT)}")
     print(f"   樣本數：{len(manifest)}")
@@ -145,18 +164,23 @@ def main():
             skipped += 1
             continue
 
-        # 讀三引擎輸出
-        a = load_stt("gemini25pro", sid)
-        b = load_stt("scribe", sid)
-        c = load_stt("sensevoice", sid)
-        if a is None or b is None or c is None:
-            print(f"[{i:3}/{len(manifest)}] {sid} ❌ STT 來源缺失 (A={a is not None} B={b is not None} C={c is not None})")
+        # 讀所有指定引擎的輸出
+        texts = {}
+        missing = []
+        for eng in engines:
+            t = load_stt(eng, sid)
+            if t is None:
+                missing.append(eng)
+            else:
+                texts[eng] = t.strip()
+        if missing:
+            print(f"[{i:3}/{len(manifest)}] {sid} ❌ 缺 {missing}")
             failed += 1
             continue
 
         t0 = time.time()
         try:
-            ensemble = ensemble_one(client, args.model, a.strip(), b.strip(), c.strip())
+            ensemble = ensemble_one(client, args.model, texts, engines, ENGINE_DESCS)
             elapsed = time.time() - t0
             total_t += elapsed
             out_path.write_text(ensemble, encoding="utf-8")
