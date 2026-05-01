@@ -306,12 +306,14 @@ def make_collate(tokenizer):
 # ══════════════════════════════════════════════════════════════════════
 # 訓練 / 評估
 # ══════════════════════════════════════════════════════════════════════
-def train_one_epoch(model, loader, optimizer, scheduler, scaler, device, epoch, total_epochs):
-    """跑一個 epoch，回傳平均 loss"""
+def train_one_epoch(model, loader, optimizer, scheduler, scaler, device, epoch, total_epochs, grad_clip=1.0):
+    """跑一個 epoch，回傳平均 loss（含 gradient clipping）"""
     import torch
+    import math
     model.train()
     total_loss = 0.0
     n_batches = 0
+    n_skip = 0
     for i, batch in enumerate(loader):
         speech = batch["speech"].to(device)
         speech_lengths = batch["speech_lengths"].to(device)
@@ -323,12 +325,26 @@ def train_one_epoch(model, loader, optimizer, scheduler, scaler, device, epoch, 
         if scaler is not None:
             with torch.amp.autocast(device_type=device.split(":")[0], dtype=torch.float16):
                 loss, stats, weight = model(speech=speech, speech_lengths=speech_lengths, text=text, text_lengths=text_lengths)
+            # 跳過 NaN/Inf loss（避免毒化 optimizer state）
+            if not torch.isfinite(loss):
+                n_skip += 1
+                continue
             scaler.scale(loss).backward()
+            scaler.unscale_(optimizer)
+            torch.nn.utils.clip_grad_norm_(
+                [p for p in model.parameters() if p.requires_grad], grad_clip
+            )
             scaler.step(optimizer)
             scaler.update()
         else:
             loss, stats, weight = model(speech=speech, speech_lengths=speech_lengths, text=text, text_lengths=text_lengths)
+            if not torch.isfinite(loss):
+                n_skip += 1
+                continue
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(
+                [p for p in model.parameters() if p.requires_grad], grad_clip
+            )
             optimizer.step()
         if scheduler is not None:
             scheduler.step()
@@ -337,9 +353,10 @@ def train_one_epoch(model, loader, optimizer, scheduler, scaler, device, epoch, 
         n_batches += 1
         if (i + 1) % 5 == 0 or i == len(loader) - 1:
             print(f"  [epoch {epoch}/{total_epochs}] batch {i+1}/{len(loader)}  "
-                  f"loss={loss.item():.4f}  lr={optimizer.param_groups[0]['lr']:.2e}")
+                  f"loss={loss.item():.4f}  lr={optimizer.param_groups[0]['lr']:.2e}"
+                  + (f"  (skipped NaN: {n_skip})" if n_skip > 0 else ""))
 
-    return total_loss / max(n_batches, 1)
+    return total_loss / max(n_batches, 1) if n_batches > 0 else float("nan")
 
 
 def evaluate_cer(base, val_samples, device) -> float:
