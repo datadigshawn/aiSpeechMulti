@@ -73,28 +73,35 @@ def run_inference(
             device = "cpu"
 
     print(f"📦 載入 checkpoint: {checkpoint_path} (device={device})")
+    model = AutoModel(
+        model="FunAudioLLM/SenseVoiceSmall", hub="hf",
+        device=device, disable_update=True,
+    )
     if not checkpoint_path.exists():
-        # 沒有 checkpoint：載原始模型作驗證 pipeline
         print(f"   ⚠️ checkpoint 不存在，改用原始 FunAudioLLM/SenseVoiceSmall")
-        model = AutoModel(
-            model="FunAudioLLM/SenseVoiceSmall", hub="hf",
-            device=device, disable_update=True,
-        )
     else:
-        # 載入 fine-tuned 版本（依 B2 實際 save 格式調整）
-        model = AutoModel(
-            model="FunAudioLLM/SenseVoiceSmall", hub="hf",
-            device=device, disable_update=True,
-        )
+        # 載入 fine-tuned 版本
         try:
-            state_dict = torch.load(checkpoint_path, map_location=device)
-            # PEFT LoRA checkpoint 與 full state_dict 都需支援
-            if "lora_state_dict" in state_dict:
-                # PEFT 格式
-                from peft import set_peft_model_state_dict
-                set_peft_model_state_dict(model.model, state_dict["lora_state_dict"])
+            state_dict = torch.load(checkpoint_path, map_location=device, weights_only=False)
+            if isinstance(state_dict, dict) and "lora_state_dict" in state_dict:
+                # PEFT LoRA checkpoint：先把 base.model 包成 PEFT model 再 load
+                from peft import LoraConfig, get_peft_model, TaskType, set_peft_model_state_dict
+                lora_config = LoraConfig(
+                    r=32, lora_alpha=64,
+                    target_modules=["q_proj", "k_proj", "v_proj", "out_proj",
+                                    "linear_q", "linear_k", "linear_v", "linear_out"],
+                    lora_dropout=0.05, bias="none",
+                    task_type=TaskType.FEATURE_EXTRACTION,
+                )
+                wrapped = get_peft_model(model.model, lora_config)
+                set_peft_model_state_dict(wrapped, state_dict["lora_state_dict"])
+                # 包裝後 base.model 已被 wrapped 取代（peft 設計）
+                # 但 base.generate 在內部用 self.model.forward → 需要 base.model = wrapped
+                model.model = wrapped
+                print(f"   ✅ LoRA checkpoint 載入成功")
             else:
                 model.model.load_state_dict(state_dict, strict=False)
+                print(f"   ✅ full state_dict 載入成功")
         except Exception as e:
             print(f"   ⚠️ 載入 checkpoint 失敗: {e}")
             print(f"   改用原始模型繼續")
@@ -103,22 +110,28 @@ def run_inference(
     success = failed = 0
     t0 = time.time()
     for i, s in enumerate(test_samples, 1):
-        sid = s["id"]
+        # 兼容 jsonl 兩種格式：HF (id/audio_filepath) 與 FunASR (key/source)
+        sid = s.get("id") or s.get("key", f"unknown_{i}")
+        audio_path = s.get("audio_filepath") or s.get("source")
         out_path = out_dir / f"{sid}.txt"
         try:
             results = model.generate(
-                input=s["audio_filepath"],
+                input=audio_path,
                 cache={},
                 language="zh",
                 use_itn=True,
             )
-            txt = results[0]["text"] if results else ""
+            if not results:
+                txt = ""
+            else:
+                r0 = results[0]
+                txt = r0.get("text", "") if isinstance(r0, dict) else str(r0)
             # SenseVoice 輸出可能含 <emo|> tag，移除
             import re
             txt = re.sub(r"<\|[^|]+\|>", "", txt).strip()
             out_path.write_text(txt, encoding="utf-8")
             success += 1
-            print(f"  [{i:3}/{len(test_samples)}] {sid}: {len(txt)} 字")
+            print(f"  [{i:3}/{len(test_samples)}] {sid}: {len(txt)} 字  {txt[:40]!r}")
         except Exception as e:
             failed += 1
             print(f"  [{i:3}/{len(test_samples)}] {sid}: ❌ {str(e)[:80]}")
