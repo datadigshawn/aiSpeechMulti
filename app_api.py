@@ -444,8 +444,23 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 _NO_CACHE = {"Cache-Control": "no-store, must-revalidate", "Pragma": "no-cache"}
 
 
+# ──────────────────────────────────────────────────────────────────────
+# 介面整併 P1 + 方案 A：路由整理
+#   /            → landing.html （5 入口導覽 + 健康徽章；2026-05-04 新增）
+#   /capture     → index.html  （音訊擷取；原 /，2026-06-04 起停用相容）
+#   /monitor     → monitor.html
+#   /display     → display.html
+# ──────────────────────────────────────────────────────────────────────
+
 @app.get("/", include_in_schema=False)
 async def root():
+    """新版 landing 頁。"""
+    return FileResponse("static/landing.html", headers=_NO_CACHE)
+
+
+@app.get("/capture", include_in_schema=False)
+async def capture():
+    """音訊擷取頁面（原 /，仍是 5 路擷取入口）。"""
     return FileResponse("static/index.html", headers=_NO_CACHE)
 
 
@@ -1296,6 +1311,50 @@ async def get_keywords():
         }
     except Exception as exc:
         return {"ok": False, "keywords": [], "error": str(exc)}
+
+
+@app.get("/api/landing/status", summary="Landing 頁外部服務探活（Streamlit / Grafana）")
+async def landing_status():
+    """方案 A：給 landing 頁用的綠/紅徽章資料源。
+
+    探活對象：
+    - Streamlit Lab :8501  (HEAD /_stcore/health)
+    - Grafana       :3000  (HEAD /api/health)
+
+    本端 FastAPI 自身已 up（能回應此 endpoint），故不需自我探活。
+    結果在伺服器端快取 5 秒，避免 reload 風暴。
+    """
+    import time
+    import urllib.request
+    import urllib.error
+
+    cache_key = "_landing_status_cache"
+    if not hasattr(landing_status, cache_key):
+        setattr(landing_status, cache_key, {"ts": 0.0, "data": None})
+    cache = getattr(landing_status, cache_key)
+    now = time.time()
+    if cache["data"] is not None and (now - cache["ts"]) < 5.0:
+        return cache["data"]
+
+    def _probe(url: str, method: str = "HEAD", timeout: float = 1.0) -> bool:
+        try:
+            req = urllib.request.Request(url, method=method)
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return 200 <= resp.status < 500
+        except urllib.error.HTTPError as e:
+            return 200 <= e.code < 500
+        except Exception:
+            return False
+
+    data = {
+        "fastapi": True,
+        "lab":     _probe("http://localhost:8501/_stcore/health", method="GET"),
+        "grafana": _probe("http://localhost:3000/api/health", method="GET"),
+        "timestamp": datetime.now().isoformat(),
+    }
+    cache["ts"] = now
+    cache["data"] = data
+    return data
 
 
 @app.get("/api/health", summary="健康檢查")

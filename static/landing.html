@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>aiSpeechMulti — 入口</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Noto Sans TC", sans-serif;
+      background: #11141d;
+      color: #d0d8ef;
+      min-height: 100vh;
+    }
+    .wrap {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 60px 24px 40px;
+    }
+    .head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      border-bottom: 1px solid #2a2d3e;
+      padding-bottom: 16px;
+      margin-bottom: 24px;
+    }
+    .head h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #e6eaf5;
+      letter-spacing: 0.5px;
+    }
+    .head .sub {
+      font-size: 0.78rem;
+      color: #667;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 18px;
+      background: #1a1d27;
+      border: 1px solid #2a2d3e;
+      border-radius: 10px;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color .15s, transform .15s;
+    }
+    .row:hover {
+      border-color: #3a7bd5;
+      transform: translateX(2px);
+    }
+    .icon {
+      font-size: 1.4rem;
+      width: 32px;
+      text-align: center;
+    }
+    .meta { flex: 1; }
+    .title-line {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #e6eaf5;
+    }
+    .desc-line {
+      font-size: 0.78rem;
+      color: #889;
+      margin-top: 2px;
+    }
+    .target {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.75rem;
+      color: #667;
+    }
+    .badge {
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+    .badge.up   { background: rgba(46,160,67,0.18); color: #4dd479; }
+    .badge.down { background: rgba(201,65,74,0.18); color: #e07070; }
+    .badge.unknown { background: rgba(102,102,119,0.18); color: #889; }
+    .footer {
+      margin-top: 28px;
+      font-size: 0.75rem;
+      color: #556;
+      text-align: center;
+    }
+    .footer code {
+      background: #1a1d27;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #89b;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <h1>🎙️ aiSpeechMulti</h1>
+      <div class="sub" id="sub-status">健康狀態載入中…</div>
+    </div>
+
+    <div class="grid">
+      <a class="row" href="/capture">
+        <div class="icon">🎙️</div>
+        <div class="meta">
+          <div class="title-line">即時擷取</div>
+          <div class="desc-line">5 路麥克風 → WebSocket 推 PCM 上 FastAPI</div>
+        </div>
+        <div class="target">/capture</div>
+        <div class="badge up" id="b-fastapi">●</div>
+      </a>
+
+      <a class="row" href="/monitor">
+        <div class="icon">📡</div>
+        <div class="meta">
+          <div class="title-line">五路即時監控</div>
+          <div class="desc-line">操作員密集監控（partial / committed 即時推送）</div>
+        </div>
+        <div class="target">/monitor</div>
+        <div class="badge up" id="b-fastapi-2">●</div>
+      </a>
+
+      <a class="row" href="/display">
+        <div class="icon">📺</div>
+        <div class="meta">
+          <div class="title-line">大螢幕投放</div>
+          <div class="desc-line">控制室牆面顯示（純文字、低干擾）</div>
+        </div>
+        <div class="target">/display</div>
+        <div class="badge up" id="b-fastapi-3">●</div>
+      </a>
+
+      <a class="row" href="http://localhost:8501" target="_blank" rel="noopener">
+        <div class="icon">🔬</div>
+        <div class="meta">
+          <div class="title-line">研究工作台 Lab</div>
+          <div class="desc-line">批次辨識、評測、詞彙、CER 飛輪、修正歷程</div>
+        </div>
+        <div class="target">:8501</div>
+        <div class="badge unknown" id="b-lab">●</div>
+      </a>
+
+      <a class="row" href="http://localhost:3000" target="_blank" rel="noopener">
+        <div class="icon">📊</div>
+        <div class="meta">
+          <div class="title-line">運維看板 Grafana</div>
+          <div class="desc-line">系統指標 + CER 趨勢（規劃 P2 整入）+ 告警</div>
+        </div>
+        <div class="target">:3000</div>
+        <div class="badge unknown" id="b-grafana">●</div>
+      </a>
+    </div>
+
+    <div class="footer">
+      啟動：<code>python app_api.py</code> · <code>streamlit run app_lab.py</code> · <code>docker compose -f grafana/docker-compose.yml up -d</code>
+      <br>
+      最後更新：<span id="last-update">—</span>
+    </div>
+  </div>
+
+  <script>
+    const setBadge = (el, ok) => {
+      el.classList.remove("up", "down", "unknown");
+      if (ok === true)  { el.classList.add("up");      el.title = "服務 up"; }
+      else if (ok === false) { el.classList.add("down"); el.title = "服務 down 或無法連線"; }
+      else                    { el.classList.add("unknown"); el.title = "狀態未知"; }
+    };
+
+    async function refresh() {
+      try {
+        const r = await fetch("/api/landing/status", { cache: "no-store" });
+        const d = await r.json();
+        setBadge(document.getElementById("b-fastapi"),   d.fastapi);
+        setBadge(document.getElementById("b-fastapi-2"), d.fastapi);
+        setBadge(document.getElementById("b-fastapi-3"), d.fastapi);
+        setBadge(document.getElementById("b-lab"),       d.lab);
+        setBadge(document.getElementById("b-grafana"),   d.grafana);
+        document.getElementById("sub-status").textContent =
+          d.fastapi && d.lab && d.grafana ? "全部服務 up"
+          : (d.fastapi ? "FastAPI up；其他服務需個別啟動" : "FastAPI down");
+        document.getElementById("last-update").textContent =
+          new Date(d.timestamp).toLocaleString();
+      } catch (e) {
+        ["b-fastapi","b-fastapi-2","b-fastapi-3","b-lab","b-grafana"].forEach(id => {
+          setBadge(document.getElementById(id), null);
+        });
+        document.getElementById("sub-status").textContent = "連不上 FastAPI";
+      }
+    }
+
+    refresh();
+    setInterval(refresh, 10_000);  // 10s 輪詢
+  </script>
+</body>
+</html>
