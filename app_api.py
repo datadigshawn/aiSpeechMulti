@@ -1313,6 +1313,116 @@ async def get_keywords():
         return {"ok": False, "keywords": [], "error": str(exc)}
 
 
+# ==============================================================================
+# ⑩ 詞彙表 API（介面整併 P3-Vocab，2026-05-04）
+#    供 Lab / 未來輕量編輯頁讀寫 vocabulary/master_vocabulary.csv
+#    Lab 可選擇透過 API 或仍直接讀 CSV（雙軌過渡）
+# ==============================================================================
+
+VOCAB_COLUMNS = ["term", "category", "boost_value", "alert_level", "pinyin",
+                 "common_error", "description"]
+VOCAB_CSV_PATH = Path(__file__).parent / "vocabulary" / "master_vocabulary.csv"
+VOCAB_ENGINES_DIR = Path(__file__).parent / "vocabulary" / "engines"
+
+
+def _vocab_load() -> list[dict]:
+    """讀 master_vocabulary.csv。略過註解列（term 以 # 開頭）。"""
+    import csv as _csv
+    if not VOCAB_CSV_PATH.exists():
+        return []
+    rows = []
+    with VOCAB_CSV_PATH.open(encoding="utf-8", newline="") as f:
+        for row in _csv.DictReader(f):
+            if row.get("term", "").startswith("#"):
+                continue
+            rows.append(row)
+    return rows
+
+
+def _vocab_save(rows: list[dict]) -> None:
+    """寫回 master_vocabulary.csv，欄位嚴格依 VOCAB_COLUMNS。"""
+    import csv as _csv
+    with VOCAB_CSV_PATH.open("w", encoding="utf-8", newline="") as f:
+        writer = _csv.DictWriter(f, fieldnames=VOCAB_COLUMNS, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def _vocab_hash() -> str:
+    """回傳目前 CSV 內容的 sha256（前 12 字元），給前端做樂觀同步檢查。"""
+    import hashlib
+    if not VOCAB_CSV_PATH.exists():
+        return ""
+    return hashlib.sha256(VOCAB_CSV_PATH.read_bytes()).hexdigest()[:12]
+
+
+class VocabRow(BaseModel):
+    term:         str
+    category:     Optional[str] = ""
+    boost_value:  Optional[str] = ""   # CSV 是字串，不轉 int 避免空字串問題
+    alert_level:  Optional[str] = ""
+    pinyin:       Optional[str] = ""
+    common_error: Optional[str] = ""
+    description:  Optional[str] = ""
+
+
+@app.get("/api/vocabulary", summary="查全部詞彙")
+async def vocab_list():
+    rows = _vocab_load()
+    return {"ok": True, "count": len(rows), "rows": rows, "hash": _vocab_hash()}
+
+
+@app.get("/api/vocabulary/engines", summary="列出引擎 overlay")
+async def vocab_engines():
+    if not VOCAB_ENGINES_DIR.exists():
+        return {"ok": True, "engines": []}
+    files = sorted(p.name for p in VOCAB_ENGINES_DIR.glob("*.json"))
+    return {"ok": True, "engines": [f.removesuffix(".json") for f in files]}
+
+
+@app.get("/api/vocabulary/{term}", summary="查單筆詞彙")
+async def vocab_get(term: str):
+    rows = _vocab_load()
+    for r in rows:
+        if r.get("term") == term:
+            return {"ok": True, "row": r}
+    return JSONResponse({"ok": False, "error": f"term not found: {term}"}, status_code=404)
+
+
+@app.post("/api/vocabulary", summary="新增詞彙")
+async def vocab_create(body: VocabRow):
+    rows = _vocab_load()
+    if any(r.get("term") == body.term for r in rows):
+        return JSONResponse(
+            {"ok": False, "error": f"term already exists: {body.term}"},
+            status_code=409,
+        )
+    rows.append(body.model_dump())
+    _vocab_save(rows)
+    return {"ok": True, "row": body.model_dump(), "hash": _vocab_hash()}
+
+
+@app.put("/api/vocabulary/{term}", summary="修改詞彙")
+async def vocab_update(term: str, body: VocabRow):
+    rows = _vocab_load()
+    for i, r in enumerate(rows):
+        if r.get("term") == term:
+            rows[i] = body.model_dump()
+            _vocab_save(rows)
+            return {"ok": True, "row": rows[i], "hash": _vocab_hash()}
+    return JSONResponse({"ok": False, "error": f"term not found: {term}"}, status_code=404)
+
+
+@app.delete("/api/vocabulary/{term}", summary="刪除詞彙")
+async def vocab_delete(term: str):
+    rows = _vocab_load()
+    new_rows = [r for r in rows if r.get("term") != term]
+    if len(new_rows) == len(rows):
+        return JSONResponse({"ok": False, "error": f"term not found: {term}"}, status_code=404)
+    _vocab_save(new_rows)
+    return {"ok": True, "deleted": term, "hash": _vocab_hash()}
+
+
 @app.get("/api/landing/status", summary="Landing 頁外部服務探活（Streamlit / Grafana）")
 async def landing_status():
     """方案 A：給 landing 頁用的綠/紅徽章資料源。

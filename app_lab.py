@@ -2197,7 +2197,21 @@ def render_stats_page():
 # ============================================================================
 # 詞彙表工具函式
 # ============================================================================
+def _vocab_api_base() -> str:
+    return st.session_state.get("api_base", API_BASE).rstrip("/")
+
+
 def _load_vocabulary_csv() -> list:
+    """讀詞彙：API 優先（P3-Vocab），失敗則 fallback 直接讀 CSV。"""
+    try:
+        r = requests.get(f"{_vocab_api_base()}/api/vocabulary", timeout=2)
+        if r.ok:
+            data = r.json()
+            if data.get("ok"):
+                return data.get("rows", [])
+    except Exception:
+        pass
+
     if not VOCABULARY_CSV.exists():
         return []
     rows = []
@@ -2211,6 +2225,10 @@ def _load_vocabulary_csv() -> list:
 
 
 def _save_vocabulary_csv(rows: list) -> None:
+    """寫詞彙：直接寫 CSV（API 採增量 PUT/POST/DELETE，整批存仍走 CSV 最簡單）。
+
+    註：未來若 Lab 改成單筆 PUT/POST/DELETE 即時寫，可移除此函式。
+    """
     with VOCABULARY_CSV.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=_VOCAB_COLUMNS, extrasaction="ignore")
         writer.writeheader()
