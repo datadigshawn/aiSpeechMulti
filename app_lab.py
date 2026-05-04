@@ -3311,6 +3311,16 @@ def render_cer_trend_page():
     st.title("📈 CER 趨勢看板")
     st.caption("歷次 batch_eval 跑分結果聚合 — 看每引擎 final CER 隨時間變化")
 
+    # 介面整併 P2：本頁將遷移到 Grafana
+    st.warning(
+        "🔄 **本頁已於 2026-05-04 規劃遷移到 Grafana**（介面整併 P2）。\n\n"
+        "Grafana 看板已加入 3 個新 panel（時間序列 + 各引擎最佳 CER + 事件類型 × 引擎）。\n"
+        "資料來自 `cer_history` / `cer_event_type_history` SQLite 表，"
+        "請定期跑 `python -m aispeech data sync-cer` 同步。\n\n"
+        f"Grafana：[localhost:3000](http://localhost:3000) → 「aiSpeechMulti 語音辨識監控」→ 最末尾 CER 趨勢區。"
+    )
+    st.caption("本頁保留 30 天作為過渡，期間若 Grafana 數字異常請以本頁為準。")
+
     history_csv = PROJECT_ROOT / "experiments" / "llm_correction_poc" / "cer_history.csv"
     if not history_csv.exists():
         st.warning(

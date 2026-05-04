@@ -56,6 +56,7 @@ DATA_SUBMAP = {
     "extract-errors":     "scripts/extract_error_pairs.py",
     "extract-regression": "scripts/extract_regression_cases.py",
     "export-feedback":    "scripts/export_correction_feedback.py",
+    "sync-cer":           "scripts/sync_cer_to_sqlite.py",  # P2: CER CSV → SQLite (供 Grafana)
 }
 
 
