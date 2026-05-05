@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="zh-Hant" data-theme="dark-cool">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>aiSpeechMulti — 主題預覽 dark-cool / dark-warm</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.ico">
+<link rel="stylesheet" href="/static/css/tokens.css">
+<link rel="stylesheet" href="/static/css/base.css">
+<link rel="stylesheet" href="/static/css/components.css">
+<style>
+  body { background: var(--neutral-1); color: var(--neutral-12); font-family: var(--font-sans); }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: var(--space-7); }
+  .head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: var(--space-6); border-bottom: 1px solid var(--neutral-6); padding-bottom: var(--space-4); flex-wrap: wrap; gap: var(--space-4); }
+  .head h1 { font-size: var(--fs-h1); }
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-7); }
+  .sw { padding: var(--space-3); border: 1px solid var(--neutral-6); border-radius: var(--radius-2); background: var(--neutral-2); }
+  .sw__chip { width: 100%; height: 48px; border-radius: var(--radius-1); margin-bottom: var(--space-2); }
+  .sw__name { font-family: var(--font-mono); font-size: var(--fs-small); color: var(--neutral-12); }
+  .sw__role { font-size: var(--fs-caption); color: var(--neutral-9); }
+
+  .demo-panel { padding: var(--space-5); border: 1px solid var(--neutral-6); border-radius: var(--radius-3); background: var(--neutral-2); margin-bottom: var(--space-4); }
+  .demo-row { display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: center; margin-bottom: var(--space-3); }
+  .lanes { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-2); margin-top: var(--space-3); }
+  .lane-chip { padding: var(--space-3); border-radius: var(--radius-2); border: 1px solid; text-align: center; font-family: var(--font-mono); font-weight: var(--fw-semibold); font-size: var(--fs-body-lg); }
+  .lane-chip.l1 { color: var(--ch-1); border-color: var(--ch-1); background: var(--ch-1-bg); }
+  .lane-chip.l2 { color: var(--ch-2); border-color: var(--ch-2); background: var(--ch-2-bg); }
+  .lane-chip.l3 { color: var(--ch-3); border-color: var(--ch-3); background: var(--ch-3-bg); }
+  .lane-chip.l4 { color: var(--ch-4); border-color: var(--ch-4); background: var(--ch-4-bg); }
+  .lane-chip.l5 { color: var(--ch-5); border-color: var(--ch-5); background: var(--ch-5-bg); }
+
+  .hazards { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--space-2); margin-top: var(--space-3); }
+  .hz { padding: var(--space-2); text-align: center; border-radius: var(--radius-1); font-family: var(--font-mono); font-size: var(--fs-small); font-weight: var(--fw-semibold); color: var(--neutral-0); }
+  .hz0 { background: var(--hazard-0); }
+  .hz1 { background: var(--hazard-1); }
+  .hz2 { background: var(--hazard-2); }
+  .hz3 { background: var(--hazard-3); }
+  .hz4 { background: var(--hazard-4); }
+  .hz5 { background: var(--hazard-5); color: #fff; }
+
+  .toggle-row { display: flex; gap: var(--space-3); align-items: center; }
+  .toggle-row .btn--primary { padding: 0 var(--space-5); }
+  .theme-name { font-family: var(--font-mono); font-size: var(--fs-body); color: var(--neutral-11); }
+  h2 { font-size: var(--fs-h3); color: var(--neutral-13); margin-top: var(--space-6); margin-bottom: var(--space-3); }
+  .label-row { display: flex; gap: var(--space-2); margin-bottom: var(--space-2); flex-wrap: wrap; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+
+    <header class="head">
+      <div>
+        <h1>主題預覽</h1>
+        <p style="color: var(--neutral-10); margin-top: var(--space-2);">點右側按鈕切換 <code>data-theme</code>。預設為 <strong>dark-cool</strong>（teal 冷色），切到 <strong>dark-warm</strong>（amber 暖色）後 neutrals + brand + 5 路 channel 全部換色，<strong>hazard 0-5 與 semantic 不換</strong>（紅黃綠語意保留）。</p>
+      </div>
+      <div class="toggle-row">
+        <span class="theme-name" id="themeLabel">🌙 dark-cool</span>
+        <button id="themeToggle" class="btn btn--primary" aria-label="切換主題">切換主題</button>
+      </div>
+    </header>
+
+    <h2>1 · Neutral 階梯（13 階）</h2>
+    <div class="swatches">
+      <div class="sw"><div class="sw__chip" style="background: var(--neutral-0)"></div><div class="sw__name">neutral-0</div><div class="sw__role">deepest</div></div>
+      <div class="sw"><div class="sw__chip" style="background: var(--neutral-1)"></div><div class="sw__name">neutral-1</div><div class="sw__role">app bg</div></div>
+      <div class="sw"><div class="sw__chip" style="background: var(--neutral-2)"></div><div class="sw__name">neutral-2</div><div class="sw__role">surface</div></div>
+      <div class="sw"><div class="sw__chip" style="background: var(--neutral-3)"></div><div class="sw__name">neutral-3</div><div class="sw__role">raised</div></div>
+      <div class="sw"><div class="sw__chip" style="background: var(--neutral-4)"></div><div class="sw__name">neutral-4</div><div class="sw__role">card</div></div>
+      <div class="sw"><div class="sw__chip" style="background: var(--neutral-6)"></div><div class="sw__name">neutral-6</div><div class="sw__role">border</div></div>
+      <div class="sw"><div class="sw__chip" style="background: var(--neutral-9)"></div><div class="sw__name">neutral-9</div><div class="sw__role">muted text</div></div>
+      <div class="sw"><div class="sw__chip" style="background: var(--neutral-12)"></div><div class="sw__name">neutral-12</div><div class="sw__role">primary text</div></div>
+      <div class="sw"><div class="sw__chip" style="background: var(--neutral-13)"></div><div class="sw__name">neutral-13</div><div class="sw__role">highest</div></div>
+    </div>
+
+    <h2>2 · Brand</h2>
+    <div class="swatches">
+      <div class="sw"><div class="sw__chip" style="background: var(--brand-primary)"></div><div class="sw__name">brand-primary</div><div class="sw__role">主強調</div></div>
+      <div class="sw"><div class="sw__chip" style="background: var(--brand-primary-hover)"></div><div class="sw__name">brand-hover</div><div class="sw__role">hover</div></div>
+      <div class="sw"><div class="sw__chip" style="background: var(--brand-primary-bg)"></div><div class="sw__name">brand-bg</div><div class="sw__role">badge bg</div></div>
+      <div class="sw"><div class="sw__chip" style="background: var(--brand-secondary)"></div><div class="sw__name">brand-secondary</div><div class="sw__role">輔助強調</div></div>
+    </div>
+
+    <h2>3 · 5 路 Channel（語意：ch1-5 對應 5 路通訊管道）</h2>
+    <div class="lanes">
+      <div class="lane-chip l1">CH1</div>
+      <div class="lane-chip l2">CH2</div>
+      <div class="lane-chip l3">CH3</div>
+      <div class="lane-chip l4">CH4</div>
+      <div class="lane-chip l5">CH5</div>
+    </div>
+
+    <h2>4 · Hazard 0-5（跨主題不變，紅黃綠語意保留）</h2>
+    <div class="hazards">
+      <div class="hz hz0">L0 正常</div>
+      <div class="hz hz1">L1 注意</div>
+      <div class="hz hz2">L2 警告</div>
+      <div class="hz hz3">L3 嚴重</div>
+      <div class="hz hz4">L4 危急</div>
+      <div class="hz hz5">L5 緊急</div>
+    </div>
+
+    <h2>5 · Semantic（跨主題不變）</h2>
+    <div class="label-row">
+      <span class="badge badge--success badge--dot">Success</span>
+      <span class="badge badge--warning badge--dot">Warning</span>
+      <span class="badge badge--danger badge--dot">Danger</span>
+      <span class="badge badge--info badge--dot">Info</span>
+    </div>
+
+    <h2>6 · 元件範例</h2>
+    <div class="demo-panel">
+      <div class="demo-row">
+        <button class="btn btn--primary">Primary</button>
+        <button class="btn btn--secondary">Secondary</button>
+        <button class="btn btn--ghost">Ghost</button>
+        <button class="btn btn--danger">Danger</button>
+      </div>
+      <div class="demo-row">
+        <span class="badge badge--ch1 badge--dot">CH1 Live</span>
+        <span class="badge badge--ch2 badge--dot">CH2 Live</span>
+        <span class="badge badge--ch3 badge--dot">CH3 Live</span>
+        <span class="badge badge--ch4 badge--dot">CH4 Live</span>
+        <span class="badge badge--ch5 badge--dot">CH5 Live</span>
+      </div>
+      <div style="margin-top: var(--space-3); padding: var(--space-3); background: var(--neutral-3); border-radius: var(--radius-2); border-left: 3px solid var(--brand-primary);">
+        <span class="text-muted" style="font-size: var(--fs-caption)">22:14:21</span>
+        &nbsp;&nbsp;
+        <span style="color: var(--neutral-12)">列車已通過忠孝復興站，準備進入忠孝敦化。</span>
+        &nbsp;&nbsp;
+        <span style="color: var(--neutral-9); font-family: var(--font-mono); font-size: var(--fs-caption)">0.97</span>
+      </div>
+    </div>
+
+    <p style="margin-top: var(--space-7); color: var(--neutral-9); font-size: var(--fs-small); font-family: var(--font-mono);">
+      hazard / semantic 在兩主題不變（控制系統紅黃綠語意通用）。<br>
+      neutrals / brand / channel hue 跨主題切換。
+    </p>
+
+  </div>
+
+<script>
+  const THEMES = ["dark-cool", "dark-warm"];
+  const ICONS  = { "dark-cool": "🌙", "dark-warm": "🔥" };
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    document.getElementById("themeLabel").textContent = `${ICONS[theme]} ${theme}`;
+    try { localStorage.setItem("aispeech-theme", theme); } catch (_) {}
+  }
+
+  // restore
+  let saved = "dark-cool";
+  try { saved = localStorage.getItem("aispeech-theme") || "dark-cool"; } catch (_) {}
+  applyTheme(saved);
+
+  document.getElementById("themeToggle").addEventListener("click", () => {
+    const cur  = document.documentElement.getAttribute("data-theme") || "dark-cool";
+    const next = THEMES[(THEMES.indexOf(cur) + 1) % THEMES.length];
+    applyTheme(next);
+  });
+</script>
+</body>
+</html>

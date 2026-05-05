@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-Hant" data-theme="dark-cool">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,6 +8,9 @@
 <!-- design-system-v1: 引入 design tokens（變數覆寫舊的 --bg / --text 等別名）-->
 <link rel="stylesheet" href="/static/css/tokens.css">
 <link rel="stylesheet" href="/static/css/base.css">
+<!-- theme-switcher (Phase 1)：display 預設不放切換按鈕，避免控制室誤觸；
+     若需鎖定，可用 ?theme=dark-cool 或 ?theme=dark-warm 帶 query param -->
+<script src="/static/js/theme-switcher.js"></script>
 <style>
   /* ── 全局 ── */
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -278,6 +281,18 @@
             style="background:#2a4a2a; border:1px solid #3a6a3a;
       color:#8f8; padding:3px 10px; border-radius:4px; cursor:pointer; font-size:12px;">
       🔄 重載關鍵字
+    </button>
+  </div>
+
+  <div class="tb-sep"></div>
+
+  <div class="tb-group">
+    <button data-theme-toggle aria-label="切換主題（dark-cool / dark-warm）"
+            style="background: var(--neutral-3); border: 1px solid var(--neutral-7);
+                   color: var(--neutral-12); padding: 3px 10px; border-radius: 4px;
+                   cursor: pointer; font-size: 12px;">
+      <span data-theme-icon>🌙</span>
+      <span data-theme-label>深冷</span>
     </button>
   </div>
 

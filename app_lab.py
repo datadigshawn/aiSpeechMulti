@@ -496,6 +496,8 @@ def init_session_state():
         "recognition_results": [],
         # 即時監控
         "api_base":       API_BASE,
+        # 主題切換 (theme-switcher Phase 1)
+        "ui_theme":       "dark-cool",
         "auto_refresh":   True,
         "show_limit":     50,
         "filter_ch_sidebar": "全部",
@@ -3935,8 +3937,37 @@ PAGE_RENDERERS = {
 }
 
 
+_LAB_THEMES = ["dark-cool", "dark-warm"]
+_LAB_THEME_LABELS = {"dark-cool": "🌙 深冷", "dark-warm": "🔥 暖琥珀"}
+
+
+def _inject_theme(theme: str) -> None:
+    """把 data-theme 屬性塞到 <html> + 寫 localStorage（跨頁同步）。
+
+    Streamlit 用 iframe shadow DOM，需用 JS 從 window.parent.document 動到外層。
+    """
+    safe = theme if theme in _LAB_THEMES else "dark-cool"
+    st.markdown(
+        f"""
+        <script>
+          (function() {{
+            const t = "{safe}";
+            try {{
+              window.parent.document.documentElement.setAttribute("data-theme", t);
+              window.parent.localStorage.setItem("aispeech-theme", t);
+            }} catch (e) {{
+              document.documentElement.setAttribute("data-theme", t);
+              try {{ localStorage.setItem("aispeech-theme", t); }} catch (_) {{}}
+            }}
+          }})();
+        </script>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_lab_sidebar():
-    """研究工作台統一側邊欄：9 頁導航 + 方案 C 跨介面連結。"""
+    """研究工作台統一側邊欄：9 頁導航 + 跨介面連結 + Backend + 主題切換。"""
     with st.sidebar:
         st.markdown("### 🔬 研究工作台")
         st.caption("aiSpeechMulti Lab")
@@ -3953,6 +3984,23 @@ def render_lab_sidebar():
         if chosen_key != current:
             st.session_state["page"] = chosen_key
             st.rerun()
+
+        st.markdown("---")
+        st.markdown("#### 🎨 主題")
+        cur_theme = st.session_state.get("ui_theme", "dark-cool")
+        theme_choice = st.radio(
+            "主題切換",
+            options=_LAB_THEMES,
+            index=_LAB_THEMES.index(cur_theme) if cur_theme in _LAB_THEMES else 0,
+            format_func=lambda t: _LAB_THEME_LABELS.get(t, t),
+            label_visibility="collapsed",
+            key="lab_theme_radio",
+        )
+        if theme_choice != cur_theme:
+            st.session_state["ui_theme"] = theme_choice
+            st.rerun()
+        # 每次 rerun 都注入（確保 iframe 重建後仍套色）
+        _inject_theme(st.session_state.get("ui_theme", "dark-cool"))
 
         st.markdown("---")
         st.markdown("#### 🔗 其他介面")

@@ -1,9 +1,19 @@
 /* ============================================================
    aiSpeechMulti — Design Tokens
-   Control-room dark theme. v1.0
+   Control-room dark theme. v1.1 (theme-switcher)
+
+   兩套主題：
+   - 預設 / [data-theme="dark-cool"]：teal 冷色，工程感（v1 原版）
+   - [data-theme="dark-warm"]      ：amber 暖色，夜班低藍光
+
+   不變的 invariants（跨主題不換）：
+   - 危害等級 hazard-0~5（消防/控制系統紅黃綠語意）
+   - semantic success/warning/danger（使用者預期紅黃綠）
+   - typography / spacing / radii / motion
    ============================================================ */
 
-:root {
+:root,
+:root[data-theme="dark-cool"] {
   /* ---------- Neutrals (cool, near-black → mid gray) ---------- */
   --neutral-0:  #06080c;   /* page bg, deepest */
   --neutral-1:  #0b0d12;   /* app bg */
@@ -167,6 +177,53 @@
   --z-sticky:  100;
   --z-overlay: 1000;
   --z-toast:   2000;
+}
+
+/* ============================================================
+   THEME: dark-warm (amber, low-blue-light, 適合夜班)
+   只覆寫 neutrals + brand + 5-channel hue；hazard / semantic / typography 不換。
+   ============================================================ */
+:root[data-theme="dark-warm"] {
+  /* ---------- Neutrals (warm, near-black → mid gray) ---------- */
+  --neutral-0:  #0a0703;   /* 暖偏紅黑 */
+  --neutral-1:  #100a05;
+  --neutral-2:  #1a120a;
+  --neutral-3:  #20160d;
+  --neutral-4:  #261b11;
+  --neutral-5:  #2c2014;
+  --neutral-6:  #3a2c1d;   /* hairline */
+  --neutral-7:  #4a3a26;   /* border strong */
+  --neutral-8:  #5d4d38;
+  --neutral-9:  #806b50;
+  --neutral-10: #b39c7e;
+  --neutral-11: #d6c2a4;
+  --neutral-12: #efe5d2;
+  --neutral-13: #f8f3e8;
+
+  /* ---------- Brand (amber — low blue light, night-shift friendly) ---------- */
+  --brand-primary:        oklch(0.72 0.13 50);    /* amber #d59a4a 附近 */
+  --brand-primary-hover:  oklch(0.78 0.13 50);
+  --brand-primary-active: oklch(0.66 0.13 50);
+  --brand-primary-dim:    oklch(0.55 0.10 50);
+  --brand-primary-bg:     oklch(0.30 0.04 50 / 0.18);
+  --brand-secondary:      oklch(0.72 0.13 30);    /* warmer red-orange accent */
+
+  /* ---------- 5-channel palette (warm rotation, equal-lightness ~0.78) ---------- */
+  /* hue 從 cool teal-violet 整體左偏到 warm red-yellow-green-blue-violet */
+  --ch-1: oklch(0.78 0.13 30);    /* red-orange */
+  --ch-2: oklch(0.82 0.16 90);    /* yellow-green (黃色系) */
+  --ch-3: oklch(0.83 0.13 165);   /* green */
+  --ch-4: oklch(0.74 0.15 250);   /* blue */
+  --ch-5: oklch(0.74 0.15 320);   /* magenta */
+
+  --ch-1-bg: oklch(0.78 0.13 30  / 0.14);
+  --ch-2-bg: oklch(0.82 0.16 90  / 0.14);
+  --ch-3-bg: oklch(0.83 0.13 165 / 0.14);
+  --ch-4-bg: oklch(0.74 0.15 250 / 0.14);
+  --ch-5-bg: oklch(0.74 0.15 320 / 0.14);
+
+  /* hazard / semantic 維持紅黃綠語意（不變）*/
+  /* typography / spacing / radii / motion 也不變（從預設繼承）*/
 }
 
 /* Reduced-motion: disable hazard-5 pulse and most transitions */

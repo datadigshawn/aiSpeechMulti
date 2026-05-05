@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="zh-Hant" data-theme="dark-cool">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="/static/css/tokens.css">
 <link rel="stylesheet" href="/static/css/base.css">
 <link rel="stylesheet" href="/static/css/components.css">
+<script src="/static/js/theme-switcher.js"></script>
 <style>
   .landing { padding: var(--space-8) var(--space-7); max-width: 1280px; margin: 0 auto; }
   .landing__head {
@@ -147,7 +148,11 @@
       <div class="landing__meta">
         <span id="status-summary" class="text-muted">健康狀態載入中…</span>
         <span class="text-subtle">·</span>
-        <span>v3.0 · design-system-v1</span>
+        <span>v3.1 · theme-switcher</span>
+        <button data-theme-toggle class="btn btn--ghost btn--sm" aria-label="切換主題（dark-cool / dark-warm）" style="margin-left: var(--space-3);">
+          <span data-theme-icon>🌙</span>
+          <span data-theme-label>深冷</span>
+        </button>
       </div>
     </header>
 

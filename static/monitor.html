@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="zh-Hant" data-theme="dark-cool">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="/static/css/tokens.css">
 <link rel="stylesheet" href="/static/css/base.css">
 <link rel="stylesheet" href="/static/css/components.css">
+<script src="/static/js/theme-switcher.js"></script>
 <style>
   body { background: var(--neutral-1); }
   .page { padding: var(--space-5) var(--space-6); max-width: 1600px; margin: 0 auto; }
@@ -190,6 +191,10 @@
       <input type="text" id="apiBase" class="api-input" value="http://localhost:8000" aria-label="FastAPI Base URL">
       <span id="apiStatus" class="badge badge--success badge--dot" aria-live="polite">—</span>
       <button class="btn btn--ghost btn--sm" id="btn-clear" type="button">清除顯示</button>
+      <button data-theme-toggle class="btn btn--ghost btn--sm" aria-label="切換主題">
+        <span data-theme-icon>🌙</span>
+        <span data-theme-label>深冷</span>
+      </button>
     </div>
   </header>
 

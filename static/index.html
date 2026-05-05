@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-Hant" data-theme="dark-cool">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,6 +7,7 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
   <link rel="stylesheet" href="/static/css/tokens.css">
   <link rel="stylesheet" href="/static/css/base.css">
+  <script src="/static/js/theme-switcher.js"></script>
   <style>
     /* =========================================================
        基礎 Reset & 字型
@@ -402,7 +403,13 @@
 <div class="container">
 
   <!-- 標題 -->
-  <h1>🎙️ aiSpeechMulti <span class="version">v2.0</span></h1>
+  <h1 style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px;">
+    <span>🎙️ aiSpeechMulti <span class="version">v2.0</span></span>
+    <button data-theme-toggle aria-label="切換主題" style="background: var(--neutral-3); border: 1px solid var(--neutral-7); color: var(--neutral-12); padding: 4px 12px; font-size: 0.78rem; font-weight: 500; border-radius: 6px; cursor: pointer;">
+      <span data-theme-icon>🌙</span>
+      <span data-theme-label>深冷</span>
+    </button>
+  </h1>
 
   <!-- 設定卡片 -->
   <div class="card" role="region" aria-label="連線設定">
