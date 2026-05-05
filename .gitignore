@@ -105,3 +105,6 @@ experiments/ngram_lm/*.pkl
 
 # Phase 5 fine-tune 訓練 checkpoint + metrics（含 LoRA weights、可重訓）
 experiments/finetune_runs/
+
+# Claude Design 原始包（local 參考用，不入倉；source of truth 在 static/css/）
+RadioRecognition_UI/
