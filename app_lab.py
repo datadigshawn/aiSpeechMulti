@@ -145,47 +145,100 @@ st.set_page_config(
 # ============================================================================
 
 def _inject_design_system():
-    """注入 design tokens / base / components + Streamlit 覆寫 + Lab legacy 對映。
+    """注入 design tokens + Streamlit-tailored 覆寫 + Lab legacy 對映。
 
-    來源檔（單一真相）：
-      - static/css/tokens.css
-      - static/css/base.css
-      - static/css/components.css
-
-    Streamlit 因 shadow DOM 與內建 class 命名，需要額外 selector 覆寫
-    （見 [[streamlit-cheatsheet.html]]）。Legacy 區塊把舊 .ch-card / .tx-row /
-    .stat-num / .offline-banner 的硬碼 hex 改用 design tokens，避免動 HTML。
+    經 2026-05-05 驗收教訓：
+    - 不再注入 base.css（其 html/body selectors 與 Streamlit 自家 reset 衝突，
+      會導致頂部 header 變白、文字色被吃掉、字體 fallback 變細）
+    - 不再注入 components.css（Lab 不用大多數元件，反而干擾 Streamlit baseweb）
+    - 只注入 tokens.css 的 :root 變數，加上強化版的 Streamlit 容器覆寫
     """
-    css_dir = PROJECT_ROOT / "static" / "css"
-    parts = []
-    for name in ("tokens.css", "base.css", "components.css"):
-        p = css_dir / name
-        if p.exists():
-            parts.append(p.read_text(encoding="utf-8"))
+    tokens_path = PROJECT_ROOT / "static" / "css" / "tokens.css"
+    tokens_css = tokens_path.read_text(encoding="utf-8") if tokens_path.exists() else ""
 
     streamlit_overrides = """
-    /* ─── Streamlit 內建容器 ─── */
-    .stApp { background: var(--neutral-1); }
-    .block-container { padding-top: 2rem; max-width: 1280px; }
+    /* ─── 全域 ─── */
+    html, body, .stApp {
+        background: var(--neutral-1) !important;
+        color: var(--neutral-12) !important;
+        font-family: var(--font-sans);
+    }
+    .stApp * { font-family: var(--font-sans); }
+    .stApp [data-testid="stMarkdownContainer"] code,
+    .stApp [data-testid="stCode"] code,
+    .stApp pre,
+    .stApp .mono { font-family: var(--font-mono) !important; }
 
-    /* sidebar */
+    /* ─── 頂部 Header（Deploy 按鈕條） ─── */
+    [data-testid="stHeader"],
+    header[data-testid="stHeader"] {
+        background: var(--neutral-1) !important;
+        border-bottom: 1px solid var(--neutral-6);
+    }
+    [data-testid="stToolbar"] { background: transparent !important; }
+
+    /* ─── 主內容容器 ─── */
+    .block-container {
+        padding-top: 2rem;
+        max-width: 1280px;
+        background: var(--neutral-1);
+    }
+    section.main { background: var(--neutral-1) !important; }
+    section.main > div { background: var(--neutral-1); }
+
+    /* ─── 標題與正文 ─── */
+    h1, h2, h3, h4, h5, h6,
+    [data-testid="stMarkdownContainer"] h1,
+    [data-testid="stMarkdownContainer"] h2,
+    [data-testid="stMarkdownContainer"] h3 {
+        color: var(--neutral-13) !important;
+        font-weight: var(--fw-semibold);
+    }
+    [data-testid="stMarkdownContainer"] p,
+    [data-testid="stMarkdownContainer"] li {
+        color: var(--neutral-12) !important;
+    }
+    [data-testid="stCaptionContainer"],
+    .stCaption,
+    small { color: var(--neutral-10) !important; }
+
+    /* ─── Sidebar ─── */
     section[data-testid="stSidebar"] {
-        background: var(--neutral-2);
+        background: var(--neutral-2) !important;
         border-right: 1px solid var(--neutral-6);
     }
-    section[data-testid="stSidebar"] * { font-family: var(--font-sans); }
+    section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] *,
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] .stRadio label,
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3,
+    section[data-testid="stSidebar"] h4 {
+        color: var(--neutral-12) !important;
+    }
+    section[data-testid="stSidebar"] a {
+        color: var(--brand-primary) !important;
+    }
+    section[data-testid="stSidebar"] a:hover {
+        color: var(--brand-primary-hover) !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
+        color: var(--neutral-9) !important;
+    }
 
-    /* primary / secondary 按鈕 */
-    button[kind="primary"] {
+    /* ─── Buttons ─── */
+    button[kind="primary"], .stButton button[kind="primary"] {
         background: var(--brand-primary) !important;
         color: var(--neutral-0) !important;
         border: 1px solid var(--brand-primary) !important;
+        font-weight: var(--fw-semibold);
     }
     button[kind="primary"]:hover {
         background: var(--brand-primary-hover) !important;
         border-color: var(--brand-primary-hover) !important;
     }
-    button[kind="secondary"] {
+    button[kind="secondary"], .stButton button[kind="secondary"] {
         background: var(--neutral-3) !important;
         border: 1px solid var(--neutral-7) !important;
         color: var(--neutral-12) !important;
@@ -194,42 +247,135 @@ def _inject_design_system():
         background: var(--neutral-4) !important;
         border-color: var(--neutral-8) !important;
     }
+    /* 一般 button (無 kind) — 例如 sidebar 套用 / 各頁返回 */
+    .stButton button:not([kind]) {
+        background: var(--neutral-3) !important;
+        border: 1px solid var(--neutral-7) !important;
+        color: var(--neutral-12) !important;
+    }
+    .stButton button:not([kind]):hover {
+        background: var(--neutral-4) !important;
+        border-color: var(--neutral-8) !important;
+    }
+    /* download button */
+    .stDownloadButton button {
+        background: var(--neutral-3) !important;
+        border: 1px solid var(--neutral-7) !important;
+        color: var(--neutral-12) !important;
+    }
 
-    /* input / selectbox / textarea */
+    /* ─── Inputs / Selects / Textarea ─── */
     .stTextInput input,
     .stTextArea textarea,
     .stNumberInput input,
-    .stSelectbox div[role="combobox"] {
-        background: var(--neutral-1) !important;
+    .stDateInput input,
+    .stTimeInput input,
+    .stSelectbox div[role="combobox"],
+    .stSelectbox div[data-baseweb="select"] > div,
+    .stMultiSelect div[data-baseweb="select"] > div,
+    [data-baseweb="input"] {
+        background: var(--neutral-0) !important;
         border: 1px solid var(--neutral-6) !important;
         color: var(--neutral-12) !important;
-        font-family: var(--font-sans) !important;
+    }
+    .stTextInput input::placeholder,
+    .stTextArea textarea::placeholder {
+        color: var(--neutral-8) !important;
     }
     .stTextInput input:focus,
-    .stTextArea textarea:focus {
+    .stTextArea textarea:focus,
+    .stSelectbox div[role="combobox"]:focus-within {
         border-color: var(--brand-primary) !important;
     }
+    /* baseweb popover (select dropdown) */
+    [data-baseweb="popover"] [role="listbox"],
+    [data-baseweb="menu"] {
+        background: var(--neutral-3) !important;
+        border: 1px solid var(--neutral-7) !important;
+    }
+    [data-baseweb="menu"] li { color: var(--neutral-12) !important; }
+    [data-baseweb="menu"] li:hover { background: var(--neutral-4) !important; }
 
-    /* metric — Lab 仍用 st.metric 為主 (cheatsheet 標 ⚠️ Hack 但 OK) */
+    /* ─── File uploader（修白色卡片問題） ─── */
+    [data-testid="stFileUploader"] section,
+    [data-testid="stFileUploaderDropzone"],
+    [data-testid="stFileUploader"] [data-testid="stFileUploaderDropzoneInstructions"] {
+        background: var(--neutral-2) !important;
+        border: 1px dashed var(--neutral-7) !important;
+        color: var(--neutral-11) !important;
+    }
+    [data-testid="stFileUploader"] small,
+    [data-testid="stFileUploader"] [data-testid="stMarkdownContainer"] {
+        color: var(--neutral-10) !important;
+    }
+    [data-testid="stFileUploader"] button {
+        background: var(--neutral-4) !important;
+        color: var(--neutral-12) !important;
+        border: 1px solid var(--neutral-7) !important;
+    }
+
+    /* ─── Tabs ─── */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: var(--space-2);
+        border-bottom: 1px solid var(--neutral-6);
+        background: transparent;
+    }
+    .stTabs [data-baseweb="tab"] { color: var(--neutral-10) !important; }
+    .stTabs [aria-selected="true"] { color: var(--brand-primary) !important; }
+
+    /* ─── Radio / Checkbox / Toggle ─── */
+    .stRadio label, .stCheckbox label {
+        color: var(--neutral-12) !important;
+    }
+
+    /* ─── Metric (st.metric)  ─── */
     [data-testid="stMetricValue"] {
-        font-family: var(--font-mono);
-        color: var(--neutral-13);
+        font-family: var(--font-mono) !important;
+        color: var(--neutral-13) !important;
     }
     [data-testid="stMetricLabel"] {
-        color: var(--neutral-9);
+        color: var(--neutral-9) !important;
         text-transform: uppercase;
         letter-spacing: var(--ls-wider);
         font-size: var(--fs-caption);
     }
+    [data-testid="stMetricDelta"] svg { fill: currentColor !important; }
 
-    /* tab / radio / divider */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: var(--space-2);
-        border-bottom: 1px solid var(--neutral-6);
+    /* ─── Dataframe / Table ─── */
+    [data-testid="stDataFrame"] {
+        background: var(--neutral-2) !important;
+        border: 1px solid var(--neutral-6) !important;
     }
-    hr { border-color: var(--neutral-6) !important; }
+    [data-testid="stDataFrame"] thead th {
+        background: var(--neutral-3) !important;
+        color: var(--neutral-11) !important;
+    }
 
-    /* ─── Lab legacy classes 對映到 design tokens ─── */
+    /* ─── Alerts (st.info / st.warning / st.error / st.success) ─── */
+    [data-testid="stAlert"] {
+        background: var(--neutral-2) !important;
+        border-left: 3px solid var(--neutral-7);
+    }
+    /* st.error → danger 邊條 */
+    [data-testid="stAlert"][kind="error"] { border-left-color: var(--danger); }
+    [data-testid="stAlert"][kind="warning"] { border-left-color: var(--warning); }
+    [data-testid="stAlert"][kind="success"] { border-left-color: var(--success); }
+    [data-testid="stAlert"][kind="info"] { border-left-color: var(--brand-primary); }
+
+    /* ─── Divider / hr ─── */
+    hr, [data-testid="stDivider"] hr {
+        border-color: var(--neutral-6) !important;
+        margin: var(--space-4) 0;
+    }
+
+    /* ─── Code blocks ─── */
+    pre, code, kbd {
+        background: var(--neutral-2) !important;
+        color: var(--neutral-12) !important;
+    }
+    code { padding: 1px 5px; border-radius: var(--radius-1); }
+
+    /* ─── Lab legacy classes ─── */
     .ch-card {
         background: var(--neutral-2);
         border: 1px solid var(--neutral-6);
@@ -247,13 +393,12 @@ def _inject_design_system():
     }
     .ch-dot.on  { background: var(--success); box-shadow: 0 0 6px var(--success); }
     .ch-dot.off { background: var(--neutral-7); }
-    .ch-id  { font-size: 1rem; font-weight: var(--fw-bold); }
+    .ch-id  { font-size: 1rem; font-weight: var(--fw-bold); color: var(--neutral-12); }
     .ch-cnt { font-size: var(--fs-caption); color: var(--neutral-9); margin-top: 4px; }
     .ch-text {
         font-size: var(--fs-small); color: var(--neutral-10); margin-top: 6px;
         overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
     }
-
     .tx-row {
         display: flex; gap: 10px; align-items: flex-start;
         padding: 7px 10px;
@@ -261,9 +406,7 @@ def _inject_design_system():
         margin-bottom: 4px;
         background: var(--neutral-2);
         border-left: 3px solid var(--neutral-6);
-        animation: fadeIn .2s ease;
     }
-    @keyframes fadeIn { from { opacity:0; transform:translateY(3px);} to { opacity:1;} }
     .tx-time { font-size: var(--fs-caption); color: var(--neutral-8); white-space: nowrap; padding-top: 2px; min-width: 58px; }
     .tx-ch {
         font-size: var(--fs-caption); border-radius: var(--radius-2); padding: 1px 7px;
@@ -271,7 +414,6 @@ def _inject_design_system():
         font-weight: var(--fw-semibold);
     }
     .tx-text { flex: 1; font-size: var(--fs-body); color: var(--neutral-12); line-height: var(--lh-normal); }
-
     .offline-banner {
         background: var(--danger-bg);
         border: 1px solid var(--danger);
@@ -281,13 +423,11 @@ def _inject_design_system():
         font-size: var(--fs-body);
         margin-bottom: 12px;
     }
-
     .stat-num { font-size: var(--fs-stat-md); font-weight: var(--fw-bold); color: var(--brand-primary); }
     .stat-lbl { font-size: var(--fs-caption); color: var(--neutral-9); letter-spacing: var(--ls-wider); text-transform: uppercase; }
     """
 
-    full_css = "\n".join(parts) + streamlit_overrides
-    st.markdown(f"<style>{full_css}</style>", unsafe_allow_html=True)
+    st.markdown(f"<style>{tokens_css}{streamlit_overrides}</style>", unsafe_allow_html=True)
 
 
 _inject_design_system()
