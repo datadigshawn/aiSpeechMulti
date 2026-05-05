@@ -11,7 +11,7 @@
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 2,
+  "version": 3,
   "refresh": "30s",
   "time": {
     "from": "now-24h",
@@ -71,14 +71,14 @@
         "defaults": {
           "color": {
             "mode": "fixed",
-            "fixedColor": "blue"
+            "fixedColor": "#3fbdc7"
           },
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#3fbdc7",
                 "value": null
               }
             ]
@@ -124,7 +124,7 @@
         "defaults": {
           "color": {
             "mode": "fixed",
-            "fixedColor": "green"
+            "fixedColor": "#5cc784"
           },
           "unit": "short"
         },
@@ -167,7 +167,7 @@
         "defaults": {
           "color": {
             "mode": "fixed",
-            "fixedColor": "purple"
+            "fixedColor": "#b58fe5"
           },
           "unit": "short"
         },
@@ -210,7 +210,7 @@
         "defaults": {
           "color": {
             "mode": "fixed",
-            "fixedColor": "orange"
+            "fixedColor": "#e2b85a"
           },
           "unit": "short"
         },
@@ -256,19 +256,19 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#5cc784",
                 "value": null
               },
               {
-                "color": "yellow",
+                "color": "#e2c46d",
                 "value": 2
               },
               {
-                "color": "orange",
+                "color": "#e2b85a",
                 "value": 3
               },
               {
-                "color": "red",
+                "color": "#df6a6a",
                 "value": 5
               }
             ]
@@ -575,7 +575,98 @@
           },
           "unit": "short"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ch1"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#65c8d4"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ch2"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#bce26d"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ch3"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#e2c46d"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ch4"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#e58fc1"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ch5"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#b58fe5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ch6"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3fbdc7"
+                }
+              }
+            ]
+          }
+        ]
       }
     },
     {
@@ -710,7 +801,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "red"
+                  "fixedColor": "#df6a6a"
                 }
               }
             ]
@@ -725,7 +816,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "orange"
+                  "fixedColor": "#e2b85a"
                 }
               }
             ]
@@ -799,7 +890,7 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "#5cc784",
                       "value": null
                     },
                     {
@@ -807,15 +898,15 @@
                       "value": 2
                     },
                     {
-                      "color": "orange",
+                      "color": "#e2b85a",
                       "value": 3
                     },
                     {
-                      "color": "dark-orange",
+                      "color": "#d99850",
                       "value": 4
                     },
                     {
-                      "color": "red",
+                      "color": "#df6a6a",
                       "value": 5
                     }
                   ]
