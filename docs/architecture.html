@@ -503,9 +503,13 @@ flowchart TB
   </div>
 
   <script>
+    // Mermaid v10 + display:none 已知問題：隱藏的 tab 在 startOnLoad 時
+    // 因 getBoundingClientRect=0 layout 算錯。對策：自己控制渲染時機，
+    // 切 tab 時把原始 source 重新塞回 .mermaid 後 re-run。
     mermaid.initialize({
-      startOnLoad: true,
+      startOnLoad: false,
       theme: "dark",
+      securityLevel: "loose",
       themeVariables: {
         background: "#0e1117",
         primaryColor: "#1a1d27",
@@ -522,15 +526,45 @@ flowchart TB
       },
     });
 
+    // 在 mermaid 處理之前先快取每個 pane 的原始 source（textContent）
+    const SOURCES = {};
+    document.querySelectorAll(".tab-pane").forEach(pane => {
+      const m = pane.querySelector(".mermaid");
+      if (m) SOURCES[pane.id] = m.textContent;
+    });
+
+    async function renderPane(paneId) {
+      const pane = document.getElementById(paneId);
+      if (!pane) return;
+      const el = pane.querySelector(".mermaid");
+      if (!el) return;
+
+      // 還原原始 source；移除 v10 用的 data-processed 標記，避免被略過
+      el.removeAttribute("data-processed");
+      el.innerHTML = SOURCES[paneId];
+
+      try {
+        await mermaid.run({ nodes: [el] });
+      } catch (err) {
+        console.error("Mermaid render failed for", paneId, err);
+        el.innerHTML = `<pre style="color:#e07070;text-align:left;white-space:pre-wrap;">渲染失敗：${err.message || err}\n\n請檢查瀏覽器 console。</pre>`;
+      }
+    }
+
+    // 起始渲染目前 active pane
+    const initialActive = document.querySelector(".tab-pane.active");
+    if (initialActive) renderPane(initialActive.id);
+
     // Tabs
     document.querySelectorAll(".tab-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
         document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
         btn.classList.add("active");
-        document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
-        // re-render mermaid in newly visible pane (Mermaid only renders visible at startup)
-        mermaid.run({ querySelector: "#tab-" + btn.dataset.tab + " .mermaid" }).catch(() => {});
+        const paneId = "tab-" + btn.dataset.tab;
+        document.getElementById(paneId).classList.add("active");
+        // 等下一個 frame，讓 display:block 生效並產生有效的 layout 寬度
+        requestAnimationFrame(() => renderPane(paneId));
       });
     });
   </script>
