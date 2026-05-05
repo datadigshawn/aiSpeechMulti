@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>aiSpeechMulti — 管道音訊擷取</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <link rel="stylesheet" href="/static/css/base.css">
   <style>
     /* =========================================================
        基礎 Reset & 字型
@@ -12,9 +14,9 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: "Helvetica Neue", Arial, "PingFang TC", "Microsoft JhengHei", sans-serif;
-      background: #0f1117;
-      color: #e0e0e0;
+      font-family: var(--font-sans);
+      background: var(--neutral-1);
+      color: var(--neutral-12);
       min-height: 100vh;
       padding: 20px;
     }
@@ -27,18 +29,18 @@
     h1 {
       font-size: 1.4rem;
       font-weight: 600;
-      color: #7eb8f7;
+      color: var(--brand-primary);
       margin-bottom: 18px;
       display: flex;
       align-items: center;
       gap: 8px;
     }
-    h1 span.version { font-size: 0.75rem; color: #666; font-weight: 400; }
+    h1 span.version { font-size: 0.75rem; color: var(--neutral-9); font-weight: 400; }
 
     /* ── 卡片 ── */
     .card {
-      background: #1a1d27;
-      border: 1px solid #2a2d3e;
+      background: var(--neutral-2);
+      border: 1px solid var(--neutral-6);
       border-radius: 10px;
       padding: 18px 20px;
       margin-bottom: 16px;
@@ -47,7 +49,7 @@
       font-size: 0.8rem;
       text-transform: uppercase;
       letter-spacing: .08em;
-      color: #556;
+      color: var(--neutral-8);
       margin-bottom: 12px;
     }
 
@@ -58,18 +60,18 @@
       gap: 10px;
       align-items: center;
     }
-    .config-row label { font-size: 0.85rem; color: #aaa; white-space: nowrap; }
+    .config-row label { font-size: 0.85rem; color: var(--neutral-10); white-space: nowrap; }
 
     select, input[type="text"] {
-      background: #0f1117;
-      border: 1px solid #333;
+      background: var(--neutral-1);
+      border: 1px solid var(--neutral-7);
       border-radius: 6px;
-      color: #e0e0e0;
+      color: var(--neutral-12);
       padding: 6px 10px;
       font-size: 0.88rem;
       outline: none;
     }
-    select:focus, input[type="text"]:focus { border-color: #7eb8f7; }
+    select:focus, input[type="text"]:focus { border-color: var(--brand-primary); }
     select { cursor: pointer; }
 
     #serverUrl { width: 230px; }
@@ -88,15 +90,15 @@
     button:disabled { opacity: .35; cursor: not-allowed; }
 
     #btnToggle {
-      background: #2ea043;
+      background: var(--success);
       color: #fff;
       min-width: 110px;
     }
-    #btnToggle.active { background: #c9414a; }
+    #btnToggle.active { background: var(--danger); }
 
     #btnClear {
-      background: #2a2d3e;
-      color: #aaa;
+      background: var(--neutral-6);
+      color: var(--neutral-10);
       font-size: 0.8rem;
       padding: 5px 12px;
     }
@@ -118,11 +120,11 @@
       margin-right: 5px;
       vertical-align: middle;
     }
-    .dot.green  { background: #2ea043; box-shadow: 0 0 6px #2ea043; }
+    .dot.green  { background: var(--success); box-shadow: 0 0 6px var(--success); }
     .dot.yellow { background: #e3a03c; box-shadow: 0 0 6px #e3a03c; }
-    .dot.red    { background: #c9414a; box-shadow: 0 0 6px #c9414a; }
+    .dot.red    { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
 
-    .stat { color: #888; }
+    .stat { color: var(--neutral-9); }
     .stat span { color: #c8d0df; font-weight: 600; }
 
     /* ── 音量計 ── */
@@ -131,7 +133,7 @@
       align-items: center;
       gap: 10px;
     }
-    .meter-label { font-size: 0.8rem; color: #666; white-space: nowrap; width: 52px; }
+    .meter-label { font-size: 0.8rem; color: var(--neutral-9); white-space: nowrap; width: 52px; }
     .meter-bar-bg {
       flex: 1;
       height: 10px;
@@ -143,10 +145,10 @@
       height: 100%;
       width: 0%;
       border-radius: 5px;
-      background: linear-gradient(90deg, #2ea043 60%, #e3a03c 85%, #c9414a 100%);
+      background: linear-gradient(90deg, var(--success) 60%, #e3a03c 85%, var(--danger) 100%);
       transition: width .08s linear;
     }
-    .meter-db { font-size: 0.8rem; color: #7eb8f7; width: 52px; text-align: right; }
+    .meter-db { font-size: 0.8rem; color: var(--brand-primary); width: 52px; text-align: right; }
 
     /* ── 緩衝進度 ── */
     .buf-wrap {
@@ -154,7 +156,7 @@
       align-items: center;
       gap: 10px;
     }
-    .buf-label { font-size: 0.8rem; color: #666; white-space: nowrap; width: 100px; }
+    .buf-label { font-size: 0.8rem; color: var(--neutral-9); white-space: nowrap; width: 100px; }
     .buf-bar-bg {
       flex: 1;
       height: 8px;
@@ -166,10 +168,10 @@
       height: 100%;
       width: 0%;
       border-radius: 4px;
-      background: #7eb8f7;
+      background: var(--brand-primary);
       transition: width .1s linear;
     }
-    .buf-pct { font-size: 0.8rem; color: #7eb8f7; width: 36px; text-align: right; }
+    .buf-pct { font-size: 0.8rem; color: var(--brand-primary); width: 36px; text-align: right; }
 
     /* ── 辨識結果 ── */
     .transcript-header {
@@ -188,7 +190,7 @@
     }
     #transcriptArea::-webkit-scrollbar { width: 6px; }
     #transcriptArea::-webkit-scrollbar-track { background: transparent; }
-    #transcriptArea::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+    #transcriptArea::-webkit-scrollbar-thumb { background: var(--neutral-7); border-radius: 3px; }
 
     .entry {
       padding: 6px 8px;
@@ -207,7 +209,7 @@
                         border-left: 2px solid #3a3a5a;
                         opacity: 0.65; font-style: italic; }
     .entry.error      { background: #2a1820; }
-    .entry.system     { background: transparent; color: #556; font-size: 0.82rem; }
+    .entry.system     { background: transparent; color: var(--neutral-8); font-size: 0.82rem; }
 
     /* 訊息類型標籤 */
     .type-badge {
@@ -220,14 +222,14 @@
       margin-top: 3px;
       letter-spacing: .02em;
     }
-    .type-badge.scribe-rt  { background: #2a1a3a; color: #c085f5; }
-    .type-badge.google     { background: #1a2d4a; color: #7eb8f7; }
-    .type-badge.partial    { background: #2a2a3a; color: #778; }
+    .type-badge.scribe-rt  { background: var(--brand-primary-bg); color: #c085f5; }
+    .type-badge.google     { background: #1a2d4a; color: var(--brand-primary); }
+    .type-badge.partial    { background: #2a2a3a; color: var(--neutral-9); }
     .type-badge.confirmed  { background: #1a3a2a; color: #6fcf97; }
 
     .entry-time {
       font-size: 0.75rem;
-      color: #556;
+      color: var(--neutral-8);
       white-space: nowrap;
       padding-top: 2px;
       min-width: 56px;
@@ -235,7 +237,7 @@
     .entry-ch {
       font-size: 0.75rem;
       background: #2a3a5a;
-      color: #7eb8f7;
+      color: var(--brand-primary);
       border-radius: 4px;
       padding: 1px 6px;
       white-space: nowrap;
@@ -247,7 +249,7 @@
 
     .conf-badge {
       font-size: 0.7rem;
-      color: #556;
+      color: var(--neutral-8);
       white-space: nowrap;
       padding-top: 3px;
     }
@@ -266,8 +268,8 @@
       max-width: 480px;
     }
     #btnScan {
-      background: #2a2d3e;
-      color: #7eb8f7;
+      background: var(--neutral-6);
+      color: var(--brand-primary);
       border: 1px solid #3a4060;
       font-size: 0.85rem;
       padding: 6px 14px;
@@ -284,8 +286,8 @@
       border-radius: 6px;
       border-left: 3px solid #2a3a5a;
     }
-    .device-hint.ok  { border-left-color: #2ea043; color: #6fa87a; }
-    .device-hint.err { border-left-color: #c9414a; color: #e07070; }
+    .device-hint.ok  { border-left-color: var(--success); color: #6fa87a; }
+    .device-hint.err { border-left-color: var(--danger); color: #e07070; }
 
     /* ── 空白提示 ── */
     #emptyHint {
@@ -304,14 +306,14 @@
     }
     .preproc-item {
       background: #13151f;
-      border: 1px solid #2a2d3e;
+      border: 1px solid var(--neutral-6);
       border-radius: 8px;
       padding: 12px 14px;
       display: flex;
       flex-direction: column;
       gap: 6px;
     }
-    .preproc-item.active { border-color: #2ea043; }
+    .preproc-item.active { border-color: var(--success); }
     .preproc-header {
       display: flex;
       align-items: center;
@@ -324,7 +326,7 @@
     }
     .preproc-desc {
       font-size: 0.75rem;
-      color: #556;
+      color: var(--neutral-8);
       line-height: 1.5;
     }
     .preproc-status {
@@ -335,8 +337,8 @@
       letter-spacing: .02em;
     }
     .preproc-status.on  { background: #1a3a1a; color: #6fcf97; }
-    .preproc-status.off { background: #2a2d3e; color: #556; }
-    .preproc-status.unavail { background: #2a1a1a; color: #c9414a; }
+    .preproc-status.off { background: var(--neutral-6); color: var(--neutral-8); }
+    .preproc-status.unavail { background: #2a1a1a; color: var(--danger); }
 
     /* Toggle switch */
     .toggle-switch {
@@ -351,7 +353,7 @@
       position: absolute;
       cursor: pointer;
       inset: 0;
-      background: #2a2d3e;
+      background: var(--neutral-6);
       border-radius: 22px;
       transition: .2s;
     }
@@ -360,11 +362,11 @@
       position: absolute;
       width: 16px; height: 16px;
       left: 3px; top: 3px;
-      background: #778;
+      background: var(--neutral-9);
       border-radius: 50%;
       transition: .2s;
     }
-    input:checked + .toggle-slider { background: #2ea043; }
+    input:checked + .toggle-slider { background: var(--success); }
     input:checked + .toggle-slider:before { transform: translateX(20px); background: #fff; }
     input:disabled + .toggle-slider { opacity: 0.4; cursor: not-allowed; }
 
@@ -375,15 +377,15 @@
       gap: 10px;
       margin-top: 4px;
     }
-    .threshold-row label { font-size: 0.78rem; color: #778; white-space: nowrap; }
+    .threshold-row label { font-size: 0.78rem; color: var(--neutral-9); white-space: nowrap; }
     #vadThreshold {
       flex: 1;
-      accent-color: #2ea043;
+      accent-color: var(--success);
       cursor: pointer;
     }
     #vadThresholdVal {
       font-size: 0.78rem;
-      color: #7eb8f7;
+      color: var(--brand-primary);
       width: 30px;
       text-align: right;
       font-weight: 600;

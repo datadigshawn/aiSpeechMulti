@@ -4,30 +4,36 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>即時語音辨識投放</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.ico">
+<!-- design-system-v1: 引入 design tokens（變數覆寫舊的 --bg / --text 等別名）-->
+<link rel="stylesheet" href="/static/css/tokens.css">
+<link rel="stylesheet" href="/static/css/base.css">
 <style>
   /* ── 全局 ── */
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+  /* 把舊有 CSS 變數別名指向新 design tokens（保留所有現有 class 不需改）*/
   :root {
-    --bg:        #0d0d0d;
-    --bg2:       #161616;
-    --border:    #2a2a2a;
-    --text:      #e8e8e8;
-    --text-dim:  #666;
-    --accent:    #4a9eff;
-    --partial:   #556;
-    --l5: #ff2222;
-    --l4: #ff6600;
-    --l3: #ffaa00;
-    --l2: #aadd00;
-    --l1: #44cc88;
-    --l0: #aaaaaa;
+    --bg:        var(--neutral-0);    /* 控制中心牆面投放：用最深背景 */
+    --bg2:       var(--neutral-2);
+    --border:    var(--neutral-6);
+    --text:      var(--neutral-13);   /* 5m 可讀，最高對比 */
+    --text-dim:  var(--neutral-9);
+    --accent:    var(--brand-primary);
+    --partial:   var(--neutral-8);
+    /* 危害色用 hazard tokens；保留原 hex 名供既有 class 引用 */
+    --l5: var(--hazard-5);
+    --l4: var(--hazard-4);
+    --l3: var(--hazard-3);
+    --l2: var(--hazard-2);
+    --l1: var(--hazard-1);
+    --l0: var(--hazard-0);
   }
 
   body {
     background: var(--bg);
     color: var(--text);
-    font-family: 'Noto Sans TC', 'Microsoft JhengHei', 'PingFang TC', sans-serif;
+    font-family: var(--font-sans);
     height: 100vh;
     overflow: hidden;
     display: flex;
