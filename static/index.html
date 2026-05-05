@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -405,11 +405,11 @@
   <h1>🎙️ aiSpeechMulti <span class="version">v2.0</span></h1>
 
   <!-- 設定卡片 -->
-  <div class="card">
+  <div class="card" role="region" aria-label="連線設定">
     <div class="card-title">連線設定</div>
     <div class="config-row">
-      <label>席位代號</label>
-      <select id="channelSelect">
+      <label for="channelSelect">席位代號</label>
+      <select id="channelSelect" aria-label="席位代號（管道）">
         <option value="ch1">CC 控制長（ch1）</option>
         <option value="ch2">MTC 正線控制工程師（ch2）</option>
         <option value="ch3">DTC 機廠控制工程師（ch3）</option>
@@ -418,8 +418,8 @@
         <option value="ch6">IA 行控資訊員（ch6）</option>
       </select>
 
-      <label>串流模式</label>
-      <select id="modeSelect" onchange="onModeChange()">
+      <label for="modeSelect">串流模式</label>
+      <select id="modeSelect" onchange="onModeChange()" aria-label="串流模式選擇">
         <option value="dual">⚡ dual — Scribe RT 即時 + Google 批次確認（推薦）</option>
         <option value="scribe_rt">🟣 scribe_rt — 純 Scribe Realtime（最低延遲）</option>
         <option value="google_stream">🔵 google_stream — Google streaming_recognize()</option>
@@ -427,30 +427,30 @@
         <option value="batch">🕐 batch — 15 秒批次（原有模式）</option>
       </select>
 
-      <label id="engineLabel">批次引擎</label>
-      <select id="engineSelect" title="batch 模式才有效；dual/scribe_rt/google_stream/sensevoice_local 固定引擎">
+      <label id="engineLabel" for="engineSelect">批次引擎</label>
+      <select id="engineSelect" title="batch 模式才有效；dual/scribe_rt/google_stream/sensevoice_local 固定引擎" aria-label="批次辨識引擎">
         <option value="google">🔵 Google STT (chirp_3)</option>
         <option value="scribe">🟣 ElevenLabs Scribe v1</option>
         <option value="sensevoice">🟢 SenseVoice（本地端）</option>
       </select>
 
-      <label>伺服器</label>
-      <input id="serverUrl" type="text" value="ws://localhost:8000" placeholder="ws://host:port" />
+      <label for="serverUrl">伺服器</label>
+      <input id="serverUrl" type="text" value="ws://localhost:8000" placeholder="ws://host:port" aria-label="WebSocket 伺服器位址" />
 
-      <button id="btnToggle" onclick="toggleCapture()">▶ 開始監聽</button>
+      <button id="btnToggle" onclick="toggleCapture()" aria-label="切換音訊擷取狀態">▶ 開始監聽</button>
     </div>
   </div>
 
   <!-- 音訊裝置卡片 -->
-  <div class="card">
+  <div class="card" role="region" aria-label="音訊輸入裝置設定">
     <div class="card-title">音訊輸入裝置</div>
 
     <div class="device-row">
-      <label>裝置</label>
-      <select id="deviceSelect">
+      <label for="deviceSelect">裝置</label>
+      <select id="deviceSelect" aria-label="麥克風裝置選擇">
         <option value="">— 請先點擊「掃描裝置」—</option>
       </select>
-      <button id="btnScan" onclick="scanDevices()">🔍 掃描裝置</button>
+      <button id="btnScan" onclick="scanDevices()" aria-label="掃描可用音訊裝置">🔍 掃描裝置</button>
     </div>
 
     <div id="deviceHint" class="device-hint">
@@ -543,7 +543,7 @@
   <div class="card">
     <div class="transcript-header">
       <div class="card-title" style="margin:0;">辨識結果</div>
-      <button id="btnClear" onclick="clearTranscripts()">清除</button>
+      <button id="btnClear" onclick="clearTranscripts()" aria-label="清除目前顯示的辨識結果">清除</button>
     </div>
 
     <div id="transcriptArea">

@@ -159,12 +159,28 @@
     display: none;
   }
   .api-down-banner.is-visible { display: block; }
+
+  /* Skip-to-content（給螢幕閱讀器使用者）*/
+  .skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    background: var(--brand-primary);
+    color: var(--neutral-0);
+    padding: 8px 16px;
+    z-index: 9999;
+    border-radius: 0 0 var(--radius-2) 0;
+    text-decoration: none;
+    font-weight: var(--fw-semibold);
+  }
+  .skip-link:focus { left: 0; outline: none; }
 </style>
 </head>
 <body>
+<a href="#main-content" class="skip-link">跳至 5 路即時辨識</a>
 <div class="page">
 
-  <header class="page__head">
+  <header class="page__head" role="banner">
     <div>
       <span class="crumb">主控台 / 監控</span>
       <h1 style="margin-top: var(--space-1)">監控 Monitor</h1>
@@ -181,7 +197,7 @@
     無法連線到 FastAPI <code>:8000</code>。請確認服務已啟動：<code>python app_api.py</code>
   </div>
 
-  <div class="lanes" role="region" aria-label="5 路即時辨識通道">
+  <main id="main-content" class="lanes" role="region" aria-label="6 路即時辨識通道">
 
     <div class="header-row">
       <div>Channel</div>
@@ -192,9 +208,9 @@
     <!-- Lanes 由 JS 動態建立 -->
     <div id="lanes-container" style="display: contents"></div>
 
-  </div>
+  </main>
 
-  <div class="stats-row">
+  <div class="stats-row" role="region" aria-label="即時統計">
     <div class="card stat">
       <span class="stat__label">活躍通道</span>
       <span class="stat__value" id="sActive">—</span>

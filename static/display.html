@@ -217,10 +217,10 @@
 <body>
 
 <!-- 頂部工具列 -->
-<div id="toolbar">
+<div id="toolbar" role="region" aria-label="顯示工具列">
   <div class="tb-group">
-    <label>管道</label>
-    <select id="chSel">
+    <label for="chSel">管道</label>
+    <select id="chSel" aria-label="管道過濾">
       <option value="">全部</option>
       <option value="ch1">ch1</option>
       <option value="ch2">ch2</option>
@@ -233,16 +233,16 @@
   <div class="tb-sep"></div>
 
   <div class="tb-group">
-    <label>字體大小</label>
-    <input type="range" id="fontSize" min="18" max="72" value="32" step="2">
-    <span id="fontSizeVal">32px</span>
+    <label for="fontSize">字體大小</label>
+    <input type="range" id="fontSize" min="18" max="72" value="32" step="2" aria-label="字體大小（18 至 72 px）">
+    <span id="fontSizeVal" aria-live="polite">32px</span>
   </div>
 
   <div class="tb-sep"></div>
 
   <div class="tb-group">
-    <label>顯示筆數</label>
-    <select id="maxRows">
+    <label for="maxRows">顯示筆數</label>
+    <select id="maxRows" aria-label="同時顯示的最大筆數">
       <option value="3">3 筆</option>
       <option value="5" selected>5 筆</option>
       <option value="10">10 筆</option>
@@ -254,7 +254,7 @@
 
   <div class="tb-group">
     <label>
-      <input type="checkbox" id="chkPartial" checked> 顯示即時字幕
+      <input type="checkbox" id="chkPartial" checked aria-label="切換即時字幕（partial）顯示"> 顯示即時字幕
     </label>
   </div>
 
@@ -262,33 +262,35 @@
 
   <div class="tb-group">
     <label>
-      <input type="checkbox" id="chkAlert" checked> 高危告警橫幅（L≥3）
+      <input type="checkbox" id="chkAlert" checked aria-label="切換高危告警橫幅顯示"> 高危告警橫幅（L≥3）
     </label>
   </div>
 
   <div class="tb-sep"></div>
 
   <div class="tb-group">
-    <label>API</label>
+    <label for="apiBase">API</label>
     <input type="text" id="apiBase" value="http://localhost:8000"
+           aria-label="FastAPI Base URL"
            style="width:180px; background:#222; border:1px solid #333;
                   color:#ccc; padding:3px 8px; border-radius:4px; font-size:12px;">
-    <button onclick="reloadKeywords()" style="background:#2a4a2a; border:1px solid #3a6a3a;
+    <button onclick="reloadKeywords()" aria-label="重新載入關鍵字清單"
+            style="background:#2a4a2a; border:1px solid #3a6a3a;
       color:#8f8; padding:3px 10px; border-radius:4px; cursor:pointer; font-size:12px;">
       🔄 重載關鍵字
     </button>
   </div>
 
-  <button id="btnHideBar" onclick="hideToolbar()">隱藏工具列 ▲</button>
+  <button id="btnHideBar" onclick="hideToolbar()" aria-label="隱藏工具列">隱藏工具列 ▲</button>
 </div>
 
-<button id="btnShowBar" onclick="showToolbar()">⚙ 工具列</button>
+<button id="btnShowBar" onclick="showToolbar()" aria-label="顯示工具列">⚙ 工具列</button>
 
 <!-- 告警橫幅 -->
-<div id="alertBanner"></div>
+<div id="alertBanner" role="alert" aria-live="assertive"></div>
 
 <!-- 主顯示區 -->
-<div id="displayArea">
+<div id="displayArea" role="main" aria-live="polite" aria-label="即時辨識文字投放">
   <div id="emptyHint">尚無辨識結果<br><span style="font-size:0.7em; color:#444">等待語音輸入…</span></div>
 </div>
 
