@@ -1,204 +1,334 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
+<!doctype html>
+<html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>aiSpeechMulti — 入口</title>
-  <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body {
-      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Noto Sans TC", sans-serif;
-      background: #11141d;
-      color: #d0d8ef;
-      min-height: 100vh;
-    }
-    .wrap {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 60px 24px 40px;
-    }
-    .head {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      border-bottom: 1px solid #2a2d3e;
-      padding-bottom: 16px;
-      margin-bottom: 24px;
-    }
-    .head h1 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: #e6eaf5;
-      letter-spacing: 0.5px;
-    }
-    .head .sub {
-      font-size: 0.78rem;
-      color: #667;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 10px;
-    }
-    .row {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      padding: 16px 18px;
-      background: #1a1d27;
-      border: 1px solid #2a2d3e;
-      border-radius: 10px;
-      text-decoration: none;
-      color: inherit;
-      transition: border-color .15s, transform .15s;
-    }
-    .row:hover {
-      border-color: #3a7bd5;
-      transform: translateX(2px);
-    }
-    .icon {
-      font-size: 1.4rem;
-      width: 32px;
-      text-align: center;
-    }
-    .meta { flex: 1; }
-    .title-line {
-      font-size: 1rem;
-      font-weight: 600;
-      color: #e6eaf5;
-    }
-    .desc-line {
-      font-size: 0.78rem;
-      color: #889;
-      margin-top: 2px;
-    }
-    .target {
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 0.75rem;
-      color: #667;
-    }
-    .badge {
-      font-size: 0.7rem;
-      padding: 3px 8px;
-      border-radius: 999px;
-      white-space: nowrap;
-    }
-    .badge.up   { background: rgba(46,160,67,0.18); color: #4dd479; }
-    .badge.down { background: rgba(201,65,74,0.18); color: #e07070; }
-    .badge.unknown { background: rgba(102,102,119,0.18); color: #889; }
-    .footer {
-      margin-top: 28px;
-      font-size: 0.75rem;
-      color: #556;
-      text-align: center;
-    }
-    .footer code {
-      background: #1a1d27;
-      padding: 2px 6px;
-      border-radius: 4px;
-      color: #89b;
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>aiSpeechMulti — 主控台</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.ico">
+<link rel="stylesheet" href="/static/css/tokens.css">
+<link rel="stylesheet" href="/static/css/base.css">
+<link rel="stylesheet" href="/static/css/components.css">
+<style>
+  .landing { padding: var(--space-8) var(--space-7); max-width: 1280px; margin: 0 auto; }
+  .landing__head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: var(--space-7);
+    gap: var(--space-5);
+    flex-wrap: wrap;
+  }
+  .landing__title { font-size: var(--fs-h1); letter-spacing: var(--ls-tight); }
+  .landing__sub { color: var(--neutral-9); margin-top: var(--space-2); font-size: var(--fs-body-lg); }
+  .landing__meta {
+    display: flex;
+    gap: var(--space-5);
+    align-items: center;
+    font-size: var(--fs-small);
+    color: var(--neutral-9);
+    font-family: var(--font-mono);
+  }
+
+  .health-bar {
+    display: flex;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: var(--neutral-2);
+    border: var(--border-thin);
+    border-radius: var(--radius-3);
+    margin-bottom: var(--space-7);
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .health-bar__group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding-right: var(--space-4);
+    border-right: var(--border-thin);
+  }
+  .health-bar__group:last-child { border-right: none; }
+  .health-bar__label {
+    font-size: var(--fs-caption);
+    letter-spacing: var(--ls-wider);
+    text-transform: uppercase;
+    color: var(--neutral-8);
+  }
+
+  .grid-entries {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--space-4);
+  }
+  .entry {
+    display: flex;
+    flex-direction: column;
+    min-height: 200px;
+    padding: 0;
+    overflow: hidden;
+  }
+  .entry__inner {
+    padding: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: var(--space-3);
+  }
+  .entry__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+  .entry__icon {
+    width: 32px; height: 32px;
+    color: var(--brand-primary);
+    display: grid; place-items: center;
+    border: 1px solid var(--neutral-7);
+    border-radius: var(--radius-2);
+    background: var(--neutral-3);
+  }
+  .entry__icon svg { width: 18px; height: 18px; }
+  .entry__name {
+    font-size: var(--fs-h3);
+    color: var(--neutral-13);
+    font-weight: var(--fw-semibold);
+    margin-top: var(--space-1);
+  }
+  .entry__path {
+    font-family: var(--font-mono);
+    font-size: var(--fs-small);
+    color: var(--neutral-9);
+    margin-top: 2px;
+  }
+  .entry__desc {
+    color: var(--neutral-10);
+    line-height: var(--lh-normal);
+    margin-top: var(--space-2);
+  }
+  .entry__foot {
+    margin-top: auto;
+    padding-top: var(--space-4);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: var(--border-thin);
+  }
+</style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="head">
-      <h1>🎙️ aiSpeechMulti</h1>
-      <div class="sub" id="sub-status">健康狀態載入中…</div>
+  <div class="landing">
+
+    <header class="landing__head">
+      <div>
+        <h1 class="landing__title">aiSpeechMulti</h1>
+        <p class="landing__sub">捷運無線電通訊 · 多引擎語音辨識平台</p>
+      </div>
+      <div class="landing__meta">
+        <span id="status-summary" class="text-muted">健康狀態載入中…</span>
+        <span class="text-subtle">·</span>
+        <span>v3.0 · design-system-v1</span>
+      </div>
+    </header>
+
+    <div class="health-bar" role="status" aria-live="polite" aria-label="服務健康狀態">
+      <div class="health-bar__group">
+        <span class="health-bar__label">FastAPI</span>
+        <span id="b-fastapi" class="badge badge--success badge--dot" aria-label="FastAPI 服務狀態">—</span>
+        <span class="mono text-muted" style="font-size: var(--fs-caption)">:8000</span>
+      </div>
+      <div class="health-bar__group">
+        <span class="health-bar__label">Streamlit Lab</span>
+        <span id="b-lab" class="badge badge--dot" aria-label="Streamlit Lab 狀態">—</span>
+        <span class="mono text-muted" style="font-size: var(--fs-caption)">:8501</span>
+      </div>
+      <div class="health-bar__group">
+        <span class="health-bar__label">Grafana</span>
+        <span id="b-grafana" class="badge badge--dot" aria-label="Grafana 狀態">—</span>
+        <span class="mono text-muted" style="font-size: var(--fs-caption)">:3000</span>
+      </div>
+      <div class="health-bar__group">
+        <span class="health-bar__label">Last poll</span>
+        <span id="last-update" class="mono" style="font-size: var(--fs-caption); color: var(--neutral-11)">—</span>
+        <span class="text-subtle" style="font-size: var(--fs-caption)">interval 10s</span>
+      </div>
     </div>
 
-    <div class="grid">
-      <a class="row" href="/capture">
-        <div class="icon">🎙️</div>
-        <div class="meta">
-          <div class="title-line">即時擷取</div>
-          <div class="desc-line">5 路麥克風 → WebSocket 推 PCM 上 FastAPI</div>
+    <div class="grid-entries">
+
+      <a class="card card--interactive entry" href="/capture">
+        <div class="ch-stripe ch-stripe--1"></div>
+        <div class="entry__inner">
+          <div class="entry__head">
+            <div class="entry__icon" id="ic-mic" aria-hidden="true"></div>
+            <span id="b-fastapi-2" class="badge badge--dot" aria-label="服務狀態">—</span>
+          </div>
+          <div>
+            <div class="entry__name">擷取 Capture</div>
+            <div class="entry__path">/capture</div>
+          </div>
+          <p class="entry__desc">5 路麥克風開關、即時音量條與連線狀態。場域操作員的第一站。</p>
+          <div class="entry__foot">
+            <span class="text-muted" style="font-size: var(--fs-small)">場域端機</span>
+            <span class="text-dim" id="arrow-1" aria-hidden="true"></span>
+          </div>
         </div>
-        <div class="target">/capture</div>
-        <div class="badge up" id="b-fastapi">●</div>
       </a>
 
-      <a class="row" href="/monitor">
-        <div class="icon">📡</div>
-        <div class="meta">
-          <div class="title-line">五路即時監控</div>
-          <div class="desc-line">操作員密集監控（partial / committed 即時推送）</div>
+      <a class="card card--interactive entry" href="/monitor">
+        <div class="ch-stripe ch-stripe--2"></div>
+        <div class="entry__inner">
+          <div class="entry__head">
+            <div class="entry__icon" id="ic-mon" aria-hidden="true"></div>
+            <span id="b-fastapi-3" class="badge badge--dot" aria-label="服務狀態">—</span>
+          </div>
+          <div>
+            <div class="entry__name">監控 Monitor</div>
+            <div class="entry__path">/monitor</div>
+          </div>
+          <p class="entry__desc">5 路同時辨識、partial / committed 即時推送、危害關鍵字標紅。</p>
+          <div class="entry__foot">
+            <span class="text-muted" style="font-size: var(--fs-small)">操作員主畫面</span>
+            <span class="text-dim" id="arrow-2" aria-hidden="true"></span>
+          </div>
         </div>
-        <div class="target">/monitor</div>
-        <div class="badge up" id="b-fastapi-2">●</div>
       </a>
 
-      <a class="row" href="/display">
-        <div class="icon">📺</div>
-        <div class="meta">
-          <div class="title-line">大螢幕投放</div>
-          <div class="desc-line">控制室牆面顯示（純文字、低干擾）</div>
+      <a class="card card--interactive entry" href="/display">
+        <div class="ch-stripe ch-stripe--3"></div>
+        <div class="entry__inner">
+          <div class="entry__head">
+            <div class="entry__icon" id="ic-disp" aria-hidden="true"></div>
+            <span id="b-fastapi-4" class="badge badge--dot" aria-label="服務狀態">—</span>
+          </div>
+          <div>
+            <div class="entry__name">大螢幕投放 Display</div>
+            <div class="entry__path">/display</div>
+          </div>
+          <p class="entry__desc">控制中心牆面投放，純文字、5 米可讀、低干擾。</p>
+          <div class="entry__foot">
+            <span class="text-muted" style="font-size: var(--fs-small)">控制室大螢幕</span>
+            <span class="text-dim" id="arrow-3" aria-hidden="true"></span>
+          </div>
         </div>
-        <div class="target">/display</div>
-        <div class="badge up" id="b-fastapi-3">●</div>
       </a>
 
-      <a class="row" href="http://localhost:8501" target="_blank" rel="noopener">
-        <div class="icon">🔬</div>
-        <div class="meta">
-          <div class="title-line">研究工作台 Lab</div>
-          <div class="desc-line">批次辨識、評測、詞彙、CER 飛輪、修正歷程</div>
+      <a class="card card--interactive entry" href="http://localhost:8501" target="_blank" rel="noopener">
+        <div class="ch-stripe ch-stripe--4"></div>
+        <div class="entry__inner">
+          <div class="entry__head">
+            <div class="entry__icon" id="ic-lab" aria-hidden="true"></div>
+            <span id="b-lab-2" class="badge badge--dot" aria-label="Lab 狀態">—</span>
+          </div>
+          <div>
+            <div class="entry__name">研究工作台 Lab</div>
+            <div class="entry__path">:8501</div>
+          </div>
+          <p class="entry__desc">9 頁工作流：批次辨識、評測、詞彙、CER 飛輪、修正歷程、事件管理。</p>
+          <div class="entry__foot">
+            <span class="text-muted" style="font-size: var(--fs-small)">9 modules</span>
+            <span class="text-dim" id="arrow-4" aria-hidden="true"></span>
+          </div>
         </div>
-        <div class="target">:8501</div>
-        <div class="badge unknown" id="b-lab">●</div>
       </a>
 
-      <a class="row" href="http://localhost:3000" target="_blank" rel="noopener">
-        <div class="icon">📊</div>
-        <div class="meta">
-          <div class="title-line">運維看板 Grafana</div>
-          <div class="desc-line">系統指標 + CER 趨勢（規劃 P2 整入）+ 告警</div>
+      <a class="card card--interactive entry" href="http://localhost:3000" target="_blank" rel="noopener">
+        <div class="ch-stripe ch-stripe--5"></div>
+        <div class="entry__inner">
+          <div class="entry__head">
+            <div class="entry__icon" id="ic-graf" aria-hidden="true"></div>
+            <span id="b-grafana-2" class="badge badge--dot" aria-label="Grafana 狀態">—</span>
+          </div>
+          <div>
+            <div class="entry__name">運維儀表 Grafana</div>
+            <div class="entry__path">:3000</div>
+          </div>
+          <p class="entry__desc">25 panels · 系統指標、CER 趨勢、引擎延遲、告警。SRE 巡檢入口。</p>
+          <div class="entry__foot">
+            <span class="text-muted" style="font-size: var(--fs-small)">admin / aiSpeech2026</span>
+            <span class="text-dim" id="arrow-5" aria-hidden="true"></span>
+          </div>
         </div>
-        <div class="target">:3000</div>
-        <div class="badge unknown" id="b-grafana">●</div>
       </a>
+
     </div>
 
-    <div class="footer">
-      啟動：<code>python app_api.py</code> · <code>streamlit run app_lab.py</code> · <code>docker compose -f grafana/docker-compose.yml up -d</code>
-      <br>
-      最後更新：<span id="last-update">—</span>
+    <div style="margin-top: var(--space-8); display: flex; justify-content: space-between; color: var(--neutral-9); font-size: var(--fs-small); font-family: var(--font-mono);">
+      <span>aiSpeechMulti · TPE Metro Radio Recognition</span>
+      <span>啟動: <code style="color: var(--neutral-11)">python app_api.py</code> · <code style="color: var(--neutral-11)">streamlit run app_lab.py</code> · <code style="color: var(--neutral-11)">docker compose -f grafana/docker-compose.yml up -d</code></span>
     </div>
   </div>
 
+  <script src="/static/js/icons.js"></script>
   <script>
-    const setBadge = (el, ok) => {
-      el.classList.remove("up", "down", "unknown");
-      if (ok === true)  { el.classList.add("up");      el.title = "服務 up"; }
-      else if (ok === false) { el.classList.add("down"); el.title = "服務 down 或無法連線"; }
-      else                    { el.classList.add("unknown"); el.title = "狀態未知"; }
+    // SVG icons inject
+    const ICONS = {
+      "ic-mic":  Icon.mic,
+      "ic-mon":  Icon.monitor,
+      "ic-disp": Icon.display,
+      "ic-lab":  Icon.lab,
+      "ic-graf": Icon.chart,
     };
+    Object.entries(ICONS).forEach(([id, svg]) => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = svg;
+    });
+    for (let i = 1; i <= 5; i++) {
+      const el = document.getElementById("arrow-" + i);
+      if (el) el.innerHTML = Icon.arrow;
+    }
+
+    // Health badge logic
+    const setBadge = (el, ok) => {
+      if (!el) return;
+      el.classList.remove("badge--success", "badge--danger", "badge--info");
+      if (ok === true) {
+        el.classList.add("badge--success");
+        el.textContent = "Up";
+        el.title = "服務運作正常";
+      } else if (ok === false) {
+        el.classList.add("badge--danger");
+        el.textContent = "Down";
+        el.title = "服務無法連線";
+      } else {
+        el.textContent = "—";
+        el.title = "狀態未知";
+      }
+    };
+
+    const FASTAPI_BADGES = ["b-fastapi", "b-fastapi-2", "b-fastapi-3", "b-fastapi-4"];
+    const LAB_BADGES     = ["b-lab", "b-lab-2"];
+    const GRAFANA_BADGES = ["b-grafana", "b-grafana-2"];
 
     async function refresh() {
       try {
         const r = await fetch("/api/landing/status", { cache: "no-store" });
         const d = await r.json();
-        setBadge(document.getElementById("b-fastapi"),   d.fastapi);
-        setBadge(document.getElementById("b-fastapi-2"), d.fastapi);
-        setBadge(document.getElementById("b-fastapi-3"), d.fastapi);
-        setBadge(document.getElementById("b-lab"),       d.lab);
-        setBadge(document.getElementById("b-grafana"),   d.grafana);
-        document.getElementById("sub-status").textContent =
-          d.fastapi && d.lab && d.grafana ? "全部服務 up"
-          : (d.fastapi ? "FastAPI up；其他服務需個別啟動" : "FastAPI down");
-        document.getElementById("last-update").textContent =
-          new Date(d.timestamp).toLocaleString();
+        FASTAPI_BADGES.forEach(id => setBadge(document.getElementById(id), d.fastapi));
+        LAB_BADGES.forEach(id     => setBadge(document.getElementById(id), d.lab));
+        GRAFANA_BADGES.forEach(id => setBadge(document.getElementById(id), d.grafana));
+
+        const summary = document.getElementById("status-summary");
+        summary.textContent =
+          (d.fastapi && d.lab && d.grafana) ? "三服務全 up"
+          : d.fastapi                       ? "FastAPI up · 其他服務需個別啟動"
+                                            : "FastAPI down";
+
+        const lp = document.getElementById("last-update");
+        if (d.timestamp) {
+          const t = new Date(d.timestamp);
+          lp.textContent = t.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        }
       } catch (e) {
-        ["b-fastapi","b-fastapi-2","b-fastapi-3","b-lab","b-grafana"].forEach(id => {
+        [...FASTAPI_BADGES, ...LAB_BADGES, ...GRAFANA_BADGES].forEach(id => {
           setBadge(document.getElementById(id), null);
         });
-        document.getElementById("sub-status").textContent = "連不上 FastAPI";
+        document.getElementById("status-summary").textContent = "連不上 FastAPI";
       }
     }
 
     refresh();
-    setInterval(refresh, 10_000);  // 10s 輪詢
+    setInterval(refresh, 10_000);
   </script>
 </body>
 </html>

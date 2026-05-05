@@ -1,478 +1,447 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
+<!doctype html>
+<html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>aiSpeechMulti — 五路監控</title>
-  <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>aiSpeechMulti — 監控 Monitor</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.ico">
+<link rel="stylesheet" href="/static/css/tokens.css">
+<link rel="stylesheet" href="/static/css/base.css">
+<link rel="stylesheet" href="/static/css/components.css">
+<style>
+  body { background: var(--neutral-1); }
+  .page { padding: var(--space-5) var(--space-6); max-width: 1600px; margin: 0 auto; }
 
-    body {
-      font-family: "Helvetica Neue", Arial, "PingFang TC", "Microsoft JhengHei", sans-serif;
-      background: #0b0d14;
-      color: #d8dde8;
-      min-height: 100vh;
-      padding: 18px 20px;
-    }
+  .page__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-4);
+    gap: var(--space-5);
+    flex-wrap: wrap;
+  }
+  .page__head h1 { font-size: var(--fs-h2); }
+  .crumb {
+    color: var(--neutral-9);
+    font-family: var(--font-mono);
+    font-size: var(--fs-small);
+  }
 
-    /* ── 標題列 ── */
-    .topbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 18px;
-    }
-    h1 { font-size: 1.25rem; font-weight: 600; color: #7eb8f7; }
-    h1 span { font-size: 0.72rem; color: #556; font-weight: 400; margin-left: 8px; }
+  .controls {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .api-input {
+    height: 28px;
+    padding: 0 var(--space-3);
+    background: var(--neutral-1);
+    border: 1px solid var(--neutral-6);
+    color: var(--neutral-12);
+    font-family: var(--font-mono);
+    font-size: var(--fs-small);
+    border-radius: var(--radius-2);
+    width: 220px;
+  }
+  .api-input:focus {
+    outline: none;
+    border-color: var(--brand-primary);
+    box-shadow: var(--shadow-focus);
+  }
 
-    .server-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 0.82rem;
-    }
-    .server-row input {
-      background: #12151f;
-      border: 1px solid #2a2d3e;
-      border-radius: 5px;
-      color: #c8d0df;
-      padding: 4px 10px;
-      font-size: 0.82rem;
-      width: 200px;
-      outline: none;
-    }
-    .badge-live {
-      background: #2ea043;
-      color: #fff;
-      font-size: 0.7rem;
-      font-weight: 700;
-      padding: 2px 7px;
-      border-radius: 20px;
-      animation: pulse 1.8s infinite;
-    }
-    @keyframes pulse { 0%,100%{ opacity:1 } 50%{ opacity:.5 } }
-    .badge-offline {
-      background: #444;
-      color: #888;
-      font-size: 0.7rem;
-      font-weight: 700;
-      padding: 2px 7px;
-      border-radius: 20px;
-    }
+  /* ---------- Lanes (6 channels) ---------- */
+  .lanes {
+    display: grid;
+    grid-template-columns: 220px 1fr 110px;
+    gap: 0;
+    border: var(--border-thin);
+    border-radius: var(--radius-3);
+    overflow: hidden;
+    background: var(--neutral-2);
+  }
+  .lane { display: contents; }
+  .lane__head {
+    padding: var(--space-3) var(--space-4);
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    border-bottom: var(--border-thin);
+    border-right: var(--border-thin);
+    background: var(--neutral-2);
+    position: sticky;
+    left: 0;
+  }
+  .lane__num {
+    font-family: var(--font-mono);
+    font-size: var(--fs-h3);
+    font-weight: var(--fw-semibold);
+  }
+  .lane__name { font-weight: var(--fw-medium); }
+  .lane__meta {
+    font-size: var(--fs-caption);
+    color: var(--neutral-9);
+    font-family: var(--font-mono);
+  }
+  .lane__feed {
+    border-bottom: var(--border-thin);
+    padding: var(--space-2) 0;
+    min-height: 110px;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+  .lane__feed--empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--neutral-8);
+    font-size: var(--fs-small);
+  }
+  .lane__stats {
+    padding: var(--space-3) var(--space-4);
+    border-bottom: var(--border-thin);
+    border-left: var(--border-thin);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    align-items: flex-end;
+    font-family: var(--font-mono);
+    font-size: var(--fs-small);
+  }
+  .lane[data-last="true"] .lane__head,
+  .lane[data-last="true"] .lane__feed,
+  .lane[data-last="true"] .lane__stats { border-bottom: none; }
 
-    /* ── 六路狀態卡片 ── */
-    .channels-grid {
-      display: grid;
-      grid-template-columns: repeat(6, 1fr);
-      gap: 10px;
-      margin-bottom: 16px;
-    }
-    @media (max-width: 700px) {
-      .channels-grid { grid-template-columns: repeat(3, 1fr); }
-    }
+  .header-row { display: contents; }
+  .header-row > div {
+    padding: var(--space-2) var(--space-4);
+    border-bottom: var(--border-thin);
+    background: var(--neutral-3);
+    font-size: var(--fs-caption);
+    letter-spacing: var(--ls-wider);
+    text-transform: uppercase;
+    color: var(--neutral-9);
+  }
 
-    .ch-card {
-      background: #13161f;
-      border: 1px solid #1e2130;
-      border-radius: 10px;
-      padding: 14px 12px;
-      text-align: center;
-      transition: border-color .3s, background .3s;
-    }
-    .ch-card.active {
-      border-color: #2ea043;
-      background: #121c16;
-    }
-    .ch-card.active .ch-dot { background: #2ea043; box-shadow: 0 0 8px #2ea043; }
+  .ch-color-1 { color: var(--ch-1); }
+  .ch-color-2 { color: var(--ch-2); }
+  .ch-color-3 { color: var(--ch-3); }
+  .ch-color-4 { color: var(--ch-4); }
+  .ch-color-5 { color: var(--ch-5); }
+  .ch-color-6 { color: var(--brand-primary); }
 
-    .ch-dot {
-      width: 12px; height: 12px;
-      border-radius: 50%;
-      background: #2a2d3e;
-      margin: 0 auto 8px;
-      transition: background .3s, box-shadow .3s;
-    }
-    .ch-name  { font-size: 0.95rem; font-weight: 700; color: #c8d0df; margin-bottom: 4px; }
-    .ch-count { font-size: 0.75rem; color: #556; }
-    .ch-time  { font-size: 0.7rem;  color: #445; margin-top: 3px; }
-    .ch-last  {
-      font-size: 0.75rem;
-      color: #7a9fc2;
-      margin-top: 6px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 100%;
-    }
-    .ch-engine {
-      display: inline-block;
-      font-size: 0.65rem;
-      font-weight: 600;
-      padding: 1px 6px;
-      border-radius: 10px;
-      margin-top: 5px;
-      letter-spacing: .03em;
-    }
-    .ch-engine.google        { background: #1a2d4a; color: #7eb8f7; }
-    .ch-engine.scribe        { background: #2a1a3a; color: #c085f5; }
-    .ch-engine.dual          { background: #1a2a1a; color: #6fcf97; }
-    .ch-engine.scribe_rt     { background: #2a1a3a; color: #c085f5; }
-    .ch-engine.google_stream { background: #1a2d4a; color: #7eb8f7; }
-    .ch-engine.batch         { background: #2a2a1a; color: #e2c04a; }
+  .transcript {
+    display: grid;
+    grid-template-columns: 64px 1fr 48px;
+    gap: var(--space-3);
+    padding: 4px var(--space-4);
+    font-size: var(--fs-body);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  }
+  .transcript:last-child { border-bottom: none; }
+  .transcript--hazard { background: var(--danger-bg); }
 
-    /* 辨識結果中的來源標籤 */
-    .r-src {
-      font-size: 0.62rem;
-      font-weight: 600;
-      padding: 1px 5px;
-      border-radius: 8px;
-      white-space: nowrap;
-      align-self: flex-start;
-      margin-top: 3px;
-    }
-    .r-src.google { background: #1a2d4a; color: #7eb8f7; }
-    .r-src.scribe_rt, .r-src.scribe { background: #2a1a3a; color: #c085f5; }
-    .r-src.google_stream { background: #1a2d4a; color: #7eb8f7; }
-    .r-src.dual  { background: #1a3a2a; color: #6fcf97; }
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-4);
+    margin-top: var(--space-5);
+  }
 
-    /* ── 統計列 ── */
-    .stats-row {
-      display: flex;
-      gap: 20px;
-      flex-wrap: wrap;
-      font-size: 0.82rem;
-      color: #556;
-      margin-bottom: 14px;
-    }
-    .stats-row span { color: #a0b4cc; font-weight: 600; }
-
-    /* ── 辨識結果串流 ── */
-    .feed-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-    }
-    .feed-title { font-size: 0.78rem; text-transform: uppercase; letter-spacing:.08em; color: #445; }
-    .btn-clear {
-      background: #1e2130;
-      border: none;
-      color: #667;
-      font-size: 0.78rem;
-      border-radius: 5px;
-      padding: 3px 10px;
-      cursor: pointer;
-    }
-    .btn-clear:hover { color: #aaa; }
-
-    #feed {
-      height: calc(100vh - 320px);
-      min-height: 260px;
-      overflow-y: auto;
-      background: #0f1219;
-      border: 1px solid #1a1d2a;
-      border-radius: 8px;
-      padding: 10px;
-    }
-    #feed::-webkit-scrollbar { width: 5px; }
-    #feed::-webkit-scrollbar-thumb { background: #2a2d3e; border-radius: 3px; }
-
-    .row {
-      display: flex;
-      gap: 8px;
-      align-items: flex-start;
-      padding: 5px 4px;
-      border-radius: 5px;
-      margin-bottom: 2px;
-      animation: fadeIn .2s ease;
-    }
-    @keyframes fadeIn { from { opacity:0; transform:translateY(-3px) } to { opacity:1 } }
-
-    .row:hover { background: #13161f; }
-
-    .r-time { font-size: 0.72rem; color: #445; white-space: nowrap; padding-top: 2px; min-width: 58px; }
-    .r-ch {
-      font-size: 0.72rem;
-      padding: 1px 7px;
-      border-radius: 20px;
-      font-weight: 700;
-      white-space: nowrap;
-      min-width: 40px;
-      text-align: center;
-    }
-    /* 每個管道用不同顏色 */
-    .r-ch.ch1 { background:#1a2d4a; color:#7eb8f7; }
-    .r-ch.ch2 { background:#1a2d1a; color:#6fcf97; }
-    .r-ch.ch3 { background:#2d2a1a; color:#e2c04a; }
-    .r-ch.ch4 { background:#2d1a1a; color:#e07070; }
-    .r-ch.ch5 { background:#2a1a2d; color:#c085f5; }
-    .r-ch.ch6 { background:#1a2d2d; color:#4fd1c5; }
-
-    .r-text { flex: 1; font-size: 0.88rem; color: #c8d0df; line-height: 1.5; }
-    .r-conf { font-size: 0.7rem; color: #445; white-space: nowrap; padding-top: 3px; }
-
-    #emptyFeed {
-      text-align: center;
-      color: #2a2d3e;
-      font-size: 0.9rem;
-      margin-top: 60px;
-      line-height: 2.2;
-    }
-
-    /* ── 底部提示 ── */
-    .footer {
-      margin-top: 10px;
-      font-size: 0.75rem;
-      color: #334;
-      text-align: center;
-    }
-    .footer a { color: #445; text-decoration: none; }
-    .footer a:hover { color: #7eb8f7; }
-  </style>
+  .api-down-banner {
+    background: var(--danger-bg);
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-3);
+    margin-bottom: var(--space-4);
+    font-size: var(--fs-small);
+    display: none;
+  }
+  .api-down-banner.is-visible { display: block; }
+</style>
 </head>
 <body>
+<div class="page">
 
-<!-- 標題列 -->
-<div class="topbar">
-  <h1>📡 aiSpeechMulti <span>六路監控</span></h1>
-  <div class="server-row">
-    <span>伺服器</span>
-    <input id="apiBase" value="http://localhost:8000" />
-    <span id="apiStatus" class="badge-offline">OFFLINE</span>
+  <header class="page__head">
+    <div>
+      <span class="crumb">主控台 / 監控</span>
+      <h1 style="margin-top: var(--space-1)">監控 Monitor</h1>
+    </div>
+    <div class="controls">
+      <span class="upper-label">API</span>
+      <input type="text" id="apiBase" class="api-input" value="http://localhost:8000" aria-label="FastAPI Base URL">
+      <span id="apiStatus" class="badge badge--success badge--dot" aria-live="polite">—</span>
+      <button class="btn btn--ghost btn--sm" id="btn-clear" type="button">清除顯示</button>
+    </div>
+  </header>
+
+  <div id="apiDownBanner" class="api-down-banner" role="alert">
+    無法連線到 FastAPI <code>:8000</code>。請確認服務已啟動：<code>python app_api.py</code>
   </div>
-</div>
 
-<!-- 六路管道狀態卡片 -->
-<div class="channels-grid" id="channelsGrid">
-  <!-- 由 JS 動態產生 ch1–ch6 -->
-</div>
+  <div class="lanes" role="region" aria-label="5 路即時辨識通道">
 
-<!-- 統計列 -->
-<div class="stats-row">
-  已連線管道 <span id="sActive">0</span> / 6 路 ｜
-  總辨識筆數 <span id="sTx">—</span> 筆 ｜
-  更新週期 <span>2 秒</span>
-</div>
+    <div class="header-row">
+      <div>Channel</div>
+      <div>即時辨識 · 危害關鍵字反白 · 信心度 right</div>
+      <div style="text-align: right">CER · Rate</div>
+    </div>
 
-<!-- 辨識結果串流 -->
-<div class="feed-header">
-  <div class="feed-title">即時辨識串流</div>
-  <button class="btn-clear" onclick="clearFeed()">清除顯示</button>
-</div>
+    <!-- Lanes 由 JS 動態建立 -->
+    <div id="lanes-container" style="display: contents"></div>
 
-<div id="feed">
-  <div id="emptyFeed">
-    等待辨識結果…<br>
-    請在其他分頁開啟 <a href="/" target="_blank">音訊擷取頁面</a><br>
-    選擇管道並開始監聽
   </div>
-</div>
 
-<!-- 底部提示 -->
-<div class="footer">
-  <a href="/" target="_blank">音訊擷取</a> ·
-  <a href="/docs" target="_blank">API 文件</a> ·
-  <a href="/api/health" target="_blank">健康檢查</a>
+  <div class="stats-row">
+    <div class="card stat">
+      <span class="stat__label">活躍通道</span>
+      <span class="stat__value" id="sActive">—</span>
+      <span class="stat__delta">/ 6 路總數</span>
+    </div>
+    <div class="card stat">
+      <span class="stat__label">本次顯示筆數</span>
+      <span class="stat__value" id="sTx">0</span>
+      <span class="stat__delta">最多保留 200 行</span>
+    </div>
+    <div class="card stat">
+      <span class="stat__label">輪詢間隔</span>
+      <span class="stat__value">2<span class="stat__unit">s</span></span>
+      <span class="stat__delta">/api/channels + /api/transcripts</span>
+    </div>
+    <div class="card stat">
+      <span class="stat__label">最新辨識時間</span>
+      <span class="stat__value" id="sLatest" style="font-size: var(--fs-stat-md)">—</span>
+      <span class="stat__delta" id="sLatestDelta">—</span>
+    </div>
+  </div>
+
+  <div style="margin-top: var(--space-6); display: flex; justify-content: space-between; color: var(--neutral-9); font-size: var(--fs-small); font-family: var(--font-mono);">
+    <span>aiSpeechMulti / monitor</span>
+    <span>
+      <a href="/" style="color: var(--neutral-10)">← Landing</a> ·
+      <a href="/capture" style="color: var(--neutral-10)">擷取</a> ·
+      <a href="/display" style="color: var(--neutral-10)">大螢幕</a> ·
+      <a href="/api/health" style="color: var(--neutral-10)">健康檢查</a>
+    </span>
+  </div>
+
 </div>
 
 <script>
-// =============================================================================
+// ============================================================================
 // 設定
-// =============================================================================
-const CHANNEL_IDS     = ['ch1', 'ch2', 'ch3', 'ch4', 'ch5', 'ch6'];
-const SEAT_LABELS     = { ch1:'CC', ch2:'MTC', ch3:'DTC', ch4:'PC', ch5:'EC', ch6:'IA' };
-const POLL_INTERVAL   = 2000;   // ms — 每 2 秒輪詢一次
-const FEED_MAX_ROWS   = 200;    // 最多保留幾行（避免 DOM 無限增長）
+// ============================================================================
+const CHANNEL_IDS   = ['ch1', 'ch2', 'ch3', 'ch4', 'ch5', 'ch6'];
+const SEAT_LABELS   = { ch1: 'CC', ch2: 'MTC', ch3: 'DTC', ch4: 'PC', ch5: 'EC', ch6: 'IA' };
+const SEAT_FULL     = {
+  ch1: '行控中心 (CC)',
+  ch2: '主控台 (MTC)',
+  ch3: '備援台 (DTC)',
+  ch4: '司機員 (PC)',
+  ch5: '緊急 (EC)',
+  ch6: '事件 (IA)',
+};
+const POLL_INTERVAL = 2000;
+const FEED_MAX_ROWS = 30;       // 每 lane 保留筆數
+const TOTAL_MAX     = 200;      // 全頁累計上限
 
-// =============================================================================
+// ============================================================================
 // 狀態
-// =============================================================================
-let lastTxId     = 0;     // 已顯示的最後一筆 transcript id，避免重複顯示
-let totalShown   = 0;
+// ============================================================================
+let lastTxId   = 0;
+let totalShown = 0;
 
-// =============================================================================
-// 初始化管道卡片
-// =============================================================================
-function initChannelCards() {
-  const grid = document.getElementById('channelsGrid');
-  CHANNEL_IDS.forEach(id => {
-    const card = document.createElement('div');
-    card.className = 'ch-card';
-    card.id = 'card-' + id;
-    card.innerHTML = `
-      <div class="ch-dot" id="dot-${id}"></div>
-      <div class="ch-name">${SEAT_LABELS[id] || id.toUpperCase()}</div>
-      <div class="ch-count" id="cnt-${id}">0 筆</div>
-      <div class="ch-time"  id="tim-${id}">—</div>
-      <div class="ch-last"  id="lst-${id}">等待中…</div>
-      <div id="eng-${id}"></div>
+// ============================================================================
+// 初始化 lanes
+// ============================================================================
+function initLanes() {
+  const container = document.getElementById('lanes-container');
+  CHANNEL_IDS.forEach((id, i) => {
+    const idx = i + 1;
+    const colorClass = idx <= 5 ? `ch-color-${idx}` : 'ch-color-6';
+    const badgeClass = idx <= 5 ? `badge--ch${idx}` : '';
+    const isLast = i === CHANNEL_IDS.length - 1;
+
+    const lane = document.createElement('div');
+    lane.className = 'lane';
+    if (isLast) lane.setAttribute('data-last', 'true');
+    lane.innerHTML = `
+      <div class="lane__head">
+        <span class="lane__num ${colorClass}">${String(idx).padStart(2, '0')}</span>
+        <div>
+          <div class="lane__name">${SEAT_FULL[id]}</div>
+          <div class="lane__meta" id="meta-${id}">等待連線…</div>
+        </div>
+        <span class="badge ${badgeClass} badge--dot" id="status-${id}" style="margin-left: auto">Standby</span>
+      </div>
+      <div class="lane__feed lane__feed--empty" id="feed-${id}" role="log" aria-label="${SEAT_FULL[id]} 即時辨識">
+        — no signal —
+      </div>
+      <div class="lane__stats" id="stats-${id}">
+        <span class="text-muted">— —</span>
+        <span class="text-muted">0 / min</span>
+      </div>
     `;
-    grid.appendChild(card);
+    container.appendChild(lane);
   });
 }
 
-// =============================================================================
-// 輪詢 /api/channels — 更新管道狀態卡片
-// =============================================================================
+// ============================================================================
+// 輪詢 /api/channels — 更新 lane head + stats
+// ============================================================================
 async function pollChannels() {
-  const base = document.getElementById('apiBase').value.replace(/\/$/, '');
+  const base  = document.getElementById('apiBase').value.replace(/\/$/, '');
+  const badge = document.getElementById('apiStatus');
+  const banner = document.getElementById('apiDownBanner');
+
   try {
     const res  = await fetch(`${base}/api/channels`, { signal: AbortSignal.timeout(3000) });
     const data = await res.json();
 
-    // 更新 API 狀態徽章
-    const badge = document.getElementById('apiStatus');
     badge.textContent = 'LIVE';
-    badge.className   = 'badge-live';
-    document.getElementById('sActive').textContent = data.active_channels;
+    badge.className   = 'badge badge--success badge--dot';
+    banner.classList.remove('is-visible');
 
-    // 活躍管道 id set
-    const activeIds = new Set(data.channels.map(c => c.id));
+    document.getElementById('sActive').textContent = data.active_channels || 0;
 
-    CHANNEL_IDS.forEach(id => {
-      const card = document.getElementById('card-' + id);
-      const info = data.channels.find(c => c.id === id);
+    CHANNEL_IDS.forEach((id, i) => {
+      const idx = i + 1;
+      const info = (data.channels || []).find(c => c.id === id);
+      const meta   = document.getElementById('meta-'   + id);
+      const status = document.getElementById('status-' + id);
 
       if (info) {
-        card.classList.add('active');
-        document.getElementById('cnt-' + id).textContent = info.transcript_count + ' 筆';
-        document.getElementById('lst-' + id).textContent = info.last_text || '（靜默）';
-
-        // 連線時間
-        const connAt = new Date(info.connected_at);
-        const elapsed = Math.floor((Date.now() - connAt) / 1000);
-        document.getElementById('tim-' + id).textContent =
-          elapsed < 60 ? `${elapsed}s` : `${Math.floor(elapsed/60)}m${elapsed%60}s`;
-
-        // 串流模式 + 引擎徽章
         const backend    = info.stt_backend  || 'google';
         const streamMode = info.stream_mode  || 'batch';
-        const modeLabels = {
-          dual:              '⚡ dual',
-          scribe_rt:         '🟣 scribe_rt',
-          google_stream:     '🔵 g_stream',
-          sensevoice_local:  '🟢 SenseVoice',
-          batch:             '🕐 batch',
-        };
-        const modeLabel = modeLabels[streamMode] || streamMode;
-        document.getElementById('eng-' + id).innerHTML =
-          `<span class="ch-engine ${streamMode}">${modeLabel}</span>`;
+        meta.textContent = `${backend} · ${streamMode}`;
+        status.textContent = 'Live';
+        const cls = idx <= 5 ? `ch${idx}` : '';
+        status.className = `badge badge--${cls || 'success'} badge--dot`;
       } else {
-        card.classList.remove('active');
-        document.getElementById('cnt-' + id).textContent = '0 筆';
-        document.getElementById('tim-' + id).textContent = '—';
-        document.getElementById('lst-' + id).textContent = '等待中…';
-        document.getElementById('eng-' + id).innerHTML = '';
+        meta.textContent = '等待連線…';
+        status.textContent = 'Standby';
+        status.className = 'badge badge--dot';
+        status.style.opacity = '0.55';
       }
     });
-
   } catch (_) {
-    const badge = document.getElementById('apiStatus');
     badge.textContent = 'OFFLINE';
-    badge.className   = 'badge-offline';
+    badge.className   = 'badge badge--danger badge--dot';
+    banner.classList.add('is-visible');
     document.getElementById('sActive').textContent = '—';
   }
 }
 
-// =============================================================================
-// 輪詢 /api/transcripts — 新增辨識結果到串流
-// =============================================================================
+// ============================================================================
+// 輪詢 /api/transcripts — 把新辨識結果分派到對應 lane feed
+// ============================================================================
 async function pollTranscripts() {
   const base = document.getElementById('apiBase').value.replace(/\/$/, '');
   try {
-    const url = `${base}/api/transcripts?limit=50`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+    const res  = await fetch(`${base}/api/transcripts?limit=50`, { signal: AbortSignal.timeout(3000) });
     const data = await res.json();
 
-    const feed = document.getElementById('feed');
-    const hint = document.getElementById('emptyFeed');
-
-    // 找出比上次更新還新的資料（id 遞增）
-    // API 回傳最新在前；.reverse() 轉成舊→新順序，
-    // 再依序 prepend，最終效果：新資料插在最頂部
-    const newRows = data.transcripts
-      .filter(t => t.id > lastTxId)
-      .reverse();   // 舊→新排序，prepend 後最新一筆在最上方
-
+    const newRows = (data.transcripts || []).filter(t => t.id > lastTxId).reverse();
     if (newRows.length === 0) return;
 
-    // 移除空白提示
-    if (hint) hint.remove();
-
     newRows.forEach(t => {
-      const row = document.createElement('div');
-      row.className = 'row';
+      const feed = document.getElementById('feed-' + t.channel_id);
+      if (!feed) return;
 
-      // 時間格式化
+      // 第一次寫入 → 移除 empty 提示
+      if (feed.classList.contains('lane__feed--empty')) {
+        feed.classList.remove('lane__feed--empty');
+        feed.textContent = '';
+      }
+
+      const row = document.createElement('div');
+      row.className = 'transcript';
+
+      // 時間
       const dt = new Date(t.created_at);
       const timeStr = dt.toTimeString().slice(0, 8);
 
-      // 信心度（chirp_3 固定 0，不顯示）
-      const confStr = t.confidence > 0 ? (t.confidence * 100).toFixed(0) + '%' : '';
+      // 信心度
+      const conf = t.confidence > 0 ? t.confidence : null;
+      const confStr = conf !== null ? conf.toFixed(2) : '—';
+      const confClass = conf !== null && conf < 0.7 ? 'transcript__confidence--low' : '';
 
-      // 管道顏色 class（只取 ch1–ch6，其他給 default）
-      const chClass  = CHANNEL_IDS.includes(t.channel_id) ? t.channel_id : '';
-      const chLabel  = SEAT_LABELS[t.channel_id] || t.channel_id;
+      // partial vs committed (用 confidence 與 t.is_partial 推測)
+      const isPartial = (t.is_partial === true) || (conf !== null && conf < 0.5);
 
-      // stt_backend 來源標籤（google / scribe_rt / google_stream…）
-      const srcKey = (t.stt_backend || 'google').toLowerCase().replace(/[^a-z_]/g,'');
-      const srcLabel = srcKey === 'scribe_rt'        ? '🟣 Scribe'
-                     : srcKey === 'google_stream'  ? '🔵 G串流'
-                     : srcKey === 'scribe'         ? '🟣 Scribe'
-                     : srcKey === 'sensevoice'     ? '🟢 SenseVoice'
-                     : srcKey === 'sensevoice_local' ? '🟢 SenseVoice'
-                     : '🔵 Google';
+      // 危害關鍵字 highlight（簡單：若文字包含危害級關鍵字則整行加 hazard 樣式）
+      const HAZARD_WORDS = ['緊急', '煙霧', '事故', '出軌', '爆炸', '火災', '傷亡'];
+      const hasHazard = HAZARD_WORDS.some(w => t.transcript.includes(w));
+      if (hasHazard) row.classList.add('transcript--hazard');
 
-      row.innerHTML =
-        `<span class="r-time">${timeStr}</span>` +
-        `<span class="r-ch ${chClass}">${chLabel}</span>` +
-        `<span class="r-src ${srcKey}">${srcLabel}</span>` +
-        `<span class="r-text">${escHtml(t.transcript)}</span>` +
-        (confStr ? `<span class="r-conf">${confStr}</span>` : '');
+      let textHtml = escHtml(t.transcript);
+      if (hasHazard) {
+        HAZARD_WORDS.forEach(w => {
+          textHtml = textHtml.replace(new RegExp(w, 'g'), `<mark class="hazard">${w}</mark>`);
+        });
+      }
 
-      // 插入到頂部：最新結果永遠在最上方
+      row.innerHTML = `
+        <span class="transcript__time mono">${timeStr}</span>
+        <span class="transcript__text ${isPartial ? 'transcript__text--partial' : ''}">${textHtml}</span>
+        <span class="transcript__confidence ${confClass}">${confStr}</span>
+      `;
+
+      // prepend (最新在最上)
       feed.insertBefore(row, feed.firstChild);
       lastTxId = Math.max(lastTxId, t.id);
       totalShown++;
+
+      // 每 lane trim 至 FEED_MAX_ROWS
+      const rows = feed.querySelectorAll('.transcript');
+      if (rows.length > FEED_MAX_ROWS) {
+        for (let j = FEED_MAX_ROWS; j < rows.length; j++) rows[j].remove();
+      }
     });
 
-    // 更新總筆數
-    document.getElementById('sTx').textContent = totalShown;
+    // 更新底部 stats
+    const sTx = document.getElementById('sTx');
+    sTx.textContent = Math.min(totalShown, TOTAL_MAX);
 
-    // 超過上限時，移除末尾最舊的行
-    const rows = feed.querySelectorAll('.row');
-    if (rows.length > FEED_MAX_ROWS) {
-      for (let i = FEED_MAX_ROWS; i < rows.length; i++) {
-        rows[i].remove();
-      }
+    if (newRows.length > 0) {
+      const latest = newRows[newRows.length - 1];
+      const dt = new Date(latest.created_at);
+      document.getElementById('sLatest').textContent = dt.toTimeString().slice(0, 8);
+      document.getElementById('sLatestDelta').textContent = `ch ${latest.channel_id} · ${latest.stt_backend || 'google'}`;
     }
-    // 無需自動捲動：最新結果已固定在頂部
 
   } catch (_) { /* 靜默失敗，等下次輪詢 */ }
 }
 
-// =============================================================================
+// ============================================================================
 // 清除顯示
-// =============================================================================
+// ============================================================================
 function clearFeed() {
-  document.getElementById('feed').innerHTML =
-    '<div id="emptyFeed">等待辨識結果…</div>';
+  CHANNEL_IDS.forEach(id => {
+    const feed = document.getElementById('feed-' + id);
+    feed.innerHTML = '— no signal —';
+    feed.classList.add('lane__feed--empty');
+  });
   totalShown = 0;
-  document.getElementById('sTx').textContent = '—';
+  document.getElementById('sTx').textContent = '0';
+  document.getElementById('sLatest').textContent = '—';
+  document.getElementById('sLatestDelta').textContent = '—';
 }
 
-// =============================================================================
+// ============================================================================
 // 工具
-// =============================================================================
+// ============================================================================
 function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-// =============================================================================
+// ============================================================================
 // 啟動
-// =============================================================================
-initChannelCards();
+// ============================================================================
+document.getElementById('btn-clear').addEventListener('click', clearFeed);
+initLanes();
 pollChannels();
 pollTranscripts();
 setInterval(() => { pollChannels(); pollTranscripts(); }, POLL_INTERVAL);
