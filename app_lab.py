@@ -141,68 +141,182 @@ st.set_page_config(
 )
 
 # ============================================================================
-# 自訂 CSS
+# 自訂 CSS（design-system-v1: 從 static/css/ 注入 tokens + components）
 # ============================================================================
-st.markdown("""
-<style>
-/* ── 管道狀態卡 ── */
-.ch-card {
-    background: #1a1d27;
-    border: 1px solid #2a2d3e;
-    border-radius: 10px;
-    padding: 14px 16px;
-    min-height: 100px;
-}
-.ch-card.active { border-color: #2ea043; }
-.ch-dot {
-    display: inline-block;
-    width: 10px; height: 10px;
-    border-radius: 50%;
-    margin-right: 6px;
-    vertical-align: middle;
-}
-.ch-dot.on  { background: #2ea043; box-shadow: 0 0 6px #2ea043; }
-.ch-dot.off { background: #334; }
-.ch-id   { font-size: 1rem; font-weight: 700; }
-.ch-cnt  { font-size: 0.78rem; color: #778; margin-top: 4px; }
-.ch-text { font-size: 0.82rem; color: #99a; margin-top: 6px;
-           overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
-/* ── 辨識結果列 ── */
-.tx-row {
-    display: flex;
-    gap: 10px;
-    align-items: flex-start;
-    padding: 7px 10px;
-    border-radius: 7px;
-    margin-bottom: 4px;
-    background: #1a1d27;
-    border-left: 3px solid #2a2d3e;
-    animation: fadeIn .2s ease;
-}
-@keyframes fadeIn { from { opacity:0; transform:translateY(3px); } to { opacity:1; } }
-.tx-time { font-size: 0.75rem; color: #556; white-space: nowrap; padding-top: 2px; min-width: 58px; }
-.tx-ch   { font-size: 0.72rem; border-radius: 4px; padding: 1px 7px;
-           white-space: nowrap; align-self: flex-start; margin-top: 2px;
-           font-weight: 600; }
-.tx-text { flex: 1; font-size: 0.88rem; color: #d0d8ef; line-height: 1.6; }
+def _inject_design_system():
+    """注入 design tokens / base / components + Streamlit 覆寫 + Lab legacy 對映。
 
-/* ── API 離線橫幅 ── */
-.offline-banner {
-    background: #2a1820;
-    border: 1px solid #c9414a;
-    border-radius: 8px;
-    padding: 10px 16px;
-    color: #e07070;
-    font-size: 0.9rem;
-    margin-bottom: 12px;
-}
+    來源檔（單一真相）：
+      - static/css/tokens.css
+      - static/css/base.css
+      - static/css/components.css
 
-/* ── 統計數字 ── */
-.stat-num { font-size: 1.6rem; font-weight: 700; color: #7eb8f7; }
-.stat-lbl { font-size: 0.78rem; color: #556; }
-</style>
-""", unsafe_allow_html=True)
+    Streamlit 因 shadow DOM 與內建 class 命名，需要額外 selector 覆寫
+    （見 [[streamlit-cheatsheet.html]]）。Legacy 區塊把舊 .ch-card / .tx-row /
+    .stat-num / .offline-banner 的硬碼 hex 改用 design tokens，避免動 HTML。
+    """
+    css_dir = PROJECT_ROOT / "static" / "css"
+    parts = []
+    for name in ("tokens.css", "base.css", "components.css"):
+        p = css_dir / name
+        if p.exists():
+            parts.append(p.read_text(encoding="utf-8"))
+
+    streamlit_overrides = """
+    /* ─── Streamlit 內建容器 ─── */
+    .stApp { background: var(--neutral-1); }
+    .block-container { padding-top: 2rem; max-width: 1280px; }
+
+    /* sidebar */
+    section[data-testid="stSidebar"] {
+        background: var(--neutral-2);
+        border-right: 1px solid var(--neutral-6);
+    }
+    section[data-testid="stSidebar"] * { font-family: var(--font-sans); }
+
+    /* primary / secondary 按鈕 */
+    button[kind="primary"] {
+        background: var(--brand-primary) !important;
+        color: var(--neutral-0) !important;
+        border: 1px solid var(--brand-primary) !important;
+    }
+    button[kind="primary"]:hover {
+        background: var(--brand-primary-hover) !important;
+        border-color: var(--brand-primary-hover) !important;
+    }
+    button[kind="secondary"] {
+        background: var(--neutral-3) !important;
+        border: 1px solid var(--neutral-7) !important;
+        color: var(--neutral-12) !important;
+    }
+    button[kind="secondary"]:hover {
+        background: var(--neutral-4) !important;
+        border-color: var(--neutral-8) !important;
+    }
+
+    /* input / selectbox / textarea */
+    .stTextInput input,
+    .stTextArea textarea,
+    .stNumberInput input,
+    .stSelectbox div[role="combobox"] {
+        background: var(--neutral-1) !important;
+        border: 1px solid var(--neutral-6) !important;
+        color: var(--neutral-12) !important;
+        font-family: var(--font-sans) !important;
+    }
+    .stTextInput input:focus,
+    .stTextArea textarea:focus {
+        border-color: var(--brand-primary) !important;
+    }
+
+    /* metric — Lab 仍用 st.metric 為主 (cheatsheet 標 ⚠️ Hack 但 OK) */
+    [data-testid="stMetricValue"] {
+        font-family: var(--font-mono);
+        color: var(--neutral-13);
+    }
+    [data-testid="stMetricLabel"] {
+        color: var(--neutral-9);
+        text-transform: uppercase;
+        letter-spacing: var(--ls-wider);
+        font-size: var(--fs-caption);
+    }
+
+    /* tab / radio / divider */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: var(--space-2);
+        border-bottom: 1px solid var(--neutral-6);
+    }
+    hr { border-color: var(--neutral-6) !important; }
+
+    /* ─── Lab legacy classes 對映到 design tokens ─── */
+    .ch-card {
+        background: var(--neutral-2);
+        border: 1px solid var(--neutral-6);
+        border-radius: var(--radius-3);
+        padding: 14px 16px;
+        min-height: 100px;
+    }
+    .ch-card.active { border-color: var(--success); }
+    .ch-dot {
+        display: inline-block;
+        width: 10px; height: 10px;
+        border-radius: 50%;
+        margin-right: 6px;
+        vertical-align: middle;
+    }
+    .ch-dot.on  { background: var(--success); box-shadow: 0 0 6px var(--success); }
+    .ch-dot.off { background: var(--neutral-7); }
+    .ch-id  { font-size: 1rem; font-weight: var(--fw-bold); }
+    .ch-cnt { font-size: var(--fs-caption); color: var(--neutral-9); margin-top: 4px; }
+    .ch-text {
+        font-size: var(--fs-small); color: var(--neutral-10); margin-top: 6px;
+        overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+    }
+
+    .tx-row {
+        display: flex; gap: 10px; align-items: flex-start;
+        padding: 7px 10px;
+        border-radius: var(--radius-3);
+        margin-bottom: 4px;
+        background: var(--neutral-2);
+        border-left: 3px solid var(--neutral-6);
+        animation: fadeIn .2s ease;
+    }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(3px);} to { opacity:1;} }
+    .tx-time { font-size: var(--fs-caption); color: var(--neutral-8); white-space: nowrap; padding-top: 2px; min-width: 58px; }
+    .tx-ch {
+        font-size: var(--fs-caption); border-radius: var(--radius-2); padding: 1px 7px;
+        white-space: nowrap; align-self: flex-start; margin-top: 2px;
+        font-weight: var(--fw-semibold);
+    }
+    .tx-text { flex: 1; font-size: var(--fs-body); color: var(--neutral-12); line-height: var(--lh-normal); }
+
+    .offline-banner {
+        background: var(--danger-bg);
+        border: 1px solid var(--danger);
+        border-radius: var(--radius-3);
+        padding: 10px 16px;
+        color: var(--danger);
+        font-size: var(--fs-body);
+        margin-bottom: 12px;
+    }
+
+    .stat-num { font-size: var(--fs-stat-md); font-weight: var(--fw-bold); color: var(--brand-primary); }
+    .stat-lbl { font-size: var(--fs-caption); color: var(--neutral-9); letter-spacing: var(--ls-wider); text-transform: uppercase; }
+    """
+
+    full_css = "\n".join(parts) + streamlit_overrides
+    st.markdown(f"<style>{full_css}</style>", unsafe_allow_html=True)
+
+
+_inject_design_system()
+
+
+# Plotly figure 統一 dark theme（design-system-v1）
+def lab_plotly_layout(title: str | None = None, height: int = 480) -> dict:
+    """回傳統一的 plotly update_layout dict，吃 design tokens 對應 hex。
+
+    Grafana / Lab / static HTML 三處圖表配色來自同一份 token 表，
+    確保跨介面視覺一致。
+    """
+    return dict(
+        title=title,
+        height=height,
+        hovermode="x unified",
+        paper_bgcolor="#11141b",   # var(--neutral-2)
+        plot_bgcolor="#11141b",
+        font=dict(family="Inter, Noto Sans TC, sans-serif", color="#c8cdd6", size=12),  # neutral-11
+        xaxis=dict(gridcolor="#262a33", linecolor="#262a33", tickcolor="#6a7180"),     # neutral-6 / 9
+        yaxis=dict(gridcolor="#262a33", linecolor="#262a33", tickcolor="#6a7180"),
+        margin=dict(l=48, r=24, t=48 if title else 24, b=40),
+        legend=dict(bgcolor="rgba(0,0,0,0)", bordercolor="#262a33"),
+    )
+
+
+# 5 路 channel 色（與 static / Grafana 對齊）— design tokens hex
+LAB_CHANNEL_COLORS = ["#65c8d4", "#bce26d", "#e2c46d", "#e58fc1", "#b58fe5"]
+LAB_BRAND_PRIMARY  = "#3fbdc7"
 
 
 # ============================================================================
@@ -3438,8 +3552,9 @@ def render_cer_trend_page():
             markers=True,
             title="各引擎 + 後處理組合 final CER 隨時間趨勢",
             labels={"dt": "時間", "cer_final_pct": "final CER (%)", "label": "engine / post_process"},
+            color_discrete_sequence=LAB_CHANNEL_COLORS + [LAB_BRAND_PRIMARY],
         )
-        fig.update_layout(height=520, hovermode="x unified")
+        fig.update_layout(**lab_plotly_layout(title="各引擎 + 後處理組合 final CER 隨時間趨勢", height=520))
         st.plotly_chart(fig, use_container_width=True)
     except ImportError:
         st.warning("⚠️ plotly 未安裝，改用內建折線圖（pip install plotly 可看完整版）")
@@ -3525,8 +3640,10 @@ def render_cer_trend_page():
                         color="label", markers=True,
                         title=f"{sel_eng_for_et} 各事件類型 final CER 趨勢",
                         labels={"dt": "時間", "cer_final_pct": "final CER (%)", "label": "event_type / pp"},
+                        color_discrete_sequence=LAB_CHANNEL_COLORS + [LAB_BRAND_PRIMARY],
                     )
-                    fig_et.update_layout(height=440, hovermode="x unified")
+                    fig_et.update_layout(**lab_plotly_layout(
+                        title=f"{sel_eng_for_et} 各事件類型 final CER 趨勢", height=440))
                     st.plotly_chart(fig_et, use_container_width=True)
                 except ImportError:
                     st.warning("⚠️ plotly 未安裝，事件類型走勢圖暫時無法顯示")
