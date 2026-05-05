@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>aiSpeechMulti — 介面架構圖</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Noto Sans TC", sans-serif;
+    background: #0e1117;
+    color: #d0d8ef;
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 1400px; margin: 0 auto; padding: 32px 24px 60px; }
+  header {
+    border-bottom: 1px solid #2a2d3e;
+    padding-bottom: 16px;
+    margin-bottom: 28px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  header h1 {
+    font-size: 1.6rem;
+    color: #e6eaf5;
+    font-weight: 700;
+  }
+  header .meta {
+    font-size: 0.85rem;
+    color: #889;
+  }
+  header .meta a { color: #7eb8f7; text-decoration: none; }
+  header .meta a:hover { text-decoration: underline; }
+  .legend {
+    background: #1a1d27;
+    border: 1px solid #2a2d3e;
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 24px;
+    font-size: 0.85rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px 28px;
+  }
+  .legend .item { display: flex; align-items: center; gap: 8px; }
+  .legend .swatch {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border-radius: 3px;
+  }
+  .legend .swatch.realtime { background: #3a7bd5; }
+  .legend .swatch.lab { background: #2d8a6b; }
+  .legend .swatch.grafana { background: #f39c12; }
+  .legend .swatch.cli { background: #9b59b6; }
+  .legend .swatch.deprecated { background: #555; }
+  .legend .swatch.api { background: #c9414a; }
+
+  .diagram {
+    background: #1a1d27;
+    border: 1px solid #2a2d3e;
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 32px;
+    overflow-x: auto;
+  }
+  .diagram h2 {
+    font-size: 1.1rem;
+    color: #e6eaf5;
+    margin-bottom: 16px;
+    font-weight: 600;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 18px;
+    border-bottom: 1px solid #2a2d3e;
+    padding-bottom: 0;
+    flex-wrap: wrap;
+  }
+  .tab-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: #889;
+    padding: 8px 18px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    border-radius: 6px 6px 0 0;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    font-family: inherit;
+  }
+  .tab-btn:hover { color: #d0d8ef; }
+  .tab-btn.active {
+    color: #7eb8f7;
+    border-bottom-color: #7eb8f7;
+    background: rgba(126,184,247,0.05);
+  }
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  /* Mermaid 內部覆寫 */
+  .mermaid {
+    text-align: center;
+    background: #0e1117;
+    padding: 20px;
+    border-radius: 8px;
+  }
+
+  .quick-links {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 14px;
+    margin-bottom: 32px;
+  }
+  .qcard {
+    background: #1a1d27;
+    border: 1px solid #2a2d3e;
+    border-radius: 10px;
+    padding: 16px 18px;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color .15s, transform .15s;
+  }
+  .qcard:hover {
+    border-color: #3a7bd5;
+    transform: translateY(-2px);
+  }
+  .qcard .qicon { font-size: 1.4rem; margin-bottom: 8px; }
+  .qcard .qtitle { font-size: 1rem; font-weight: 600; color: #e6eaf5; margin-bottom: 4px; }
+  .qcard .qdesc { font-size: 0.78rem; color: #889; }
+  .qcard .qurl {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.72rem;
+    color: #667;
+    margin-top: 6px;
+    display: block;
+  }
+
+  footer {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 1px solid #2a2d3e;
+    font-size: 0.8rem;
+    color: #556;
+    text-align: center;
+  }
+  footer code {
+    background: #1a1d27;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #89b;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>🎙️ aiSpeechMulti — 介面架構圖</h1>
+      <div class="meta">
+        2026-05-05 · <a href="./INTERFACES.md">INTERFACES.md</a> · 介面整併 P0~P3 + 方案 A/C + P2 完成
+      </div>
+    </header>
+
+    <div class="legend">
+      <div class="item"><span class="swatch realtime"></span> 即時層 (FastAPI + 靜態 HTML)</div>
+      <div class="item"><span class="swatch lab"></span> 研究層 (Streamlit Lab)</div>
+      <div class="item"><span class="swatch grafana"></span> 運維層 (Grafana)</div>
+      <div class="item"><span class="swatch cli"></span> CLI 入口</div>
+      <div class="item"><span class="swatch api"></span> 資料 / API</div>
+      <div class="item"><span class="swatch deprecated"></span> Deprecated</div>
+    </div>
+
+    <h2 style="font-size:1rem; color:#889; margin-bottom:12px;">⚡ 快速入口（本地必須有對應服務跑著）</h2>
+    <div class="quick-links">
+      <a class="qcard" href="http://localhost:8000/" target="_blank">
+        <div class="qicon">🏠</div>
+        <div class="qtitle">Landing</div>
+        <div class="qdesc">5 入口 + 健康徽章</div>
+        <span class="qurl">:8000/</span>
+      </a>
+      <a class="qcard" href="http://localhost:8000/capture" target="_blank">
+        <div class="qicon">🎙️</div>
+        <div class="qtitle">即時擷取</div>
+        <div class="qdesc">5 路麥克風 → WebSocket</div>
+        <span class="qurl">:8000/capture</span>
+      </a>
+      <a class="qcard" href="http://localhost:8000/monitor" target="_blank">
+        <div class="qicon">📡</div>
+        <div class="qtitle">五路監控</div>
+        <div class="qdesc">操作員密集監控</div>
+        <span class="qurl">:8000/monitor</span>
+      </a>
+      <a class="qcard" href="http://localhost:8000/display" target="_blank">
+        <div class="qicon">📺</div>
+        <div class="qtitle">大螢幕投放</div>
+        <div class="qdesc">控制室純文字顯示</div>
+        <span class="qurl">:8000/display</span>
+      </a>
+      <a class="qcard" href="http://localhost:8501/" target="_blank">
+        <div class="qicon">🔬</div>
+        <div class="qtitle">Lab 工作台</div>
+        <div class="qdesc">9 頁研究 / 評測 / 飛輪</div>
+        <span class="qurl">:8501/</span>
+      </a>
+      <a class="qcard" href="http://localhost:3000/" target="_blank">
+        <div class="qicon">📊</div>
+        <div class="qtitle">Grafana</div>
+        <div class="qdesc">運維 + CER 趨勢</div>
+        <span class="qurl">:3000/ (admin/aiSpeech2026)</span>
+      </a>
+    </div>
+
+    <div class="diagram">
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="overview">總覽（三層架構）</button>
+        <button class="tab-btn" data-tab="dataflow">資料流</button>
+        <button class="tab-btn" data-tab="lab">Lab 9 頁細節</button>
+        <button class="tab-btn" data-tab="cli">CLI 子命令樹</button>
+        <button class="tab-btn" data-tab="grafana">Grafana 看板</button>
+      </div>
+
+      <div class="tab-pane active" id="tab-overview">
+        <div class="mermaid">
+flowchart TB
+    user((👤 使用者))
+
+    subgraph LANDING ["🏠 Landing :8000/"]
+        landing[landing.html<br/>5 入口 + 健康徽章]
+    end
+
+    subgraph REALTIME ["即時層 :8000 (FastAPI + 靜態 HTML)"]
+        capture[/capture<br/>場域端機/]
+        monitor[/monitor<br/>操作員/]
+        display[/display<br/>大螢幕/]
+    end
+
+    subgraph LAB ["🔬 研究層 :8501 (Streamlit Lab)"]
+        lab[app_lab.py<br/>9 頁 + sidebar]
+    end
+
+    subgraph GRAFANA ["📊 運維層 :3000 (Grafana)"]
+        grafana[6 個 row + 25 panels<br/>含 📈 CER 趨勢]
+    end
+
+    subgraph CLI_LAYER ["⌨️ CLI 入口"]
+        cli[python -m aispeech<br/>finetune / infer / eval / data / serve]
+    end
+
+    subgraph DATA ["💾 資料層 (FastAPI app_api.py)"]
+        api[REST + WebSocket<br/>16+ endpoints]
+        sqlite[(SQLite<br/>aiSpeechMulti.db)]
+        csv[(CSV<br/>vocabulary / cer_history)]
+        fs[(experiments/<br/>finetune_runs/)]
+    end
+
+    user --> landing
+    landing --> capture
+    landing --> monitor
+    landing --> display
+    landing -.外連.-> lab
+    landing -.外連.-> grafana
+
+    capture --> api
+    monitor --> api
+    display --> api
+    lab --> api
+    grafana --> sqlite
+
+    api --> sqlite
+    api --> csv
+    cli --> fs
+    cli -.serve.-> api
+    cli -.serve.-> lab
+    cli -.sync-cer.-> sqlite
+
+    classDef rt fill:#3a7bd5,stroke:#7eb8f7,color:#fff
+    classDef lb fill:#2d8a6b,stroke:#4fd1a5,color:#fff
+    classDef gf fill:#f39c12,stroke:#ffd687,color:#fff
+    classDef cl fill:#9b59b6,stroke:#c8a2d6,color:#fff
+    classDef da fill:#c9414a,stroke:#e07070,color:#fff
+
+    class capture,monitor,display,landing rt
+    class lab lb
+    class grafana gf
+    class cli cl
+    class api,sqlite,csv,fs da
+        </div>
+      </div>
+
+      <div class="tab-pane" id="tab-dataflow">
+        <div class="mermaid">
+flowchart LR
+    mic[🎤 5 路麥克風<br/>瀏覽器 ×5]
+    cap[capture.html<br/>WebAudio API]
+    ws{{WebSocket<br/>/ws/stream}}
+
+    subgraph FAPI ["FastAPI (asyncio)"]
+        scribe[Scribe v2 RT<br/>~150ms TTFT]
+        gst[Google STT<br/>15s batch]
+        buf[AudioBuffer<br/>15s 累積]
+    end
+
+    db[(SQLite<br/>transcripts)]
+    csv1[(cer_history.csv)]
+    csv2[(master_vocabulary.csv)]
+
+    mon[monitor.html<br/>partial/committed]
+    dis[display.html<br/>大字幕]
+    lab[Lab evaluation 頁<br/>批次推論]
+    graf[Grafana<br/>📈 CER 趨勢]
+
+    mic --> cap
+    cap --> ws
+    ws --> scribe
+    ws --> gst
+    gst --> buf
+    buf --> db
+    scribe -.即時推送.-> mon
+    scribe -.即時推送.-> dis
+    db --> mon
+    db --> dis
+    db --> graf
+
+    lab -- 跑推論 --> csv1
+    csv1 -- sync-cer --> db
+    db --> graf
+
+    lab <--> csv2
+
+    classDef rt fill:#3a7bd5,stroke:#7eb8f7,color:#fff
+    classDef lb fill:#2d8a6b,stroke:#4fd1a5,color:#fff
+    classDef gf fill:#f39c12,stroke:#ffd687,color:#fff
+    classDef da fill:#c9414a,stroke:#e07070,color:#fff
+
+    class mic,cap,ws,mon,dis rt
+    class lab lb
+    class graf gf
+    class scribe,gst,buf,db,csv1,csv2 da
+        </div>
+      </div>
+
+      <div class="tab-pane" id="tab-lab">
+        <div class="mermaid">
+flowchart TB
+    sb[render_lab_sidebar<br/>9 頁 radio 導航<br/>+ 跨介面連結<br/>+ Backend URL]
+
+    subgraph INFER ["🎙️ 推論工作流"]
+        speech[speech<br/>批次音檔辨識]
+        running[running<br/>內部執行階段]
+        offline[offline_monitor<br/>離線資料夾監看]
+
+        speech -- 點 開始辨識 --> running
+    end
+
+    subgraph EVAL ["📊 評測 & 飛輪"]
+        evaluation[evaluation<br/>黃金語料 CER]
+        cer_trend[cer_trend<br/>⚠️ 將遷 Grafana]
+        correction[correction_history<br/>錯字飛輪]
+    end
+
+    subgraph DATA_MGMT ["🗂️ 資料管理"]
+        management[management<br/>事件管理]
+        search[search<br/>FTS5]
+        stats[stats<br/>統計報表]
+        vocabulary[vocabulary<br/>詞彙表 CRUD]
+    end
+
+    sb --> speech
+    sb --> offline
+    sb --> evaluation
+    sb --> cer_trend
+    sb --> correction
+    sb --> management
+    sb --> search
+    sb --> stats
+    sb --> vocabulary
+
+    classDef lb fill:#2d8a6b,stroke:#4fd1a5,color:#fff
+    classDef dep fill:#555,stroke:#889,color:#fff
+
+    class sb,speech,running,offline,evaluation,correction,management,search,stats,vocabulary lb
+    class cer_trend dep
+        </div>
+      </div>
+
+      <div class="tab-pane" id="tab-cli">
+        <div class="mermaid">
+flowchart LR
+    root[python -m aispeech]
+
+    subgraph DIRECT ["直接子命令（透傳）"]
+        finetune[finetune<br/>→ finetune_sensevoice.py]
+        infer[infer<br/>→ batch_inference.py]
+        infer_ft[infer-ft-all<br/>→ _inference_finetuned_all.py]
+        eval[eval<br/>→ eval_finetuned_model.py]
+        eval_b[eval-batch<br/>→ batch_stt_eval.py]
+        ensemble[ensemble<br/>→ ensemble_eval.py]
+    end
+
+    subgraph DATA_CMD ["data 資料管線"]
+        bm[build-manifest]
+        bf[build-finetune]
+        bl[build-lm]
+        ee[extract-errors]
+        er[extract-regression]
+        ef[export-feedback]
+        sc[sync-cer<br/>P2 新增]
+    end
+
+    subgraph SERVE ["serve 起服務"]
+        sa[api → app_api.py]
+        sl[lab → streamlit run app_lab.py]
+        sall[all → 兩支同時起<br/>Ctrl-C 雙停]
+    end
+
+    root --> finetune
+    root --> infer
+    root --> infer_ft
+    root --> eval
+    root --> eval_b
+    root --> ensemble
+    root --> data_node[data]
+    root --> serve_node[serve]
+
+    data_node --> bm
+    data_node --> bf
+    data_node --> bl
+    data_node --> ee
+    data_node --> er
+    data_node --> ef
+    data_node --> sc
+
+    serve_node --> sa
+    serve_node --> sl
+    serve_node --> sall
+
+    classDef cli fill:#9b59b6,stroke:#c8a2d6,color:#fff
+    class root,finetune,infer,infer_ft,eval,eval_b,ensemble,data_node,serve_node,bm,bf,bl,ee,er,ef,sc,sa,sl,sall cli
+        </div>
+      </div>
+
+      <div class="tab-pane" id="tab-grafana">
+        <div class="mermaid">
+flowchart TB
+    db[(aiSpeechMulti.db<br/>SQLite)]
+
+    subgraph DASHBOARD ["aiSpeechMulti 語音辨識監控（25 panels）"]
+        r1[📊 整體統計<br/>總筆數 / 引擎分布 / 危害分布]
+        r2[📈 辨識量趨勢<br/>時間軸辨識量]
+        r3[🔍 引擎與管道分析<br/>各引擎 / 各 channel 統計]
+        r4[⚠️ 關鍵字危害分析<br/>危害分布 / 熱門關鍵字]
+        r5[🎙️ 最近辨識記錄<br/>最近 transcripts 表]
+        r6[📁 檔案辨識評測記錄<br/>batch_eval 結果表]
+        r7[📈 CER 趨勢<br/>2026-05-04 P2 新增]
+    end
+
+    subgraph CER_DETAIL ["📈 CER 趨勢詳解（3 panels）"]
+        p201[panel 201<br/>各引擎 final CER 折線<br/>timeseries]
+        p202[panel 202<br/>最近一輪各引擎最佳 CER<br/>table 升序]
+        p203[panel 203<br/>事件類型 × 引擎 CER<br/>table]
+    end
+
+    csv1[(cer_history.csv<br/>56+ 列)]
+    csv2[(cer_event_type_history.csv<br/>330+ 列)]
+
+    csv1 -- sync-cer --> db
+    csv2 -- sync-cer --> db
+
+    db --> r1
+    db --> r2
+    db --> r3
+    db --> r4
+    db --> r5
+    db --> r6
+    db --> r7
+
+    r7 --> p201
+    r7 --> p202
+    r7 --> p203
+
+    classDef gf fill:#f39c12,stroke:#ffd687,color:#fff
+    classDef da fill:#c9414a,stroke:#e07070,color:#fff
+
+    class r1,r2,r3,r4,r5,r6,r7,p201,p202,p203 gf
+    class db,csv1,csv2 da
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <code>docs/architecture.html</code> · 由
+      <a href="./INTERFACES.md" style="color:#7eb8f7;">INTERFACES.md</a> 衍生 ·
+      Mermaid v10 · 點上方頁籤切換不同視角
+      <br>
+      <span style="font-size:0.7rem;">本頁離線可用，Mermaid 走 CDN 載入；如需完全離線，把 mermaid.min.js 下載到本地再改 src</span>
+    </footer>
+  </div>
+
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: "dark",
+      themeVariables: {
+        background: "#0e1117",
+        primaryColor: "#1a1d27",
+        primaryTextColor: "#d0d8ef",
+        primaryBorderColor: "#2a2d3e",
+        lineColor: "#667",
+        secondaryColor: "#1a1d27",
+        tertiaryColor: "#0e1117",
+      },
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true,
+        curve: "basis",
+      },
+    });
+
+    // Tabs
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+        // re-render mermaid in newly visible pane (Mermaid only renders visible at startup)
+        mermaid.run({ querySelector: "#tab-" + btn.dataset.tab + " .mermaid" }).catch(() => {});
+      });
+    });
+  </script>
+</body>
+</html>
