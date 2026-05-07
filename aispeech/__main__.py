@@ -129,6 +129,13 @@ def main(argv: list[str] | None = None) -> int:
     p_serve = sub.add_parser("serve", help="起服務（api / lab / all）")
     p_serve.add_argument("target", choices=("api", "lab", "all"))
 
+    # migrate 子命令（schema migration runner）
+    p_mig = sub.add_parser("migrate", help="schema migration（status / up / down）")
+    p_mig.add_argument("subcmd", nargs="?", choices=("status", "up", "down"),
+                       help="子命令")
+    p_mig.add_argument("rest", nargs=argparse.REMAINDER,
+                       help="其餘參數透傳給 utils.migrate")
+
     # 沒帶子命令 → 印 help
     if not argv:
         parser.print_help()
@@ -152,6 +159,11 @@ def main(argv: list[str] | None = None) -> int:
             p_serve.print_help()
             return 2
         return _serve(rest[0])
+
+    if cmd == "migrate":
+        # 透傳給 python -m utils.migrate
+        from utils.migrate import main as migrate_main
+        return migrate_main(rest)
 
     if cmd in ("-h", "--help", "help"):
         parser.print_help()

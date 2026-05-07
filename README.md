@@ -183,6 +183,7 @@ docker compose -f grafana/docker-compose.yml up -d
 | `data extract-errors` | scripts/extract_error_pairs.py | 抽錯字配對為 draft overlay |
 | `data sync-cer` | scripts/sync_cer_to_sqlite.py | CER CSV → SQLite（給 Grafana） |
 | `serve api/lab/all` | — | 起服務 |
+| `migrate status / up / down` | utils/migrate.py | Schema migration 管理（見 [migrations/README.md](migrations/README.md)） |
 
 未識別的旗標會原樣透傳，例：
 
@@ -255,9 +256,18 @@ FastAPI asyncio
 
 完整見 [docs/architecture-review-2026-05-07.md](docs/architecture-review-2026-05-07.md)：
 
-- **Critical**：無 schema migration、零自動化測試
+- **Critical**：~~無 schema migration~~（✅ 2026-05-07 完成，見 [migrations/](migrations/)）、零自動化測試
 - **Important**：無 STT 引擎抽象層、`app_lab.py` 4048 LOC god-file、`app_api.py` 1570 LOC、GCP project ID 硬編碼 8 處、離線模式規劃/ fork 未整合
 - **Suggestion**：死檔 `data/aiSpeech.db`、WORKLOG 移到 `docs/devlog/`、清掉沒用的 psycopg2/sqlalchemy
+
+### Schema migration（v0.1，2026-05-07 引入）
+
+- 純 SQL + numbered file 機制（`migrations/NNNN_*.sql` + `.down.sql`）
+- 零新依賴，runner 在 [`utils/migrate.py`](utils/migrate.py)
+- 自動 backup DB、checksum 偵測 drift、可 dry-run、可倒退
+- 啟動時自動套用：`DBManager.__init__()` 呼叫 `run_pending()`
+- 手動操作：`python -m aispeech migrate {status|up|down}`
+- 寫新 migration 規則：見 [migrations/README.md](migrations/README.md)
 
 ---
 

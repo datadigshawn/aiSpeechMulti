@@ -147,7 +147,21 @@ class DBManager:
         self._conn.execute("PRAGMA foreign_keys=ON;")
 
         self._init_schema()
+        self._run_pending_migrations()
         self.logger.info(f"DB 已連線：{self.db_path}")
+
+    def _run_pending_migrations(self):
+        """套用 migrations/ 下任何未套用的 schema 變更。
+
+        靜默路徑：reconcile 0001 baseline + 套用 0002+ 新 migration。
+        失敗會 log warning 但不 raise——避免阻擋 app 啟動。
+        手動操作見：python -m utils.migrate {status,up,down}
+        """
+        try:
+            from utils.migrate import run_pending
+            run_pending(self.db_path)
+        except Exception as e:
+            self.logger.warning(f"Migration 跑失敗（不阻擋啟動）：{e}")
 
     # ── Schema 初始化 ───────────────────────────────────────────────────────
 
