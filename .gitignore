@@ -108,3 +108,8 @@ experiments/finetune_runs/
 
 # Claude Design 原始包（local 參考用，不入倉；source of truth 在 static/css/）
 RadioRecognition_UI/
+
+# pytest 覆蓋率資料
+.coverage
+coverage.xml
+htmlcov/
