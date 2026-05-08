@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_PRICING_PATH = PROJECT_ROOT / "config" / "pricing.json"
@@ -19,14 +18,29 @@ class PricingError(ValueError):
 
 
 def load_pricing(path: Path | None = None) -> dict:
-    """讀 pricing.json 並回傳 dict。失敗 raise PricingError。"""
+    """讀 pricing.json 並回傳 dict。失敗或結構不完整 raise PricingError。"""
     p = Path(path) if path else DEFAULT_PRICING_PATH
     if not p.exists():
         raise PricingError(f"pricing.json not found at {p}")
     try:
-        return json.loads(p.read_text(encoding="utf-8"))
+        data = json.loads(p.read_text(encoding="utf-8"))
     except json.JSONDecodeError as e:
         raise PricingError(f"pricing.json malformed: {e}") from e
+
+    # 必要 top-level keys
+    for required in ("usd_to_twd", "engines"):
+        if required not in data:
+            raise PricingError(f"pricing.json missing required key '{required}'")
+
+    # 各引擎的必要 keys
+    for engine_name, cfg in data["engines"].items():
+        for required in ("unit", "usd_per_unit"):
+            if required not in cfg:
+                raise PricingError(
+                    f"engine '{engine_name}' config missing required key '{required}'"
+                )
+
+    return data
 
 
 def calc_cost(engine: str, usage: dict, pricing: dict) -> tuple[float, float]:
@@ -35,7 +49,7 @@ def calc_cost(engine: str, usage: dict, pricing: dict) -> tuple[float, float]:
     Args:
         engine: 引擎 key（必須在 pricing["engines"] 裡）
         usage: usage dict，例如 {"audio_seconds": 87.3} 或 {"input_tokens": ..., "output_tokens": ...}
-        pricing: 完整 pricing dict（load_pricing() 回傳的）
+        pricing: 完整 pricing dict（load_pricing() 回傳的，已驗證結構）
 
     Returns:
         (cost_usd, cost_twd)
@@ -50,7 +64,7 @@ def calc_cost(engine: str, usage: dict, pricing: dict) -> tuple[float, float]:
     if qty is None:
         raise PricingError(f"usage missing required key '{unit}' for engine '{engine}'")
     cost_usd = float(qty) * float(rate)
-    cost_twd = cost_usd * float(pricing.get("usd_to_twd", 31.0))
+    cost_twd = cost_usd * float(pricing["usd_to_twd"])  # load_pricing 已驗證此 key 存在
     return cost_usd, cost_twd
 
 

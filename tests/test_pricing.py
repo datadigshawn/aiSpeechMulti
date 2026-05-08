@@ -22,6 +22,24 @@ class TestLoadPricing:
         assert "scribe_rt" in p["engines"]
         assert "google_stt_chirp_3" in p["engines"]
 
+    def test_load_raises_on_missing_usd_to_twd(self, tmp_path):
+        bad = tmp_path / "bad.json"
+        bad.write_text('{"engines": {}}')  # 缺 usd_to_twd
+        with pytest.raises(PricingError, match="missing required key 'usd_to_twd'"):
+            load_pricing(bad)
+
+    def test_load_raises_on_missing_engines(self, tmp_path):
+        bad = tmp_path / "bad.json"
+        bad.write_text('{"usd_to_twd": 31.0}')  # 缺 engines
+        with pytest.raises(PricingError, match="missing required key 'engines'"):
+            load_pricing(bad)
+
+    def test_load_raises_on_engine_missing_unit(self, tmp_path):
+        bad = tmp_path / "bad.json"
+        bad.write_text('{"usd_to_twd": 31.0, "engines": {"foo": {"usd_per_unit": 0.001}}}')
+        with pytest.raises(PricingError, match="engine 'foo' config missing required key 'unit'"):
+            load_pricing(bad)
+
 
 class TestCalcCost:
     @pytest.fixture
