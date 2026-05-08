@@ -1,0 +1,36 @@
+# pyproject.toml — pytest 設定（aiSpeechMulti 不打包，只用此檔放工具設定）
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+python_classes = ["Test*"]
+addopts = [
+    "-v",                          # verbose
+    "--tb=short",                  # 短 traceback
+    "--strict-markers",            # 未知 marker 會報錯，避免 typo
+    "-ra",                         # 顯示所有非 pass 結果摘要
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",  # 第三方套件雜訊
+]
+markers = [
+    "slow: 跑得慢的測試（預設仍會跑；用 -m 'not slow' 可跳過）",
+    "integration: 需外部服務（API key、網路）的整合測試",
+]
+
+[tool.coverage.run]
+source = ["scripts", "utils", "aispeech"]
+omit = [
+    "*/__pycache__/*",
+    "tests/*",
+    "experiments/*",
+    "scripts/test_*",     # 既有的 ad-hoc test 不算 source
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]

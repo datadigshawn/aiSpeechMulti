@@ -2,6 +2,7 @@
 
 > 五路無線電語音即時辨識平台 · 多 STT 引擎 + LLM 後修正 + 黃金語料 CER 追蹤
 
+[![tests](https://github.com/datadigshawn/aiSpeechMulti/actions/workflows/test.yml/badge.svg)](https://github.com/datadigshawn/aiSpeechMulti/actions/workflows/test.yml)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue)](https://www.python.org/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.28%2B-red)](https://streamlit.io/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-async-green)](https://fastapi.tiangolo.com/)
@@ -256,9 +257,29 @@ FastAPI asyncio
 
 完整見 [docs/architecture-review-2026-05-07.md](docs/architecture-review-2026-05-07.md)：
 
-- **Critical**：~~無 schema migration~~（✅ 2026-05-07 完成，見 [migrations/](migrations/)）、零自動化測試
+- **Critical**：~~無 schema migration~~（✅ 2026-05-07 完成）、~~零自動化測試~~（✅ 2026-05-08 完成 56 tests + CI）
 - **Important**：無 STT 引擎抽象層、`app_lab.py` 4048 LOC god-file、`app_api.py` 1570 LOC、GCP project ID 硬編碼 8 處、離線模式規劃/ fork 未整合
 - **Suggestion**：死檔 `data/aiSpeech.db`、WORKLOG 移到 `docs/devlog/`、清掉沒用的 psycopg2/sqlalchemy
+
+### 執行測試（2026-05-08 引入）
+
+```bash
+pip install -r requirements-dev.txt
+pytest                              # 全套（~35 秒，56 tests）
+pytest tests/test_migrate.py -v     # 單一檔
+pytest --cov --cov-report=term-missing   # 覆蓋率報告
+```
+
+涵蓋的模組（v1）：
+- `utils/migrate.py` — schema migration runner（69% cov）
+- `utils/db_manager.py` — SQLite + FTS5（55%）
+- `scripts/post_process.py` — 後處理 pipeline（46%）
+- `scripts/cer_engine.py` — CER 度量（30%）
+- `scripts/number_normalizer.py` — 數字編號（50%）
+
+**故意不測**（v2）：STT 引擎 wrapper、Streamlit/FastAPI app、audio processing。
+
+CI：每次 push / PR 到 `main` 或 `dev` 會自動跑 [tests workflow](https://github.com/datadigshawn/aiSpeechMulti/actions/workflows/test.yml)。
 
 ### Schema migration（v0.1，2026-05-07 引入）
 

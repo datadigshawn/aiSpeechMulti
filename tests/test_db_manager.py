@@ -1,0 +1,107 @@
+"""Tests for utils/db_manager.py — SQLite + FTS5 主資料層。
+
+涵蓋：
+- 啟動建表（_init_schema 自動跑）
+- create_event / save_audio_file / save_transcription（CRUD 主路徑）
+- FTS5 search 真的能找到剛存的 transcript（包含 trigram ≥3 字限制）
+- close 不留 lock
+
+跳過（v2 再補）：
+- 多 thread 並發 save（需 threading 設計）
+- 大量資料 / 效能 / index 命中率
+"""
+
+from __future__ import annotations
+
+from utils.db_manager import DBManager
+
+
+class TestStartup:
+    def test_init_creates_all_tables(self, tmp_db_path):
+        """新 DB 啟動後應有所有主流程表。"""
+        db = DBManager(tmp_db_path)
+        rows = db._conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+        ).fetchall()
+        names = [r[0] for r in rows]
+        for required in ("events", "audio_files", "transcriptions", "keywords"):
+            assert required in names, f"missing table: {required}"
+        db.close()
+
+    def test_init_creates_fts_table(self, tmp_db_path):
+        """FTS5 虛擬表應建立。"""
+        db = DBManager(tmp_db_path)
+        rows = db._conn.execute(
+            "SELECT name FROM sqlite_master WHERE name='transcriptions_fts'"
+        ).fetchall()
+        assert len(rows) == 1
+        db.close()
+
+    def test_init_records_baseline_migration(self, tmp_db_path):
+        """整合 C3：DBManager 啟動應自動 reconcile 0001 baseline。"""
+        db = DBManager(tmp_db_path)
+        versions = [r["version"] for r in db._conn.execute(
+            "SELECT version FROM schema_migrations"
+        ).fetchall()]
+        assert "0001" in versions
+        db.close()
+
+
+class TestCRUD:
+    def test_create_event_returns_id(self, tmp_db_path):
+        db = DBManager(tmp_db_path)
+        eid = db.create_event(
+            event_name="測試事件",
+            model_type="google_stt",
+            sub_model="chirp_3",
+        )
+        assert isinstance(eid, int) and eid > 0
+        db.close()
+
+    def test_save_audio_and_transcription(self, tmp_db_path):
+        db = DBManager(tmp_db_path)
+        eid = db.create_event("test", "google_stt", "chirp_3")
+        aid = db.save_audio_file(eid, "test.wav", archive_path="archive/test.wav")
+        assert isinstance(aid, int) and aid > 0
+
+        tid = db.save_transcription(aid, eid, "OCC 收到請繼續")
+        assert isinstance(tid, int) and tid > 0
+        db.close()
+
+
+class TestFTSSearch:
+    """FTS5 trigram 搜尋——存進去要能搜得到（≥3 字）。"""
+
+    def test_search_finds_recently_saved(self, tmp_db_path):
+        db = DBManager(tmp_db_path)
+        eid = db.create_event("test", "google_stt", "chirp_3")
+        aid = db.save_audio_file(eid, "test.wav")
+        db.save_transcription(aid, eid, "OCC 收到 G07 站長呼叫")
+
+        rows = db.search_transcriptions("G07 站長")  # ≥3 字
+        assert len(rows) >= 1
+        # 找到的 transcript 應包含關鍵字
+        assert any("G07" in r["transcript"] for r in rows)
+        db.close()
+
+    def test_search_like_works_for_short_query(self, tmp_db_path):
+        """LIKE 搜尋給 1~2 字短查詢用。"""
+        db = DBManager(tmp_db_path)
+        eid = db.create_event("test", "google_stt", "chirp_3")
+        aid = db.save_audio_file(eid, "test.wav")
+        db.save_transcription(aid, eid, "疏散乘客")
+
+        rows = db.search_transcriptions_like("疏散")  # 2 字
+        assert len(rows) >= 1
+        db.close()
+
+
+class TestClose:
+    def test_close_releases_connection(self, tmp_db_path):
+        """close 後第二次開應該也能跑（不被 lock）。"""
+        db = DBManager(tmp_db_path)
+        db.close()
+        # 第二次開
+        db2 = DBManager(tmp_db_path)
+        assert db2._conn is not None
+        db2.close()
