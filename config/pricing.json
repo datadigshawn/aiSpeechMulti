@@ -1,0 +1,27 @@
+{
+  "_meta": {
+    "last_updated": "2026-05-08",
+    "source": "ElevenLabs / Google Cloud 公開定價（請定期 review）",
+    "next_review_due": "2026-08-08"
+  },
+  "usd_to_twd": 31.0,
+  "alerts": {
+    "daily_warning_pct": 80,
+    "daily_critical_pct": 100,
+    "daily_budget_twd": 100
+  },
+  "engines": {
+    "scribe_rt": {
+      "type": "stt",
+      "unit": "audio_seconds",
+      "usd_per_unit": 0.000111,
+      "_note": "$0.0067/min ÷ 60（請以實際 ElevenLabs 帳單校準）"
+    },
+    "google_stt_chirp_3": {
+      "type": "stt",
+      "unit": "audio_seconds",
+      "usd_per_unit": 0.000400,
+      "_note": "$0.024/min ÷ 60（請以 GCP 帳單校準）"
+    }
+  }
+}

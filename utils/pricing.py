@@ -1,0 +1,71 @@
+"""Pricing 載入與成本計算。
+
+純函數設計：所有 entry 都接受 pricing dict（或 None 用預設）。
+這樣測試可以注入自訂 pricing 不用改檔，prod 用預設。
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Optional
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_PRICING_PATH = PROJECT_ROOT / "config" / "pricing.json"
+
+
+class PricingError(ValueError):
+    """pricing.json 結構或單位不合法。"""
+
+
+def load_pricing(path: Path | None = None) -> dict:
+    """讀 pricing.json 並回傳 dict。失敗 raise PricingError。"""
+    p = Path(path) if path else DEFAULT_PRICING_PATH
+    if not p.exists():
+        raise PricingError(f"pricing.json not found at {p}")
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        raise PricingError(f"pricing.json malformed: {e}") from e
+
+
+def calc_cost(engine: str, usage: dict, pricing: dict) -> tuple[float, float]:
+    """算單次呼叫的 USD / TWD 成本。
+
+    Args:
+        engine: 引擎 key（必須在 pricing["engines"] 裡）
+        usage: usage dict，例如 {"audio_seconds": 87.3} 或 {"input_tokens": ..., "output_tokens": ...}
+        pricing: 完整 pricing dict（load_pricing() 回傳的）
+
+    Returns:
+        (cost_usd, cost_twd)
+    """
+    engines = pricing.get("engines", {})
+    if engine not in engines:
+        raise PricingError(f"engine '{engine}' not in pricing.json")
+    cfg = engines[engine]
+    unit = cfg["unit"]
+    rate = cfg["usd_per_unit"]
+    qty = usage.get(unit)
+    if qty is None:
+        raise PricingError(f"usage missing required key '{unit}' for engine '{engine}'")
+    cost_usd = float(qty) * float(rate)
+    cost_twd = cost_usd * float(pricing.get("usd_to_twd", 31.0))
+    return cost_usd, cost_twd
+
+
+def alert_level(today_total_twd: float, pricing: dict) -> str:
+    """依 daily_budget_twd 與 pct 閾值決定警告等級。
+
+    Returns: "ok" | "warning" | "critical"
+    """
+    alerts = pricing.get("alerts", {})
+    budget = alerts.get("daily_budget_twd", 0)
+    if budget <= 0:
+        return "ok"  # 邊界：未設預算 → 永遠 ok
+    pct = today_total_twd / budget * 100
+    if pct >= alerts.get("daily_critical_pct", 100):
+        return "critical"
+    if pct >= alerts.get("daily_warning_pct", 80):
+        return "warning"
+    return "ok"
