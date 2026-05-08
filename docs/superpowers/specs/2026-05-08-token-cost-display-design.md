@@ -16,11 +16,13 @@ spec_path: docs/superpowers/specs/2026-05-08-token-cost-display-design.md
 讓「即時辨識頁」(monitor.html, `:8000/monitor`) 顯示**正在花多少錢**，達到「適當控制 STT 模型 token 花費」的目標。
 
 具體交付：
-- 頂部 status bar：「今日 NT$ X · session NT$ Y」即時更新
-- 點擊展開：5 channel × engine 拆解（含原始使用量 audio_seconds / tokens）
+- 頂部 status bar：「今日 NT$ X · session NT$ Y · N/6 席位活動中」即時更新
+- 點擊展開：**6 席位 × engine 拆解**（含原始使用量 audio_seconds / tokens）
 - Threshold 視覺警告（≥ 80% 橘 / ≥ 100% 紅）
 - 跨 tab/refresh 同步（DB 持久 + REST endpoint）
 - Phase A schema 設計時預留 Phase B（LLM）位置，避免重工
+
+**列維度說明**：UI 以**席位 (channel)** 為單位列分，**不是事件類型**（控制中心/軌道/動車門等是後處理 tag、不是 channel 標籤）。席位對應實體錄音通道與操作員座位。
 
 ## 2. Non-Goals
 
@@ -58,6 +60,9 @@ spec_path: docs/superpowers/specs/2026-05-08-token-cost-display-design.md
 | **session** | **伺服器 process 啟動以來**的累計（in-memory）。Browser refresh **不會** reset，只有 `app_api.py` 重啟才歸零。前端 UI 顯示用「session」這字面是承襲自 server side 概念。 |
 | **audio_seconds** | 實際送進 STT API 的音訊秒數（**不含**前端 VAD 已切掉的靜音）。意味同樣 1 分鐘真實時間，Google STT（後端 batch + VAD）通常 < Scribe RT（前端持續送 raw 串流） |
 | **ledger record 時機** | 每次 STT API 呼叫**返回後**記一筆（一次 call = 一筆 event）。失敗的 call 不記。 |
+| **席位 (seat)** | UI 顯示用詞，等價於 channel / 錄音通道。Project 已用此詞於 `static/index.html:418`「席位代號」。 |
+| **channel_id** | TEXT 型別（不是 INTEGER），對齊既有 `transcripts.channel_id TEXT`。實務值通常為 "1"~"6" 字串。 |
+| **支援 channel 數** | 結構上最多 6 (依 `monitor.html` CSS lanes)。實際同時連線數動態，未連的席位顯示 idle。 |
 
 ## 4. Architecture
 
@@ -109,7 +114,7 @@ class UsageEvent:
     UI 渲染時依 dict 鍵自動 format（audio_seconds → "87 秒"，
     input_tokens → "8.4k in"），不需改 schema 即可加新引擎類型。
     """
-    channel_id: int
+    channel_id: str                    # TEXT，對齊 transcripts.channel_id（"1"~"6" 字串）
     engine: str                        # "scribe_rt" | "google_stt_chirp_3" | ...
     occurred_at: datetime
     usage: dict[str, int | float]      # 高擴展性核心
@@ -135,7 +140,7 @@ class UsageLedger:
 ```sql
 CREATE TABLE IF NOT EXISTS usage_log (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    channel_id   INTEGER NOT NULL,
+    channel_id   TEXT    NOT NULL,           -- 對齊 transcripts.channel_id TEXT（值如 "1"~"6"）
     engine       TEXT    NOT NULL,
     occurred_at  TIMESTAMP NOT NULL,
     usage_json   TEXT    NOT NULL,           -- JSON: {"audio_seconds": 87.3}
@@ -167,7 +172,7 @@ DROP TABLE IF EXISTS usage_log;
 ```json
 {
   "type": "usage_update",
-  "channel_id": 1,
+  "channel_id": "1",
   "category": "stt",
   "engine": "google_stt_chirp_3",
   "usage": {"audio_seconds": 15.2},
@@ -190,15 +195,19 @@ DROP TABLE IF EXISTS usage_log;
   "session_total_twd": 3.20,
   "by_channel": [
     {
-      "channel_id": 1,
-      "today_twd": 5.20,
-      "session_twd": 1.80,
+      "channel_id": "1",
+      "today_twd": 18.20,
+      "session_twd": 3.10,
+      "is_active": true,
       "by_engine": [
-        {"engine": "scribe_rt",   "today_twd": 0.60, "session_twd": 0.20, "usage": {"audio_seconds": 87.0}},
-        {"engine": "google_stt_chirp_3", "today_twd": 1.20, "session_twd": 0.40, "usage": {"audio_seconds": 120.0}}
+        {"engine": "scribe_rt",          "today_twd": 0.81, "session_twd": 0.20, "usage": {"audio_seconds": 237.0}},
+        {"engine": "google_stt_chirp_3", "today_twd": 2.38, "session_twd": 0.40, "usage": {"audio_seconds": 192.0}}
       ]
     }
+    /* ... 最多 6 筆，未連線的席位 is_active=false 且 by_engine: [] */
   ],
+  "active_channel_count": 5,
+  "max_channel_slots": 6,
   "alerts": {"daily_pct": 12.4, "level": "ok"}  // "ok" | "warning" | "critical"（對應 pricing.alerts 兩個 pct 閾值）
 }
 ```
@@ -249,28 +258,53 @@ Phase B 加 LLM 條目時 `engines.<name>.unit` 改 `"input_tokens"` / `"output_
 ### 9.1 預設視圖（status bar）
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  💰 今日 NT$ 12.40 · session NT$ 3.20    [▼ 展開]   │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│  💰 今日 NT$ 24.30 · session NT$ 5.40 · 5/6 席位活動中  [▼ 展開] │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-放在 monitor.html 頂部、「5 channel grid」上方。
+放在 monitor.html 頂部、「6 lane grid」上方。`5/6 席位活動中` 由 REST 的 `active_channel_count / max_channel_slots` 計算。
 
-### 9.2 展開視圖
+### 9.2 展開視圖（席位導向）
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  💰 今日 NT$ 12.40 · session NT$ 3.20    [▲ 收起]   │
-├─────────────────────────────────────────────────────┤
-│  Channel 1 · 控制中心                               │
-│    今日 NT$ 5.20 · session NT$ 1.80                │
-│    └ scribe_rt        87 秒    NT$ 0.60            │
-│    └ google_stt      120 秒    NT$ 1.20            │
-│                                                      │
-│  Channel 2 · 軌道                                   │
-│    ...                                              │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│  💰 今日 NT$ 47.20 · session NT$ 8.40                  [▲ 收起] │
+├──────────────────────────────────────────────────────────────────┤
+│  席位 1 · ● live · dual                                          │
+│    今日 NT$ 18.20 · session NT$ 3.10                            │
+│    └ scribe_rt           237 秒      NT$ 0.81                   │
+│    └ google_stt          192 秒      NT$ 2.38                   │
+│                                                                   │
+│  席位 2 · ● live · dual                                          │
+│    今日 NT$ 11.30 · session NT$ 1.80                            │
+│    └ scribe_rt           142 秒      NT$ 0.49                   │
+│    └ google_stt          115 秒      NT$ 1.43                   │
+│                                                                   │
+│  席位 3 · ● live · dual + LLM    [⚠️ warning 個別席位也套同色規則] │
+│    今日 NT$ 9.40 · session NT$ 2.20                             │
+│    └ google_stt           98 秒      NT$ 1.21                   │
+│                                                                   │
+│  席位 4 · ● live · scribe_rt                                     │
+│    今日 NT$ 4.80 · session NT$ 0.90                             │
+│    └ scribe_rt            63 秒      NT$ 0.22                   │
+│                                                                   │
+│  席位 5 · ● live · google_stream                                 │
+│    今日 NT$ 3.50 · session NT$ 0.40                             │
+│    └ google_stt           88 秒      NT$ 1.09                   │
+│                                                                   │
+│  席位 6 · ○ idle · 無 WS 連線                                    │
+│    —                                                             │
+└──────────────────────────────────────────────────────────────────┘
 ```
+
+**列維度釘死**：
+
+- 一列 = 一個席位 (channel_id) = 一個錄音通道 = 一個操作員座位
+- **不**用「事件類型」（控制中心 / 軌道 / 動車門）為列——那是後處理 tag 不是 channel
+- 6 列固定佔位（`monitor.html` CSS lanes）；未連線者顯示 idle (○)、不隱藏，方便對應實體座位佈局
+- 席位個別 today/session 數字也套同套 ok/warning/critical 色彩規則（席位個別 budget 留 v2）
+- 視覺呈現見 [mockup `/tmp/cost-display-mockup.html`](/tmp/cost-display-mockup.html)（snip approved 2026-05-08）
 
 ### 9.3 色彩規則（status bar 「今日」數字）
 
@@ -362,3 +396,4 @@ Spec 不深入但記錄方向：
 | Date | Change | Author |
 |---|---|---|
 | 2026-05-08 | Initial design after 5-question brainstorming | shawnclaw + Claude |
+| 2026-05-08 | v2: 列維度修正為「席位 (channel)」非事件類型；channel_id 改 TEXT 對齊既有 schema；最大 6 槽；mockup snip-approved | shawnclaw + Claude |
