@@ -139,3 +139,33 @@ class TestSTTWrapperAudioSeconds:
         # 必含 audio_file 參數
         assert "audio_file" in scribe_sig.parameters
         assert "audio_file" in google_sig.parameters
+
+
+class TestUsageLogQueries:
+    """db_manager 對 usage_log 的存取（v1 純 SQL；之後可能抽 helper）。"""
+
+    def test_can_insert_and_select_usage_log(self, tmp_db_path):
+        db = DBManager(tmp_db_path)
+        # baseline + 0002 應已套用
+        # 直接 INSERT
+        db._conn.execute(
+            "INSERT INTO usage_log (channel_id, engine, occurred_at, usage_json, cost_usd, cost_twd) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            ("1", "scribe_rt", "2026-05-08T10:00:00", '{"audio_seconds": 60.0}', 0.00666, 0.20646)
+        )
+        db._conn.commit()
+        rows = db._conn.execute("SELECT cost_usd FROM usage_log WHERE channel_id='1'").fetchall()
+        assert len(rows) == 1
+        assert abs(rows[0]["cost_usd"] - 0.00666) < 1e-6
+        db.close()
+
+    def test_db_init_runs_0002_migration(self, tmp_db_path):
+        """DBManager 啟動應自動套用 0001 + 0002。"""
+        db = DBManager(tmp_db_path)
+        rows = db._conn.execute(
+            "SELECT version FROM schema_migrations ORDER BY version"
+        ).fetchall()
+        versions = [r["version"] for r in rows]
+        assert "0001" in versions
+        assert "0002" in versions
+        db.close()

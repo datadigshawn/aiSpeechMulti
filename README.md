@@ -281,6 +281,28 @@ pytest --cov --cov-report=term-missing   # 覆蓋率報告
 
 CI：每次 push / PR 到 `main` 或 `dev` 會自動跑 [tests workflow](https://github.com/datadigshawn/aiSpeechMulti/actions/workflows/test.yml)。
 
+### 即時成本顯示（2026-05-08 引入，Phase A）
+
+monitor.html 頂部 status bar 顯示：
+- 今日累計 STT 成本（台幣）
+- 本次 server session 累計
+- N/6 席位活動中
+
+點擊展開：6 席位 × engine 細項拆解。
+
+設定：
+- `config/pricing.json` — 引擎單價、TWD 匯率、日預算（請定期 review，目前 hardcoded）
+- 預設日預算 NT$ 100，達 80% 橘色警告，達 100% 紅色警告
+- TWD 匯率 hardcoded 31.0，估算用，非會計級精度
+
+**Phase A 已知限制**：
+- google_stream 模式不入 ledger（stream_recognize 不回傳 audio_seconds）
+- LLM correction（Gemini）不追蹤 → Phase B 補
+- session 累計從 server process 啟動算起，不跨重啟
+
+**Phase B（之後）**：加 Gemini correction 等 LLM token tracking。
+詳細 spec：[docs/superpowers/specs/2026-05-08-token-cost-display-design.md](docs/superpowers/specs/2026-05-08-token-cost-display-design.md)
+
 ### Schema migration（v0.1，2026-05-07 引入）
 
 - 純 SQL + numbered file 機制（`migrations/NNNN_*.sql` + `.down.sql`）

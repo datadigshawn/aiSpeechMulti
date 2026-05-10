@@ -175,3 +175,29 @@ class TestUpDown:
         cols = [r[1] for r in conn.execute("PRAGMA table_info(transcriptions)").fetchall()]
         assert "_dummy" not in cols
         conn.close()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 0002 round-trip test
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestMigration0002:
+    """0002_add_usage_log 真 migration（不是 dummy）的 round-trip。"""
+
+    def test_0002_creates_usage_log_table(self, baseline_db):
+        # baseline_db 已套用 0001。
+        # 跑 cmd_up 應該套上 0002（reconcile 0001 + apply 0002）
+        rc = migrate.cmd_up(baseline_db, target=None, dry_run=False)
+        assert rc == 0
+
+        import sqlite3
+        conn = sqlite3.connect(baseline_db)
+        rows = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='usage_log'"
+        ).fetchall()
+        assert len(rows) == 1
+        # 確認欄位齊全
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(usage_log)").fetchall()]
+        for c in ("channel_id", "engine", "occurred_at", "usage_json", "cost_usd", "cost_twd"):
+            assert c in cols, f"missing column {c}"
+        conn.close()
