@@ -151,6 +151,7 @@ class UsageLedger:
                 "channel_id": ch_id,
                 "today_twd": 0.0,
                 "session_twd": 0.0,
+                "is_active": True,
                 "by_engine": [],
             })
             ch["today_twd"] += float(twd or 0)

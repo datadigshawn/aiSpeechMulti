@@ -611,10 +611,14 @@ async function refreshCost(base) {
 }
 
 // 初始載入
-const _base = (typeof window.API_BASE !== 'undefined' ? window.API_BASE : '');
-refreshCost(_base);
+function _costApiBase() {
+  // 與 pollChannels / pollTranscripts 同 pattern：每次讀使用者可調整的 input
+  const el = document.getElementById('apiBase');
+  return el ? el.value.replace(/\/$/, '') : '';
+}
+refreshCost(_costApiBase());
 // 每 5 秒 poll 一次（保險，與 WS push 並存）
-setInterval(() => refreshCost(_base), 5000);
+setInterval(() => refreshCost(_costApiBase()), 5000);
 
 // 展開 / 收起 + localStorage 記憶
 const _expandKey = 'cost-expand-open';

@@ -1593,16 +1593,25 @@ async def landing_status():
 async def api_usage_today():
     """給 monitor.html 跨 tab/refresh 同步用。"""
     by_channel = _LEDGER.by_channel()
-    active_ids = {c["channel_id"] for c in by_channel}
+    # 「今天有用過的席位」(non-empty by_channel items)
+    channels_with_usage_today = len(by_channel)
+    # 「現在 WebSocket 連線中的席位」
+    try:
+        currently_streaming = len(stream_manager.channels)
+    except Exception:
+        currently_streaming = 0
     today = _LEDGER.today_total_twd()
     pricing_alerts = _PRICING.get("alerts", {})
     daily_budget = pricing_alerts.get("daily_budget_twd", 0)
     return {
-        "today_total_twd":      today,
-        "session_total_twd":    _LEDGER.session_total_twd(),
-        "by_channel":           by_channel,
-        "active_channel_count": len(active_ids),
-        "max_channel_slots":    6,
+        "today_total_twd":            today,
+        "session_total_twd":          _LEDGER.session_total_twd(),
+        "by_channel":                 by_channel,
+        "channels_with_usage_today":  channels_with_usage_today,
+        "currently_streaming_count":  currently_streaming,
+        # 兼容舊 client：保留 active_channel_count（取較大值，最接近 UI 想表達的「活躍中」）
+        "active_channel_count":       max(channels_with_usage_today, currently_streaming),
+        "max_channel_slots":          6,
         "alerts": {
             "level":             _LEDGER.alert_level(),
             "daily_pct":         (today / daily_budget) * 100 if daily_budget > 0 else 0,
