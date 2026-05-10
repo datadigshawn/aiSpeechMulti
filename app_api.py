@@ -82,6 +82,14 @@ from utils.usage_ledger import UsageLedger
 _PRICING = load_pricing()
 _LEDGER = UsageLedger(db_path=Path("data/aiSpeechMulti.db"), pricing=_PRICING)
 
+# ─── Cost Ledger 追蹤範圍（Phase A 2026-05-08）─────────────────────────
+# ✅ batch mode: google + scribe (transcribe_file → audio_seconds)
+# ✅ dual mode/google: transcribe_file → audio_seconds
+# ✅ dual mode/scribe RT 與 scribe_rt mode: audio_end_ms - audio_start_ms 推算
+# ✅ sensevoice_local: 本地零成本，不入 ledger（intentional）
+# ❌ google_stream mode: stream_recognize 不回傳 duration → v2 補（PCM 累計）
+# ─────────────────────────────────────────────────────────────────────
+
 # ── 簡體→繁體中文轉換（opencc s2twp：台灣繁體用詞）─────────────────────────────
 try:
     import opencc as _opencc
@@ -830,6 +838,11 @@ async def _handle_scribe_rt_mode(
                             })
                         except Exception as e:
                             logger.warning(f"[{channel_id}] ledger record failed (non-fatal): {e}")
+                    else:
+                        logger.warning(
+                            f"[{channel_id}] scribe_rt committed but audio_end_ms/audio_start_ms absent; "
+                            f"skipping cost ledger record (raw keys: {list(_raw.keys()) if _raw else 'None'})"
+                        )
 
                 elif mtype == "session_terminated":
                     logger.info(f"[{channel_id}][scribe_rt] session 結束")
@@ -873,6 +886,11 @@ async def _handle_google_stream_mode(
     純 Google streaming_recognize() 串流模式：
     PCM → gRPC streaming → partial/final → 推播前端 + final 存庫
     自動每 4.5 分鐘重連（Google 限制 5 分鐘）。
+
+    Phase A 已知限制（2026-05-08）：本模式不入 cost ledger
+    原因：stream_recognize() 不回傳 audio_seconds，需要從 PCM 累計 bytes 推算
+    Phase A 用戶主要用 dual mode（已支援）；此模式給測試/debug 用
+    Phase B 補：在 _task_browser_to_queue 累計 audio bytes，is_final 時 record
     """
     audio_q  = asyncio.Queue(maxsize=100)
     result_q = asyncio.Queue()
@@ -1152,6 +1170,11 @@ async def _handle_dual_mode(
                             })
                         except Exception as e:
                             logger.warning(f"[{channel_id}] ledger record failed (non-fatal): {e}")
+                    else:
+                        logger.warning(
+                            f"[{channel_id}] scribe_rt committed but audio_end_ms/audio_start_ms absent; "
+                            f"skipping cost ledger record (raw keys: {list(_raw.keys()) if _raw else 'None'})"
+                        )
 
                 elif mtype == "session_terminated":
                     logger.info(f"[{channel_id}][dual/scribe] session 結束")
