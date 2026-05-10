@@ -105,3 +105,37 @@ class TestClose:
         db2 = DBManager(tmp_db_path)
         assert db2._conn is not None
         db2.close()
+
+
+class TestSTTWrapperAudioSeconds:
+    """Smoke test: confirm STT wrapper modules import and have transcribe_file.
+
+    We don't call the real API (needs key + network). We only verify the
+    audio_duration helper works (since wrappers will use it) and that the
+    wrapper modules still import cleanly after our edits.
+    """
+
+    def test_audio_duration_helper_works(self, tmp_path):
+        import wave
+        wav = tmp_path / "1sec.wav"
+        with wave.open(str(wav), "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(16000)
+            w.writeframes(b"\x00\x00" * 16000)
+
+        from utils.audio_duration import audio_seconds
+        assert abs(audio_seconds(wav) - 1.0) < 0.01
+
+    def test_stt_wrapper_modules_import_cleanly(self):
+        """Confirm wrapper modules still import after we added audio_seconds logic."""
+        from scripts.models import model_scribe, model_google_stt
+        assert hasattr(model_scribe, "ScribeSTTModel")
+        assert hasattr(model_google_stt, "GoogleSTTModel")
+        # Confirm transcribe_file method exists with expected signature
+        import inspect
+        scribe_sig = inspect.signature(model_scribe.ScribeSTTModel.transcribe_file)
+        google_sig = inspect.signature(model_google_stt.GoogleSTTModel.transcribe_file)
+        # 必含 audio_file 參數
+        assert "audio_file" in scribe_sig.parameters
+        assert "audio_file" in google_sig.parameters

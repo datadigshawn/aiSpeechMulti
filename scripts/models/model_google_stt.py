@@ -440,6 +440,13 @@ class GoogleSTTModel:
                 'error': str (optional)
             }
         """
+        # audio_seconds for cost ledger (Phase A 2026-05-08)
+        try:
+            from utils.audio_duration import audio_seconds as _audio_sec, AudioDurationError
+            _duration = _audio_sec(audio_file)
+        except (AudioDurationError, Exception):
+            _duration = 0.0
+
         try:
             # 準備音訊（必要時自動轉換）
             audio_content, sample_rate = self._prepare_audio(audio_file)
@@ -598,6 +605,7 @@ class GoogleSTTModel:
                     'transcript_raw': '',
                     'confidence': 0.0,
                     'has_diarization': has_diarization,
+                    'audio_seconds': _duration,
                 }
 
             if has_diarization:
@@ -619,6 +627,7 @@ class GoogleSTTModel:
                     'confidence': 0.0,      # diarization 不計算整體信心度
                     'results': response.results,
                     'has_diarization': True,
+                    'audio_seconds': _duration,
                 }
 
             # ── 一般模式：提取文字和信心度 ────────────────────────────
@@ -643,6 +652,7 @@ class GoogleSTTModel:
                 'confidence': avg_confidence,
                 'results': response.results,
                 'has_diarization': False,
+                'audio_seconds': _duration,
             }
         
         except Exception as e:
@@ -679,7 +689,8 @@ class GoogleSTTModel:
                 'transcript': '',
                 'transcript_raw': '',
                 'confidence': 0.0,
-                'error': error_msg
+                'error': error_msg,
+                'audio_seconds': 0.0,
             }
     
     # =========================================================================

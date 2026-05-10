@@ -107,6 +107,13 @@ class ScribeSTTModel:
         """
         audio_path = Path(audio_file)
 
+        # audio_seconds for cost ledger (Phase A 2026-05-08)
+        try:
+            from utils.audio_duration import audio_seconds as _audio_sec, AudioDurationError
+            _duration = _audio_sec(audio_file)
+        except (AudioDurationError, Exception):
+            _duration = 0.0
+
         try:
             audio_bytes = audio_path.read_bytes()
 
@@ -135,6 +142,7 @@ class ScribeSTTModel:
                     "transcript": "",
                     "confidence": 0.0,
                     "error": f"HTTP {resp.status_code}: {resp.text[:300]}",
+                    "audio_seconds": 0.0,
                 }
 
             data = resp.json()
@@ -171,6 +179,7 @@ class ScribeSTTModel:
                     })
                 result["words"] = normalized_words
 
+            result["audio_seconds"] = _duration
             return result
 
         except httpx.TimeoutException:
@@ -178,12 +187,14 @@ class ScribeSTTModel:
                 "transcript": "",
                 "confidence": 0.0,
                 "error": f"Scribe API 請求逾時（>{self.timeout}s）",
+                "audio_seconds": 0.0,
             }
         except Exception as exc:
             return {
                 "transcript": "",
                 "confidence": 0.0,
                 "error": str(exc),
+                "audio_seconds": 0.0,
             }
 
 
