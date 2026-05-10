@@ -175,11 +175,78 @@
     font-weight: var(--fw-semibold);
   }
   .skip-link:focus { left: 0; outline: none; }
+
+/* ─── 成本 status bar ─── */
+.cost-status {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 18px; margin: 12px 0; border-radius: 8px;
+  background: var(--neutral-2); border: 1px solid var(--neutral-6);
+  font-family: var(--mono, 'SF Mono', Menlo, monospace);
+}
+.cost-status[data-level="warning"] {
+  background: oklch(0.55 0.14 75 / 0.18); border-color: #f5a623;
+}
+.cost-status[data-level="critical"] {
+  background: oklch(0.55 0.18 25 / 0.20); border-color: #e74c3c;
+}
+.cost-status__left { display: flex; gap: 14px; align-items: center; }
+.cost-status__icon { font-size: 18px; }
+.cost-status__num { color: var(--neutral-12); font-size: 14px; font-weight: 600; }
+.cost-status__num--session { color: var(--neutral-11); font-weight: 500; }
+.cost-status[data-level="warning"] .cost-status__num { color: #f5a623; }
+.cost-status[data-level="critical"] .cost-status__num { color: #e74c3c; }
+.cost-status__divider { color: var(--neutral-9); }
+.cost-status__active { color: var(--neutral-9); font-size: 12px; }
+.cost-status__toggle {
+  background: transparent; border: 1px solid var(--neutral-7);
+  color: var(--neutral-11); padding: 4px 10px; border-radius: 4px;
+  font: inherit; font-size: 11px; cursor: pointer;
+}
+.cost-expand {
+  background: var(--neutral-2); border: 1px solid var(--neutral-6);
+  border-radius: 8px; margin-bottom: 12px; padding: 0;
+}
+.cost-expand__seat {
+  padding: 12px 18px; border-bottom: 1px solid var(--neutral-6);
+  display: grid; grid-template-columns: 110px 130px 1fr; gap: 14px;
+  font-family: var(--mono, 'SF Mono', Menlo, monospace); font-size: 12px;
+}
+.cost-expand__seat:last-child { border-bottom: none; }
+.cost-expand__seat.idle { opacity: 0.55; }
+.cost-expand__seat-id { color: var(--neutral-12); font-weight: 600; }
+.cost-expand__totals { color: var(--neutral-11); }
+.cost-expand__totals .today { color: var(--neutral-12); font-weight: 600; }
+.cost-expand__seat[data-level="warning"] .today { color: #f5a623; }
+.cost-expand__seat[data-level="critical"] .today { color: #e74c3c; }
+.cost-expand__totals .session { color: var(--neutral-9); font-size: 11px; }
+.cost-expand__engine {
+  display: grid; grid-template-columns: 130px 90px 80px;
+  font-size: 11px; color: var(--neutral-11);
+}
+.cost-expand__engine .name { color: var(--brand-primary); }
+.cost-expand__engine .usage { color: var(--neutral-9); }
+.cost-expand__engine .cost { color: var(--neutral-12); text-align: right; }
 </style>
 </head>
 <body>
 <a href="#main-content" class="skip-link">跳至 5 路即時辨識</a>
 <div class="page">
+
+<!-- ─── 成本 status bar (Phase A 2026-05-08) ─── -->
+<div id="cost-status" class="cost-status" data-level="ok">
+  <div class="cost-status__left">
+    <span class="cost-status__icon" id="cost-icon">💰</span>
+    <span>今日 <span class="cost-status__num" id="cost-today">NT$ 0.00</span></span>
+    <span class="cost-status__divider">·</span>
+    <span>session <span class="cost-status__num cost-status__num--session" id="cost-session">NT$ 0.00</span></span>
+    <span class="cost-status__divider">·</span>
+    <span class="cost-status__active" id="cost-active">0/6 席位活動中</span>
+  </div>
+  <button class="cost-status__toggle" id="cost-toggle" type="button">▼ 展開</button>
+</div>
+<div id="cost-expand" class="cost-expand" hidden>
+  <!-- 由 JS 動態填入 -->
+</div>
 
   <header class="page__head" role="banner">
     <div>
@@ -466,6 +533,101 @@ initLanes();
 pollChannels();
 pollTranscripts();
 setInterval(() => { pollChannels(); pollTranscripts(); }, POLL_INTERVAL);
+
+// ─── 成本 status bar (Phase A 2026-05-08) ───
+const COST_BUDGET = 100;  // 與 pricing.json daily_budget_twd 對齊；不對的話前端只是顯示偏差，REST 才是真值
+
+function fmtTWD(n) {
+  if (n >= 10000) return 'NT$ ' + (n / 1000).toFixed(1) + 'k';
+  return 'NT$ ' + n.toFixed(2);
+}
+
+function levelFromPct(pct) {
+  if (pct >= 100) return 'critical';
+  if (pct >= 80)  return 'warning';
+  return 'ok';
+}
+
+function iconFor(level) {
+  return { ok: '💰', warning: '⚠️', critical: '🚨' }[level] || '💰';
+}
+
+function updateCostBar(today, session, activeCount) {
+  document.getElementById('cost-today').textContent = fmtTWD(today);
+  document.getElementById('cost-session').textContent = fmtTWD(session);
+  document.getElementById('cost-active').textContent = activeCount + '/6 席位活動中';
+  const pct = COST_BUDGET > 0 ? (today / COST_BUDGET) * 100 : 0;
+  const level = levelFromPct(pct);
+  document.getElementById('cost-status').dataset.level = level;
+  document.getElementById('cost-icon').textContent = iconFor(level);
+}
+
+function renderExpand(byChannel, maxSlots) {
+  const root = document.getElementById('cost-expand');
+  root.innerHTML = '';
+  // 6 槽：1~6 都渲染，沒資料的顯示 idle
+  const map = new Map(byChannel.map(c => [c.channel_id, c]));
+  for (let i = 1; i <= maxSlots; i++) {
+    const id = String(i);
+    const ch = map.get(id);
+    const isActive = !!ch;
+    const today = isActive ? ch.today_twd : 0;
+    const session = isActive ? ch.session_twd : 0;
+    const pct = COST_BUDGET > 0 ? (today / COST_BUDGET) * 100 : 0;
+    const level = levelFromPct(pct);
+
+    const seat = document.createElement('div');
+    seat.className = 'cost-expand__seat' + (isActive ? '' : ' idle');
+    seat.dataset.level = level;
+    seat.innerHTML = `
+      <div class="cost-expand__seat-id">席位 ${i}<br><span style="font-size:10px;font-weight:normal;color:var(--neutral-9)">${isActive ? 'live' : 'idle · 無連線'}</span></div>
+      <div class="cost-expand__totals">
+        <div class="today">${isActive ? fmtTWD(today) : '—'}</div>
+        <div class="session">${isActive ? 'session ' + fmtTWD(session) : ''}</div>
+      </div>
+      <div>
+        ${isActive
+          ? ch.by_engine.map(e => `
+              <div class="cost-expand__engine">
+                <span class="name">${e.engine}</span>
+                <span class="usage">${e.usage.audio_seconds ? Math.round(e.usage.audio_seconds) + ' 秒' : '—'}</span>
+                <span class="cost">${fmtTWD(e.today_twd)}</span>
+              </div>`).join('')
+          : '<div class="cost-expand__engine" style="color:var(--neutral-9)"><span>—</span><span>—</span><span style="text-align:right">—</span></div>'}
+      </div>
+    `;
+    root.appendChild(seat);
+  }
+}
+
+async function refreshCost(base) {
+  try {
+    const r = await fetch(`${base}/api/usage/today`, { signal: AbortSignal.timeout(3000) });
+    if (!r.ok) return;
+    const d = await r.json();
+    updateCostBar(d.today_total_twd, d.session_total_twd, d.active_channel_count);
+    renderExpand(d.by_channel, d.max_channel_slots);
+  } catch (_) { /* 靜默 */ }
+}
+
+// 初始載入
+const _base = (typeof window.API_BASE !== 'undefined' ? window.API_BASE : '');
+refreshCost(_base);
+// 每 5 秒 poll 一次（保險，與 WS push 並存）
+setInterval(() => refreshCost(_base), 5000);
+
+// 展開 / 收起 + localStorage 記憶
+const _expandKey = 'cost-expand-open';
+function setExpanded(open) {
+  document.getElementById('cost-expand').hidden = !open;
+  document.getElementById('cost-toggle').textContent = open ? '▲ 收起' : '▼ 展開';
+  localStorage.setItem(_expandKey, open ? '1' : '0');
+}
+setExpanded(localStorage.getItem(_expandKey) === '1');
+document.getElementById('cost-toggle').addEventListener('click', () => {
+  const willOpen = document.getElementById('cost-expand').hidden;
+  setExpanded(willOpen);
+});
 </script>
 </body>
 </html>
