@@ -15,10 +15,9 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from utils.pricing import calc_cost, alert_level
 
@@ -35,7 +34,16 @@ class UsageEvent:
 
 
 class UsageLedger:
-    """In-memory + DB 雙寫的成本 ledger。"""
+    """In-memory + DB 雙寫的成本 ledger。
+
+    v1 限制（Phase A 接受）：
+    - _session_events list 無上限——server 跑數週後 by_channel() 會慢、占記憶體
+      （v2: 改 running counters dict[tuple, float]）
+    - today_total_twd / by_channel SQL 對 date() 函式無法走 idx_usage_occurred
+      （Phase A scale ~100 rows/day 不痛；v2: GENERATED COLUMN date_local 加索引）
+    - 不自設 PRAGMA journal_mode=WAL，依賴 app_api.py 在 startup 設好
+      （v2: ledger __init__ 自設）
+    """
 
     def __init__(self, db_path: Path, pricing: dict):
         """Args:
@@ -93,7 +101,7 @@ class UsageLedger:
             row = conn.execute(
                 """
                 SELECT COALESCE(SUM(cost_twd), 0.0) FROM usage_log
-                WHERE date(occurred_at, 'localtime') = date('now', 'localtime')
+                WHERE date(occurred_at) = date('now', 'localtime')
                 """
             ).fetchone()
             return float(row[0])
@@ -128,7 +136,7 @@ class UsageLedger:
                        SUM(cost_twd)        AS twd,
                        SUM(json_extract(usage_json, '$.audio_seconds')) AS audio_seconds_sum
                 FROM usage_log
-                WHERE date(occurred_at, 'localtime') = date('now', 'localtime')
+                WHERE date(occurred_at) = date('now', 'localtime')
                 GROUP BY channel_id, engine
                 ORDER BY channel_id, engine
                 """

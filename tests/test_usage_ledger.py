@@ -103,3 +103,43 @@ class TestAggregations:
         # 直接寫一筆超大 audio_seconds
         ledger.record("1", "scribe_rt", {"audio_seconds": 30000.0})  # ≈ NT$ 103
         assert ledger.alert_level() == "critical"
+
+    def test_today_total_includes_evening_records(self, ledger_db, sample_pricing):
+        """Regression: 16:00-23:59 local time records were silently dropped due to
+        SQLite double-localtime-shift bug. Insert a record at 16:30 today (local) and
+        verify it counts toward today_total_twd."""
+        from datetime import datetime, time as _time
+        ledger = UsageLedger(db_path=ledger_db, pricing=sample_pricing)
+
+        # 今日下午 16:30 local time — the formerly broken zone
+        today = datetime.now().date()
+        evening_local = datetime.combine(today, _time(hour=16, minute=30))
+        ledger.record(
+            channel_id="1",
+            engine="scribe_rt",
+            usage={"audio_seconds": 60.0},
+            occurred_at=evening_local,
+        )
+
+        assert ledger.today_total_twd() > 0, (
+            "16:30 local-time record should count toward today, but was dropped"
+        )
+
+    def test_today_total_excludes_yesterday(self, ledger_db, sample_pricing):
+        """Records from yesterday must not appear in today_total."""
+        from datetime import datetime, timedelta, time as _time
+        ledger = UsageLedger(db_path=ledger_db, pricing=sample_pricing)
+
+        yesterday = (datetime.now() - timedelta(days=1)).date()
+        yesterday_evening = datetime.combine(yesterday, _time(hour=16, minute=30))
+        ledger.record(
+            channel_id="1",
+            engine="scribe_rt",
+            usage={"audio_seconds": 60.0},
+            occurred_at=yesterday_evening,
+        )
+
+        # session_total counts yesterday's record (in-memory cache不分時區)
+        assert ledger.session_total_twd() > 0
+        # 但 today_total 不該包含
+        assert ledger.today_total_twd() == 0.0
