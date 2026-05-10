@@ -13,6 +13,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from utils.db_manager import DBManager
 
 
@@ -129,6 +131,7 @@ class TestSTTWrapperAudioSeconds:
 
     def test_stt_wrapper_modules_import_cleanly(self):
         """Confirm wrapper modules still import after we added audio_seconds logic."""
+        pytest.importorskip("google.cloud.speech_v2", reason="google-cloud-speech not installed")
         from scripts.models import model_scribe, model_google_stt
         assert hasattr(model_scribe, "ScribeSTTModel")
         assert hasattr(model_google_stt, "GoogleSTTModel")
