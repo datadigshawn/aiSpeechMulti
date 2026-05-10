@@ -75,6 +75,13 @@ from utils.logger import get_logger
 from utils.vad_filter import has_speech_in_wav_sr
 from utils.noise_filter import denoise_wav_file
 
+# ─── 成本 ledger（Phase A 2026-05-08）─────────────────────────────────
+from utils.pricing import load_pricing
+from utils.usage_ledger import UsageLedger
+
+_PRICING = load_pricing()
+_LEDGER = UsageLedger(db_path=Path("data/aiSpeechMulti.db"), pricing=_PRICING)
+
 # ── 簡體→繁體中文轉換（opencc s2twp：台灣繁體用詞）─────────────────────────────
 try:
     import opencc as _opencc
@@ -575,6 +582,29 @@ async def _handle_batch_mode(
                     state.transcript_count += 1
                     state.last_text         = transcript
                     logger.debug(f"[{channel_id}][batch] {transcript[:60]}")
+                    # Phase A 成本 ledger
+                    audio_sec = result.get("audio_seconds", 0.0)
+                    if audio_sec > 0:
+                        engine_key = "google_stt_chirp_3" if state.stt_backend == "google" else "scribe_rt"
+                        try:
+                            event = _LEDGER.record(
+                                channel_id=channel_id,
+                                engine=engine_key,
+                                usage={"audio_seconds": audio_sec},
+                            )
+                            await ws.send_json({
+                                "type":              "usage_update",
+                                "channel_id":        channel_id,
+                                "category":          "stt",
+                                "engine":            engine_key,
+                                "usage":             event.usage,
+                                "cost_usd":          event.cost_usd,
+                                "cost_twd":          event.cost_twd,
+                                "session_total_twd": _LEDGER.session_total_twd(),
+                                "today_total_twd":   _LEDGER.today_total_twd(),
+                            })
+                        except Exception as e:
+                            logger.warning(f"[{channel_id}] ledger record failed (non-fatal): {e}")
                 elif result.get("error"):
                     logger.warning(f"[{channel_id}][batch] STT 錯誤：{result['error']}")
 
@@ -679,6 +709,7 @@ async def _handle_sensevoice_local_mode(
                     state.transcript_count += 1
                     state.last_text         = transcript
                     logger.debug(f"[{channel_id}][sensevoice] {transcript[:60]}")
+                    # sensevoice 本地零成本，不入 ledger
                 elif result.get("error"):
                     logger.warning(f"[{channel_id}][sensevoice] STT 錯誤：{result['error']}")
 
@@ -776,6 +807,29 @@ async def _handle_scribe_rt_mode(
                     state.transcript_count += 1
                     state.last_text         = tw
                     logger.debug(f"[{channel_id}][scribe_rt] committed→DB: {tw[:60]}")
+                    # Phase A 成本 ledger
+                    _raw = msg.get("raw", {})
+                    audio_sec = (_raw.get("audio_end_ms", 0) - _raw.get("audio_start_ms", 0)) / 1000.0
+                    if audio_sec > 0:
+                        try:
+                            event = _LEDGER.record(
+                                channel_id=channel_id,
+                                engine="scribe_rt",
+                                usage={"audio_seconds": audio_sec},
+                            )
+                            await ws.send_json({
+                                "type":              "usage_update",
+                                "channel_id":        channel_id,
+                                "category":          "stt",
+                                "engine":            "scribe_rt",
+                                "usage":             event.usage,
+                                "cost_usd":          event.cost_usd,
+                                "cost_twd":          event.cost_twd,
+                                "session_total_twd": _LEDGER.session_total_twd(),
+                                "today_total_twd":   _LEDGER.today_total_twd(),
+                            })
+                        except Exception as e:
+                            logger.warning(f"[{channel_id}] ledger record failed (non-fatal): {e}")
 
                 elif mtype == "session_terminated":
                     logger.info(f"[{channel_id}][scribe_rt] session 結束")
@@ -993,6 +1047,28 @@ async def _handle_dual_mode(
                 state.transcript_count += 1
                 state.last_text         = transcript
                 logger.debug(f"[{channel_id}][dual/google] confirmed: {transcript[:60]}")
+                # Phase A 成本 ledger
+                audio_sec = result.get("audio_seconds", 0.0)
+                if audio_sec > 0:
+                    try:
+                        event = _LEDGER.record(
+                            channel_id=channel_id,
+                            engine="google_stt_chirp_3",
+                            usage={"audio_seconds": audio_sec},
+                        )
+                        await ws.send_json({
+                            "type":              "usage_update",
+                            "channel_id":        channel_id,
+                            "category":          "stt",
+                            "engine":            "google_stt_chirp_3",
+                            "usage":             event.usage,
+                            "cost_usd":          event.cost_usd,
+                            "cost_twd":          event.cost_twd,
+                            "session_total_twd": _LEDGER.session_total_twd(),
+                            "today_total_twd":   _LEDGER.today_total_twd(),
+                        })
+                    except Exception as e:
+                        logger.warning(f"[{channel_id}] ledger record failed (non-fatal): {e}")
             elif result.get("error"):
                 logger.warning(f"[{channel_id}][dual/google] STT 錯誤：{result['error']}")
 
@@ -1053,6 +1129,29 @@ async def _handle_dual_mode(
                     state.transcript_count += 1
                     state.last_text         = tw
                     logger.debug(f"[{channel_id}][dual/scribe] committed→DB: {tw[:60]}")
+                    # Phase A 成本 ledger
+                    _raw = msg.get("raw", {})
+                    audio_sec = (_raw.get("audio_end_ms", 0) - _raw.get("audio_start_ms", 0)) / 1000.0
+                    if audio_sec > 0:
+                        try:
+                            event = _LEDGER.record(
+                                channel_id=channel_id,
+                                engine="scribe_rt",
+                                usage={"audio_seconds": audio_sec},
+                            )
+                            await ws.send_json({
+                                "type":              "usage_update",
+                                "channel_id":        channel_id,
+                                "category":          "stt",
+                                "engine":            "scribe_rt",
+                                "usage":             event.usage,
+                                "cost_usd":          event.cost_usd,
+                                "cost_twd":          event.cost_twd,
+                                "session_total_twd": _LEDGER.session_total_twd(),
+                                "today_total_twd":   _LEDGER.today_total_twd(),
+                            })
+                        except Exception as e:
+                            logger.warning(f"[{channel_id}] ledger record failed (non-fatal): {e}")
 
                 elif mtype == "session_terminated":
                     logger.info(f"[{channel_id}][dual/scribe] session 結束")
@@ -1465,6 +1564,28 @@ async def landing_status():
     cache["ts"] = now
     cache["data"] = data
     return data
+
+
+@app.get("/api/usage/today", summary="今日 + session 成本與使用量")
+async def api_usage_today():
+    """給 monitor.html 跨 tab/refresh 同步用。"""
+    by_channel = _LEDGER.by_channel()
+    active_ids = {c["channel_id"] for c in by_channel}
+    today = _LEDGER.today_total_twd()
+    pricing_alerts = _PRICING.get("alerts", {})
+    daily_budget = pricing_alerts.get("daily_budget_twd", 0)
+    return {
+        "today_total_twd":      today,
+        "session_total_twd":    _LEDGER.session_total_twd(),
+        "by_channel":           by_channel,
+        "active_channel_count": len(active_ids),
+        "max_channel_slots":    6,
+        "alerts": {
+            "level":             _LEDGER.alert_level(),
+            "daily_pct":         (today / daily_budget) * 100 if daily_budget > 0 else 0,
+            "daily_budget_twd":  daily_budget,
+        },
+    }
 
 
 @app.get("/api/health", summary="健康檢查")
