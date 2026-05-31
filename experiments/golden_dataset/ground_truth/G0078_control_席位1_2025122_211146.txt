@@ -1,0 +1,9 @@
+B: OCC呼叫G17高鐵2月台車組25/26跟您確認列車是否完成AUX on。
+G: 25/26車回報目前列車AUX on狀態，over。
+B: 收到，完成後回報，over。
+G: G17高鐵2月台車組25/26回報OCC，目前列車AUX on狀態，請問是否復歸...over。
+B: OCC跟您確認AUX on狀態是否完成，over。
+G: ...痾...
+B: 訊號中斷請重發。
+G: 25/26車回報OCC_AUX on狀態已完成，over。
+B: out。

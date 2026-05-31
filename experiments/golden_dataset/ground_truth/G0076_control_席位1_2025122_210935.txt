@@ -1,0 +1,8 @@
+G: G17高鐵2月台車組25/26回報OCC，已操作AUX off、AUX on，over。
+B: 收到，out。
+G: 水安2月台15/16車回報已操作AUX off及AUX on，目前都算完成。
+B: 跟你確認列車是否完成AUX on?
+G: 15/16車回報正確正確，已完成AUX on。
+B: OCC收到。
+G: 森林1月台車組21/22回報OCC，已操作AUX off、AUX on，over。
+B: OCC收到確認G10a森林2月台車組21/22，誒，1月車組21/22已完成AUX off、AUX on。

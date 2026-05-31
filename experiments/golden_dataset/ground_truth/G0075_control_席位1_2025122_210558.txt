@@ -1,0 +1,3 @@
+B: OCC呼叫車組25/26，跟您確認人員是否操作AUX off、AUX on。
+G: 25/26車收到，目前只操作AUX off，還沒AUX on，over。
+B: OCC收到。

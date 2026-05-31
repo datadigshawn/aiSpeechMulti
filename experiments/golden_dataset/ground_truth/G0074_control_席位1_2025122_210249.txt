@@ -1,0 +1,19 @@
+B: OCC呼叫G10水安2月台車組15/16，over。
+G: 15/16...OCC請說。
+B: 請人員手動操作AUX off...AUX on後回報，over。
+G: 15/16收到，訊號不清請重發。
+B: 人員操作，手動操作AUX off跟AUX on後回報，over。
+G: 收到，水安2月台15/16車手動操作AUX off跟AUX on，over。
+B: 正確、正確。
+B: OCC呼叫G10a森林1月台車組21/22，over。
+G: G10a森林1月台21/22收到，OCC請說。
+B: 請人員操作手動AUX off、AUX on後回報，over。
+G: 手動操作AUX on、AUX off後，跟您回報，over。
+B: 正確、正確，請人員手動操作AUX off、AUX on後回報。
+B: OCC呼叫G17高鐵2月台車組25/26，over。
+G: 25/26收到，OCC請說。
+B: 請人員操作手動AUX off、AUX on後回報，over。
+G: 25/26收到，操作AUX off、AUX on後回報，over。
+B: 正確、正確。
+G: 車組21/22回報OCC，已操作AUX off、AUX on，over。
+
