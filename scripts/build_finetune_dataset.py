@@ -39,6 +39,12 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+# Windows cp950 OEMCP 不能 encode emoji，強制 stdout/stderr 用 UTF-8
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 

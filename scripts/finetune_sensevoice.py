@@ -45,6 +45,13 @@ import argparse
 import json
 import math
 import sys
+
+# Windows cp950 OEMCP 不能 encode emoji，強制 stdout/stderr 用 UTF-8
+# 跨平台都安全（macOS/Linux 原本就 UTF-8）
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
