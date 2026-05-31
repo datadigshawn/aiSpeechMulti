@@ -1,4 +1,430 @@
 /* ============================================================
+   aiSpeechMulti — Combined theme bundle
+   Version 1.0.0 · 2026-05-05
+   
+   Contains: design tokens (dark + light) + base reset + 12 components.
+   
+   Install:
+     <link rel="stylesheet" href="aism-theme.css">
+     <script src="aism-theme.js" defer></script>
+   
+   Fonts: load these in your <head> BEFORE this stylesheet:
+     <link rel="preconnect" href="https://fonts.googleapis.com">
+     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;600;700&display=swap">
+   
+   Theme switching: aism-theme.js auto-mounts a Day/Night toggle
+   and persists choice in localStorage. To force a theme manually:
+     <html data-theme="dark">   or   <html data-theme="light">
+   ============================================================ */
+
+/* ---------- TOKENS ---------- */
+/* ============================================================
+   aiSpeechMulti — Design Tokens
+   Control-room dark theme. v1.0
+   ============================================================ */
+
+:root {
+  /* ---------- Neutrals (cool, near-black → mid gray) ---------- */
+  --neutral-0:  #06080c;   /* page bg, deepest */
+  --neutral-1:  #0b0d12;   /* app bg */
+  --neutral-2:  #11141b;   /* surface */
+  --neutral-3:  #161a22;   /* surface raised */
+  --neutral-4:  #1a1d24;   /* surface hover / card */
+  --neutral-5:  #21242c;   /* surface active */
+  --neutral-6:  #262a33;   /* hairline border */
+  --neutral-7:  #353a45;   /* border strong */
+  --neutral-8:  #4a505d;   /* muted text / icon */
+  --neutral-9:  #6a7180;   /* secondary text */
+  --neutral-10: #9aa3b3;   /* body text dim */
+  --neutral-11: #c8cdd6;   /* body text */
+  --neutral-12: #e6e9ef;   /* primary text */
+  --neutral-13: #f5f6f8;   /* highest contrast */
+
+  /* ---------- Brand (cool teal — engineering feel) ---------- */
+  --brand-primary:        oklch(0.72 0.11 195);   /* #3fbdc7 approx */
+  --brand-primary-hover:  oklch(0.78 0.11 195);
+  --brand-primary-active: oklch(0.66 0.11 195);
+  --brand-primary-dim:    oklch(0.55 0.08 195);
+  --brand-primary-bg:     oklch(0.30 0.04 195 / 0.18);
+  --brand-secondary:      oklch(0.72 0.11 235);   /* cool blue accent */
+
+  /* ---------- Semantic ---------- */
+  --success:        oklch(0.74 0.14 152);   /* green */
+  --success-bg:     oklch(0.74 0.14 152 / 0.14);
+  --warning:        oklch(0.80 0.14 80);    /* amber */
+  --warning-bg:     oklch(0.80 0.14 80 / 0.14);
+  --danger:         oklch(0.68 0.18 25);    /* red */
+  --danger-bg:      oklch(0.68 0.18 25 / 0.16);
+  --danger-strong:  oklch(0.62 0.22 25);
+  --info:           oklch(0.72 0.11 235);
+  --info-bg:        oklch(0.72 0.11 235 / 0.14);
+
+  /* ---------- 5-channel palette (equal-lightness, CVD-friendly) ---------- */
+  /* Tuned at L ~0.78, varied hue. Distinguishable under deuteranopia/protanopia. */
+  --ch-1: oklch(0.78 0.11 215);   /* teal-blue   */
+  --ch-2: oklch(0.82 0.16 130);   /* lime-green  */
+  --ch-3: oklch(0.83 0.13 75);    /* amber       */
+  --ch-4: oklch(0.74 0.18 350);   /* magenta     */
+  --ch-5: oklch(0.74 0.13 290);   /* violet      */
+
+  --ch-1-bg: oklch(0.78 0.11 215 / 0.14);
+  --ch-2-bg: oklch(0.82 0.16 130 / 0.14);
+  --ch-3-bg: oklch(0.83 0.13 75  / 0.14);
+  --ch-4-bg: oklch(0.74 0.18 350 / 0.14);
+  --ch-5-bg: oklch(0.74 0.13 290 / 0.14);
+
+  /* ---------- Hazard levels 0–5 ---------- */
+  --hazard-0: var(--neutral-9);                /* normal */
+  --hazard-1: oklch(0.82 0.10 95);             /* notice (pale yellow) */
+  --hazard-2: oklch(0.80 0.14 80);             /* caution (amber) */
+  --hazard-3: oklch(0.74 0.16 55);             /* serious (orange) */
+  --hazard-4: oklch(0.70 0.19 35);             /* severe (red-orange) */
+  --hazard-5: oklch(0.65 0.22 25);             /* emergency (red, pulses) */
+
+  /* ---------- Health badges ---------- */
+  --health-up:      var(--success);
+  --health-down:    var(--danger);
+  --health-unknown: var(--neutral-8);
+
+  /* ---------- Typography ---------- */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Helvetica Neue",
+               "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo,
+               "Cascadia Mono", monospace;
+  --font-display: "Inter", -apple-system, "Noto Sans TC", sans-serif;
+
+  /* Type scale — UI density first. */
+  --fs-caption:  11px;   /* meta, tag */
+  --fs-small:    12px;   /* secondary */
+  --fs-body:     13px;   /* default body */
+  --fs-body-lg:  14px;   /* readable body */
+  --fs-h4:       16px;
+  --fs-h3:       20px;
+  --fs-h2:       24px;
+  --fs-h1:       32px;
+
+  /* Stat numbers (CER, count, etc.) */
+  --fs-stat-sm:  20px;
+  --fs-stat-md:  32px;
+  --fs-stat-lg:  44px;
+  --fs-stat-xl:  64px;
+
+  /* /display — readable from 5m+ */
+  --fs-display-sub: 28px;
+  --fs-display:     56px;   /* base subtitle line */
+  --fs-display-lg:  80px;   /* primary current line */
+  --fs-display-xl:  112px;  /* hazard 5 emergency */
+
+  /* Line height */
+  --lh-tight:   1.15;
+  --lh-snug:    1.3;
+  --lh-normal:  1.5;
+  --lh-loose:   1.75;
+
+  /* Letter spacing */
+  --ls-tight:   -0.01em;
+  --ls-normal:  0;
+  --ls-wide:    0.04em;
+  --ls-wider:   0.08em;   /* uppercase labels */
+
+  /* Weight */
+  --fw-regular: 400;
+  --fw-medium:  500;
+  --fw-semibold:600;
+  --fw-bold:    700;
+
+  /* ---------- Spacing (8px-based, with 4px half-step) ---------- */
+  --space-0:  0;
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-7:  32px;
+  --space-8:  40px;
+  --space-9:  48px;
+  --space-10: 64px;
+  --space-11: 80px;
+  --space-12: 96px;
+
+  /* ---------- Radii (small — engineering feel) ---------- */
+  --radius-0: 0;
+  --radius-1: 2px;
+  --radius-2: 4px;
+  --radius-3: 6px;
+  --radius-4: 8px;     /* card max */
+  --radius-pill: 999px;
+
+  /* ---------- Borders ---------- */
+  --border-thin:    1px solid var(--neutral-6);
+  --border-medium:  1px solid var(--neutral-7);
+  --border-strong:  1px solid var(--neutral-8);
+  --border-brand:   1px solid var(--brand-primary);
+
+  /* ---------- Soft divider (very subtle row separator, theme-aware) ---------- */
+  --divider-soft: rgba(255, 255, 255, 0.04);
+  --meter-tick:   rgba(255, 255, 255, 0.15);
+
+  /* ---------- Shadows (very subtle in dark UI) ---------- */
+  --shadow-1: 0 1px 0 0 rgba(0,0,0,0.3);
+  --shadow-2: 0 2px 8px 0 rgba(0,0,0,0.35);
+  --shadow-3: 0 8px 24px 0 rgba(0,0,0,0.5);
+  --shadow-focus: 0 0 0 2px var(--brand-primary-bg), 0 0 0 1px var(--brand-primary);
+
+  /* ---------- Motion (fast — control room) ---------- */
+  --dur-instant: 80ms;
+  --dur-fast:    120ms;
+  --dur-base:    180ms;
+  --dur-slow:    260ms;
+  --ease-out:    cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ---------- Layout ---------- */
+  --max-width-content: 1280px;
+  --sidebar-width:     232px;
+  --topbar-height:     48px;
+
+  /* ---------- Z-index ---------- */
+  --z-base:    0;
+  --z-raised:  10;
+  --z-sticky:  100;
+  --z-overlay: 1000;
+  --z-toast:   2000;
+}
+
+/* ============================================================
+   LIGHT THEME — daylight / sunlit ops mode
+   Applied via [data-theme="light"] on <html>.
+   Page bg = soft cool gray (NOT pure white, reduces glare).
+   Cards = pure white surfaces (elevated by border, not shadow).
+   Channel/hazard hues re-tuned at L ~0.50–0.58 for legibility on light bg.
+   ============================================================ */
+
+[data-theme="light"] {
+  /* ---------- Neutrals (inverted, cool tint) ---------- */
+  --neutral-0:  #ffffff;
+  --neutral-1:  #f6f7f9;   /* page bg — softer than pure white */
+  --neutral-2:  #ffffff;   /* surface / card */
+  --neutral-3:  #f1f3f6;   /* surface raised / hover */
+  --neutral-4:  #e9ecf1;   /* surface active */
+  --neutral-5:  #dde2ea;
+  --neutral-6:  #d8dde5;   /* hairline border */
+  --neutral-7:  #b9c1cd;   /* border strong */
+  --neutral-8:  #7c8493;   /* icon / muted */
+  --neutral-9:  #5a6273;   /* secondary text */
+  --neutral-10: #424857;   /* body dim */
+  --neutral-11: #2b303b;   /* body text */
+  --neutral-12: #161a22;   /* primary text */
+  --neutral-13: #06080c;   /* heading / highest contrast */
+
+  /* ---------- Brand (darker teal for white-bg legibility) ---------- */
+  --brand-primary:        oklch(0.55 0.13 195);   /* deeper teal */
+  --brand-primary-hover:  oklch(0.48 0.13 195);
+  --brand-primary-active: oklch(0.42 0.13 195);
+  --brand-primary-dim:    oklch(0.65 0.09 195);
+  --brand-primary-bg:     oklch(0.55 0.13 195 / 0.10);
+  --brand-secondary:      oklch(0.50 0.14 235);
+
+  /* ---------- Semantic (darker for AA on white) ---------- */
+  --success:        oklch(0.55 0.16 152);
+  --success-bg:     oklch(0.55 0.16 152 / 0.10);
+  --warning:        oklch(0.62 0.16 70);
+  --warning-bg:     oklch(0.62 0.16 70 / 0.12);
+  --danger:         oklch(0.55 0.21 25);
+  --danger-bg:      oklch(0.55 0.21 25 / 0.10);
+  --danger-strong:  oklch(0.48 0.22 25);
+  --info:           oklch(0.55 0.14 235);
+  --info-bg:        oklch(0.55 0.14 235 / 0.10);
+
+  /* ---------- 5-channel palette (L ~0.55, equal-lightness, CVD-friendly) ---------- */
+  --ch-1: oklch(0.55 0.13 215);
+  --ch-2: oklch(0.58 0.17 130);
+  --ch-3: oklch(0.62 0.15 75);
+  --ch-4: oklch(0.55 0.21 350);
+  --ch-5: oklch(0.52 0.18 290);
+
+  --ch-1-bg: oklch(0.55 0.13 215 / 0.10);
+  --ch-2-bg: oklch(0.58 0.17 130 / 0.12);
+  --ch-3-bg: oklch(0.62 0.15 75  / 0.14);
+  --ch-4-bg: oklch(0.55 0.21 350 / 0.10);
+  --ch-5-bg: oklch(0.52 0.18 290 / 0.10);
+
+  /* ---------- Hazard 0–5 (darker for white bg) ---------- */
+  --hazard-0: var(--neutral-8);
+  --hazard-1: oklch(0.66 0.12 95);
+  --hazard-2: oklch(0.62 0.16 70);
+  --hazard-3: oklch(0.58 0.18 50);
+  --hazard-4: oklch(0.55 0.20 35);
+  --hazard-5: oklch(0.50 0.22 25);
+
+  /* ---------- Shadows (visible on light bg — elevation comes from shadow, not lift) ---------- */
+  --shadow-1: 0 1px 0 0 rgba(15, 23, 42, 0.04), 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+  --shadow-2: 0 2px 8px 0 rgba(15, 23, 42, 0.08), 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+  --shadow-3: 0 12px 32px 0 rgba(15, 23, 42, 0.12), 0 2px 6px 0 rgba(15, 23, 42, 0.06);
+  --shadow-focus: 0 0 0 3px var(--brand-primary-bg), 0 0 0 1px var(--brand-primary);
+
+  /* Light-mode soft divider / meter ticks */
+  --divider-soft: rgba(15, 23, 42, 0.06);
+  --meter-tick:   rgba(15, 23, 42, 0.18);
+}
+
+/* ---------- Light-mode component refinements ---------- */
+[data-theme="light"] ::selection {
+  background: var(--brand-primary-bg);
+  color: var(--neutral-13);
+}
+
+/* Scrollbars in light mode */
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: var(--neutral-6);
+  border-color: var(--neutral-1);
+}
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: var(--neutral-7); }
+
+/* Primary button on light needs white text against dark teal */
+[data-theme="light"] .btn--primary {
+  color: #ffffff;
+}
+
+/* Cards get a subtle shadow instead of a darker fill, since fill won't read */
+[data-theme="light"] .card {
+  background: var(--neutral-2);
+  box-shadow: var(--shadow-1);
+  border-color: var(--neutral-6);
+}
+[data-theme="light"] .card--raised { box-shadow: var(--shadow-2); }
+
+/* Topbar / sidenav surfaces */
+[data-theme="light"] .topbar,
+[data-theme="light"] .sidenav { background: var(--neutral-2); }
+[data-theme="light"] .sidenav__item:hover { background: var(--neutral-3); }
+
+/* Table header — keep distinct from white card */
+[data-theme="light"] .dtable thead th { background: var(--neutral-3); border-bottom-color: var(--neutral-6); }
+[data-theme="light"] .dtable tbody td { border-bottom-color: var(--neutral-6); }
+[data-theme="light"] .dtable tbody tr:hover { background: var(--neutral-3); }
+
+/* Form inputs — make the well visibly recessed */
+[data-theme="light"] .input,
+[data-theme="light"] .select,
+[data-theme="light"] .textarea {
+  background: #ffffff;
+  border-color: var(--neutral-7);
+}
+
+/* Meter track — slightly darker than card so fill reads */
+[data-theme="light"] .meter__bar { background: var(--neutral-4); }
+
+/* Hazard-5 emergency pulse — light mode glow ring uses darker red */
+[data-theme="light"] @keyframes hazard-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.50 0.22 25 / 0.45); }
+  50%      { box-shadow: 0 0 0 6px oklch(0.50 0.22 25 / 0); }
+}
+
+/* Transcript row dividers darken slightly */
+[data-theme="light"] .transcript {
+  border-bottom-color: var(--neutral-6);
+}
+
+/* Display page — wall投放 stays dark by default even in light theme,
+   because wall displays still read better dark at 5m with glare.
+   But allow opting in via [data-display-theme="light"] if needed. */
+[data-theme="light"] body.display-wall { background: #000; color: #fff; }
+
+/* Reduced-motion: disable hazard-5 pulse and most transitions */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast:    0ms;
+    --dur-base:    0ms;
+    --dur-slow:    0ms;
+  }
+}
+
+
+/* ---------- BASE ---------- */
+/* ============================================================
+   aiSpeechMulti — Base / Reset
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--neutral-1);
+  color: var(--neutral-12);
+  font-family: var(--font-sans);
+  font-size: var(--fs-body);
+  line-height: var(--lh-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv11", "ss01";
+  font-variant-numeric: tabular-nums;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--ls-tight);
+  color: var(--neutral-13);
+}
+
+h1 { font-size: var(--fs-h1); line-height: var(--lh-tight); }
+h2 { font-size: var(--fs-h2); line-height: var(--lh-tight); }
+h3 { font-size: var(--fs-h3); line-height: var(--lh-snug); }
+h4 { font-size: var(--fs-h4); line-height: var(--lh-snug); }
+
+p  { margin: 0; }
+a  { color: var(--brand-primary); text-decoration: none; }
+a:hover { color: var(--brand-primary-hover); }
+
+code, kbd, pre {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+::selection {
+  background: var(--brand-primary-bg);
+  color: var(--neutral-13);
+}
+
+/* Focus ring — visible on every interactive element */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+  border-radius: var(--radius-2);
+}
+
+/* Scrollbars (WebKit) — subtle, control-room feel */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--neutral-6);
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--neutral-1);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--neutral-7); }
+
+/* Utility */
+.mono { font-family: var(--font-mono); }
+.tabular { font-variant-numeric: tabular-nums; }
+.upper-label {
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-medium);
+  letter-spacing: var(--ls-wider);
+  text-transform: uppercase;
+  color: var(--neutral-9);
+}
+.text-dim    { color: var(--neutral-10); }
+.text-muted  { color: var(--neutral-9); }
+.text-subtle { color: var(--neutral-8); }
+
+
+/* ---------- COMPONENTS ---------- */
+/* ============================================================
    aiSpeechMulti — Components (12)
    Requires: design-tokens.css, base.css
    ============================================================ */
@@ -114,7 +540,6 @@
 .badge--ch3 { color: var(--ch-3); background: var(--ch-3-bg); border-color: transparent; }
 .badge--ch4 { color: var(--ch-4); background: var(--ch-4-bg); border-color: transparent; }
 .badge--ch5 { color: var(--ch-5); background: var(--ch-5-bg); border-color: transparent; }
-.badge--ch6 { color: var(--ch-6); background: var(--ch-6-bg); border-color: transparent; }
 
 /* hazard badges 0-5 */
 .badge--hz0 { color: var(--hazard-0); border-color: var(--neutral-7); }
@@ -558,7 +983,6 @@
 .chart .series--ch3 { stroke: var(--ch-3); fill: none; stroke-width: 1.5; }
 .chart .series--ch4 { stroke: var(--ch-4); fill: none; stroke-width: 1.5; }
 .chart .series--ch5 { stroke: var(--ch-5); fill: none; stroke-width: 1.5; }
-.chart .series--ch6 { stroke: var(--ch-6); fill: none; stroke-width: 1.5; }
 
 /* ----------------------------------------------------------------
    App shell helpers
@@ -601,56 +1025,4 @@
 .ch-stripe--3 { background: var(--ch-3); }
 .ch-stripe--4 { background: var(--ch-4); }
 .ch-stripe--5 { background: var(--ch-5); }
-.ch-stripe--6 { background: var(--ch-6); }
 
-/* ================================================================
-   LIGHT-MODE COMPONENT OVERRIDES
-   Supplements token overrides in tokens.css [data-theme="light"].
-   Only properties that can't be solved by token remapping alone.
-   ================================================================ */
-
-/* Primary button: teal bg is darker in light → needs white text */
-[data-theme="light"] .btn--primary {
-  color: #ffffff;
-}
-
-/* Cards: elevation via shadow (not dark fill) on white bg */
-[data-theme="light"] .card {
-  background: var(--neutral-2);
-  border-color: var(--neutral-6);
-  box-shadow: var(--shadow-1);
-}
-[data-theme="light"] .card--raised { box-shadow: var(--shadow-2); }
-
-/* Topbar / sidenav: need explicit white bg */
-[data-theme="light"] .topbar,
-[data-theme="light"] .sidenav {
-  background: var(--neutral-2);
-}
-[data-theme="light"] .sidenav__item:hover { background: var(--neutral-3); }
-
-/* Table header: distinct from white card bg */
-[data-theme="light"] .dtable thead th {
-  background: var(--neutral-3);
-  border-bottom-color: var(--neutral-6);
-}
-[data-theme="light"] .dtable tbody td { border-bottom-color: var(--neutral-6); }
-[data-theme="light"] .dtable tbody tr:hover { background: var(--neutral-3); }
-
-/* Form inputs: explicit white well */
-[data-theme="light"] .input,
-[data-theme="light"] .select,
-[data-theme="light"] .textarea {
-  background: #ffffff;
-  border-color: var(--neutral-7);
-}
-
-/* Meter track: slightly darker than card so fill reads */
-[data-theme="light"] .meter__bar { background: var(--neutral-4); }
-
-/* Scrollbars */
-[data-theme="light"] ::-webkit-scrollbar-thumb {
-  background: var(--neutral-6);
-  border-color: var(--neutral-1);
-}
-[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: var(--neutral-7); }

@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>aiSpeechMulti — 主控台</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.ico">
-<link rel="stylesheet" href="/static/css/tokens.css">
-<link rel="stylesheet" href="/static/css/base.css">
-<link rel="stylesheet" href="/static/css/components.css">
-<script src="/static/js/theme-switcher.js"></script>
+<link rel="stylesheet" href="/static/css/tokens.css?v=1.2">
+<link rel="stylesheet" href="/static/css/base.css?v=1.2">
+<link rel="stylesheet" href="/static/css/components.css?v=1.2">
+<script src="/static/js/theme-switcher.js?v=1.2"></script>
 <style>
   .landing { padding: var(--space-8) var(--space-7); max-width: 1280px; margin: 0 auto; }
   .landing__head {
@@ -149,7 +149,7 @@
         <span id="status-summary" class="text-muted">健康狀態載入中…</span>
         <span class="text-subtle">·</span>
         <span>v3.1 · theme-switcher</span>
-        <button data-theme-toggle class="btn btn--ghost btn--sm" aria-label="切換主題（dark-cool / dark-warm）" style="margin-left: var(--space-3);">
+        <button data-theme-toggle class="btn btn--ghost btn--sm" aria-label="切換主題（深冷 → 暖琥珀 → 白天）" style="margin-left: var(--space-3);">
           <span data-theme-icon>🌙</span>
           <span data-theme-label>深冷</span>
         </button>
@@ -189,50 +189,50 @@
             <span id="b-fastapi-2" class="badge badge--dot" aria-label="服務狀態">—</span>
           </div>
           <div>
-            <div class="entry__name">擷取 Capture</div>
+            <div class="entry__name">即時語音辨識</div>
             <div class="entry__path">/capture</div>
           </div>
-          <p class="entry__desc">5 路麥克風開關、即時音量條與連線狀態。場域操作員的第一站。</p>
+          <p class="entry__desc">行控中心各席位麥克風語音辨識（共 6 通道），席位執勤人員使用。</p>
           <div class="entry__foot">
-            <span class="text-muted" style="font-size: var(--fs-small)">場域端機</span>
+            <span class="text-muted" style="font-size: var(--fs-small)">席位專屬</span>
             <span class="text-dim" id="arrow-1" aria-hidden="true"></span>
           </div>
         </div>
       </a>
 
-      <a class="card card--interactive entry" href="/monitor">
-        <div class="ch-stripe ch-stripe--2"></div>
-        <div class="entry__inner">
-          <div class="entry__head">
-            <div class="entry__icon" id="ic-mon" aria-hidden="true"></div>
-            <span id="b-fastapi-3" class="badge badge--dot" aria-label="服務狀態">—</span>
-          </div>
-          <div>
-            <div class="entry__name">監控 Monitor</div>
-            <div class="entry__path">/monitor</div>
-          </div>
-          <p class="entry__desc">5 路同時辨識、partial / committed 即時推送、危害關鍵字標紅。</p>
-          <div class="entry__foot">
-            <span class="text-muted" style="font-size: var(--fs-small)">操作員主畫面</span>
-            <span class="text-dim" id="arrow-2" aria-hidden="true"></span>
-          </div>
-        </div>
-      </a>
-
       <a class="card card--interactive entry" href="/display">
-        <div class="ch-stripe ch-stripe--3"></div>
+        <div class="ch-stripe ch-stripe--2"></div>
         <div class="entry__inner">
           <div class="entry__head">
             <div class="entry__icon" id="ic-disp" aria-hidden="true"></div>
             <span id="b-fastapi-4" class="badge badge--dot" aria-label="服務狀態">—</span>
           </div>
           <div>
-            <div class="entry__name">大螢幕投放 Display</div>
+            <div class="entry__name">關鍵字告警監控</div>
             <div class="entry__path">/display</div>
           </div>
-          <p class="entry__desc">控制中心牆面投放，純文字、5 米可讀、低干擾。</p>
+          <p class="entry__desc">全部 / 各路即時語音辨識文字與關鍵字告警，可依需求監控全部席位或指定席位。</p>
           <div class="entry__foot">
-            <span class="text-muted" style="font-size: var(--fs-small)">控制室大螢幕</span>
+            <span class="text-muted" style="font-size: var(--fs-small)">投放監測告警畫面</span>
+            <span class="text-dim" id="arrow-2" aria-hidden="true"></span>
+          </div>
+        </div>
+      </a>
+
+      <a class="card card--interactive entry" href="/monitor">
+        <div class="ch-stripe ch-stripe--3"></div>
+        <div class="entry__inner">
+          <div class="entry__head">
+            <div class="entry__icon" id="ic-mon" aria-hidden="true"></div>
+            <span id="b-fastapi-3" class="badge badge--dot" aria-label="服務狀態">—</span>
+          </div>
+          <div>
+            <div class="entry__name">即時語音監控</div>
+            <div class="entry__path">/monitor</div>
+          </div>
+          <p class="entry__desc">即時語音 6 路運行監控、使用 Token 監控。</p>
+          <div class="entry__foot">
+            <span class="text-muted" style="font-size: var(--fs-small)">主任 / 後台管理員使用</span>
             <span class="text-dim" id="arrow-3" aria-hidden="true"></span>
           </div>
         </div>
@@ -246,12 +246,12 @@
             <span id="b-lab-2" class="badge badge--dot" aria-label="Lab 狀態">—</span>
           </div>
           <div>
-            <div class="entry__name">研究工作台 Lab</div>
-            <div class="entry__path">:8501</div>
+            <div class="entry__name">語音檔案辨識</div>
+            <div class="entry__path">批次辨識與 CER 評測等工具</div>
           </div>
-          <p class="entry__desc">9 頁工作流：批次辨識、評測、詞彙、CER 飛輪、修正歷程、事件管理。</p>
+          <p class="entry__desc">語音檔案批次辨識、準確率 CER 評測、歷史資料查詢、詞彙庫增修。</p>
           <div class="entry__foot">
-            <span class="text-muted" style="font-size: var(--fs-small)">9 modules</span>
+            <span class="text-muted" style="font-size: var(--fs-small)">案件調查使用者 / 後台管理員使用</span>
             <span class="text-dim" id="arrow-4" aria-hidden="true"></span>
           </div>
         </div>
@@ -265,12 +265,12 @@
             <span id="b-grafana-2" class="badge badge--dot" aria-label="Grafana 狀態">—</span>
           </div>
           <div>
-            <div class="entry__name">運維儀表 Grafana</div>
-            <div class="entry__path">:3000</div>
+            <div class="entry__name">運維監測儀表板</div>
+            <div class="entry__path">監測系統運作</div>
           </div>
-          <p class="entry__desc">25 panels · 系統指標、CER 趨勢、引擎延遲、告警。SRE 巡檢入口。</p>
+          <p class="entry__desc">系統運行統計、關鍵字危害分析、辨識紀錄。</p>
           <div class="entry__foot">
-            <span class="text-muted" style="font-size: var(--fs-small)">admin / aiSpeech2026</span>
+            <span class="text-muted" style="font-size: var(--fs-small)">後台管理員使用</span>
             <span class="text-dim" id="arrow-5" aria-hidden="true"></span>
           </div>
         </div>
@@ -290,8 +290,8 @@
     const ICONS = {
       "ic-mic":  Icon.mic,
       "ic-mon":  Icon.monitor,
-      "ic-disp": Icon.display,
-      "ic-lab":  Icon.lab,
+      "ic-disp": Icon.alert,
+      "ic-lab":  Icon.upload,
       "ic-graf": Icon.chart,
     };
     Object.entries(ICONS).forEach(([id, svg]) => {

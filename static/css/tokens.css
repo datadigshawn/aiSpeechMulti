@@ -1,10 +1,11 @@
 /* ============================================================
    aiSpeechMulti — Design Tokens
-   Control-room dark theme. v1.1 (theme-switcher)
+   Control-room theme system. v1.2 (three-way switcher)
 
-   兩套主題：
-   - 預設 / [data-theme="dark-cool"]：teal 冷色，工程感（v1 原版）
+   三套主題：
+   - 預設 / [data-theme="dark-cool"]：teal 冷色，工程感（預設）
    - [data-theme="dark-warm"]      ：amber 暖色，夜班低藍光
+   - [data-theme="light"]          ：白天模式，戶外/辦公室
 
    不變的 invariants（跨主題不換）：
    - 危害等級 hazard-0~5（消防/控制系統紅黃綠語意）
@@ -49,19 +50,21 @@
   --info:           oklch(0.72 0.11 235);
   --info-bg:        oklch(0.72 0.11 235 / 0.14);
 
-  /* ---------- 5-channel palette (equal-lightness, CVD-friendly) ---------- */
+  /* ---------- 6-channel palette (equal-lightness, CVD-friendly) ---------- */
   /* Tuned at L ~0.78, varied hue. Distinguishable under deuteranopia/protanopia. */
   --ch-1: oklch(0.78 0.11 215);   /* teal-blue   */
   --ch-2: oklch(0.82 0.16 130);   /* lime-green  */
   --ch-3: oklch(0.83 0.13 75);    /* amber       */
   --ch-4: oklch(0.74 0.18 350);   /* magenta     */
   --ch-5: oklch(0.74 0.13 290);   /* violet      */
+  --ch-6: oklch(0.78 0.13 40);    /* orange / amber (IA) */
 
   --ch-1-bg: oklch(0.78 0.11 215 / 0.14);
   --ch-2-bg: oklch(0.82 0.16 130 / 0.14);
   --ch-3-bg: oklch(0.83 0.13 75  / 0.14);
   --ch-4-bg: oklch(0.74 0.18 350 / 0.14);
   --ch-5-bg: oklch(0.74 0.13 290 / 0.14);
+  --ch-6-bg: oklch(0.78 0.13 40  / 0.14);
 
   /* ---------- Hazard levels 0–5 ---------- */
   --hazard-0: var(--neutral-9);                /* normal */
@@ -152,6 +155,10 @@
   --border-strong:  1px solid var(--neutral-8);
   --border-brand:   1px solid var(--brand-primary);
 
+  /* ---------- Soft divider / meter ticks (dark, theme-aware) ---------- */
+  --divider-soft: rgba(255, 255, 255, 0.04);
+  --meter-tick:   rgba(255, 255, 255, 0.15);
+
   /* ---------- Shadows (very subtle in dark UI) ---------- */
   --shadow-1: 0 1px 0 0 rgba(0,0,0,0.3);
   --shadow-2: 0 2px 8px 0 rgba(0,0,0,0.35);
@@ -181,49 +188,129 @@
 
 /* ============================================================
    THEME: dark-warm (amber, low-blue-light, 適合夜班)
-   只覆寫 neutrals + brand + 5-channel hue；hazard / semantic / typography 不換。
+   覆寫 neutrals + brand + semantic micro-adjust；
+   ch-1~ch-5 繼承 dark-cool；ch-6 改 orange；
+   hazard / typography / spacing / radii / motion 不換。
    ============================================================ */
 :root[data-theme="dark-warm"] {
-  /* ---------- Neutrals (warm, near-black → mid gray) ---------- */
-  --neutral-0:  #0a0703;   /* 暖偏紅黑 */
-  --neutral-1:  #100a05;
-  --neutral-2:  #1a120a;
-  --neutral-3:  #20160d;
-  --neutral-4:  #261b11;
-  --neutral-5:  #2c2014;
-  --neutral-6:  #3a2c1d;   /* hairline */
-  --neutral-7:  #4a3a26;   /* border strong */
-  --neutral-8:  #5d4d38;
-  --neutral-9:  #806b50;
-  --neutral-10: #b39c7e;
-  --neutral-11: #d6c2a4;
-  --neutral-12: #efe5d2;
-  --neutral-13: #f8f3e8;
+  color-scheme: dark;
 
-  /* ---------- Brand (amber — low blue light, night-shift friendly) ---------- */
-  --brand-primary:        oklch(0.72 0.13 50);    /* amber #d59a4a 附近 */
-  --brand-primary-hover:  oklch(0.78 0.13 50);
-  --brand-primary-active: oklch(0.66 0.13 50);
-  --brand-primary-dim:    oklch(0.55 0.10 50);
-  --brand-primary-bg:     oklch(0.30 0.04 50 / 0.18);
-  --brand-secondary:      oklch(0.72 0.13 30);    /* warmer red-orange accent */
+  /* ---------- Neutrals (warm, near-black → warm gray) ---------- */
+  --neutral-0:  #14110d;
+  --neutral-1:  #1c1813;
+  --neutral-2:  #25201a;
+  --neutral-3:  #2d2720;
+  --neutral-4:  #352e25;
+  --neutral-5:  #3d352a;
+  --neutral-6:  #463c30;   /* hairline */
+  --neutral-7:  #574a3a;   /* border strong */
+  --neutral-8:  #76674f;
+  --neutral-9:  #948268;
+  --neutral-10: #b09b7c;
+  --neutral-11: #c9b594;
+  --neutral-12: #e2d5b8;
+  --neutral-13: #f2e9d1;
 
-  /* ---------- 5-channel palette (warm rotation, equal-lightness ~0.78) ---------- */
-  /* hue 從 cool teal-violet 整體左偏到 warm red-yellow-green-blue-violet */
-  --ch-1: oklch(0.78 0.13 30);    /* red-orange */
-  --ch-2: oklch(0.82 0.16 90);    /* yellow-green (黃色系) */
-  --ch-3: oklch(0.83 0.13 165);   /* green */
-  --ch-4: oklch(0.74 0.15 250);   /* blue */
-  --ch-5: oklch(0.74 0.15 320);   /* magenta */
+  /* ---------- Brand (warm amber — low blue light, 夜班適用) ---------- */
+  --brand-primary:        oklch(0.78 0.13 65);
+  --brand-primary-hover:  oklch(0.84 0.13 65);
+  --brand-primary-active: oklch(0.72 0.13 65);
+  --brand-primary-dim:    oklch(0.62 0.10 65);
+  --brand-primary-bg:     oklch(0.42 0.06 65 / 0.20);
+  --brand-secondary:      oklch(0.72 0.12 105);
 
-  --ch-1-bg: oklch(0.78 0.13 30  / 0.14);
-  --ch-2-bg: oklch(0.82 0.16 90  / 0.14);
-  --ch-3-bg: oklch(0.83 0.13 165 / 0.14);
-  --ch-4-bg: oklch(0.74 0.15 250 / 0.14);
-  --ch-5-bg: oklch(0.74 0.15 320 / 0.14);
+  /* ---------- Semantic micro-adjust for warm bg ---------- */
+  --success:        oklch(0.74 0.14 130);
+  --success-bg:     oklch(0.74 0.14 130 / 0.14);
+  --warning:        oklch(0.80 0.14 70);
+  --warning-bg:     oklch(0.80 0.14 70 / 0.16);
+  --danger:         oklch(0.68 0.18 25);
+  --danger-bg:      oklch(0.68 0.18 25 / 0.18);
+  --danger-strong:  oklch(0.62 0.22 25);
 
-  /* hazard / semantic 維持紅黃綠語意（不變）*/
-  /* typography / spacing / radii / motion 也不變（從預設繼承）*/
+  /* ---------- ch-6 only (ch-1~ch-5 inherit dark-cool) ---------- */
+  --ch-6:    oklch(0.80 0.13 40);
+  --ch-6-bg: oklch(0.80 0.13 40 / 0.16);
+
+  /* hazard / typography / spacing / radii / motion 全繼承 dark-cool */
+}
+
+/* ============================================================
+   THEME: light (白天模式 / 戶外 / 辦公室)
+   Page bg = soft cool gray (非純白，減少眩光)。
+   Cards = pure white（靠 shadow + border 表示層次）。
+   Channel / hazard hue 在 L ~0.50-0.58 重調，確保白底可讀性。
+   ============================================================ */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  /* ---------- Neutrals (inverted, cool tint) ---------- */
+  --neutral-0:  #ffffff;
+  --neutral-1:  #f6f7f9;   /* page bg */
+  --neutral-2:  #ffffff;   /* surface / card */
+  --neutral-3:  #f1f3f6;   /* surface raised / hover */
+  --neutral-4:  #e9ecf1;   /* surface active */
+  --neutral-5:  #dde2ea;
+  --neutral-6:  #d8dde5;   /* hairline border */
+  --neutral-7:  #b9c1cd;   /* border strong */
+  --neutral-8:  #7c8493;   /* icon / muted */
+  --neutral-9:  #5a6273;   /* secondary text */
+  --neutral-10: #424857;   /* body dim */
+  --neutral-11: #2b303b;   /* body text */
+  --neutral-12: #161a22;   /* primary text */
+  --neutral-13: #06080c;   /* heading / highest contrast */
+
+  /* ---------- Brand (deeper teal for white-bg legibility) ---------- */
+  --brand-primary:        oklch(0.55 0.13 195);
+  --brand-primary-hover:  oklch(0.48 0.13 195);
+  --brand-primary-active: oklch(0.42 0.13 195);
+  --brand-primary-dim:    oklch(0.65 0.09 195);
+  --brand-primary-bg:     oklch(0.55 0.13 195 / 0.10);
+  --brand-secondary:      oklch(0.50 0.14 235);
+
+  /* ---------- Semantic (darker for AA on white) ---------- */
+  --success:        oklch(0.55 0.16 152);
+  --success-bg:     oklch(0.55 0.16 152 / 0.10);
+  --warning:        oklch(0.62 0.16 70);
+  --warning-bg:     oklch(0.62 0.16 70 / 0.12);
+  --danger:         oklch(0.55 0.21 25);
+  --danger-bg:      oklch(0.55 0.21 25 / 0.10);
+  --danger-strong:  oklch(0.48 0.22 25);
+  --info:           oklch(0.55 0.14 235);
+  --info-bg:        oklch(0.55 0.14 235 / 0.10);
+
+  /* ---------- 6-channel palette (L ~0.52–0.62, CVD-friendly on white) ---------- */
+  --ch-1: oklch(0.55 0.13 215);
+  --ch-2: oklch(0.58 0.17 130);
+  --ch-3: oklch(0.62 0.15 75);
+  --ch-4: oklch(0.55 0.21 350);
+  --ch-5: oklch(0.52 0.18 290);
+  --ch-6: oklch(0.55 0.16 40);
+
+  --ch-1-bg: oklch(0.55 0.13 215 / 0.10);
+  --ch-2-bg: oklch(0.58 0.17 130 / 0.12);
+  --ch-3-bg: oklch(0.62 0.15 75  / 0.14);
+  --ch-4-bg: oklch(0.55 0.21 350 / 0.10);
+  --ch-5-bg: oklch(0.52 0.18 290 / 0.10);
+  --ch-6-bg: oklch(0.55 0.16 40  / 0.10);
+
+  /* ---------- Hazard 0–5 (darker for white bg) ---------- */
+  --hazard-0: var(--neutral-8);
+  --hazard-1: oklch(0.66 0.12 95);
+  --hazard-2: oklch(0.62 0.16 70);
+  --hazard-3: oklch(0.58 0.18 50);
+  --hazard-4: oklch(0.55 0.20 35);
+  --hazard-5: oklch(0.50 0.22 25);
+
+  /* ---------- Shadows (visible elevation on light bg) ---------- */
+  --shadow-1: 0 1px 0 0 rgba(15,23,42,0.04), 0 1px 2px 0 rgba(15,23,42,0.05);
+  --shadow-2: 0 2px 8px 0 rgba(15,23,42,0.08), 0 1px 2px 0 rgba(15,23,42,0.04);
+  --shadow-3: 0 12px 32px 0 rgba(15,23,42,0.12), 0 2px 6px 0 rgba(15,23,42,0.06);
+  --shadow-focus: 0 0 0 3px var(--brand-primary-bg), 0 0 0 1px var(--brand-primary);
+
+  /* ---------- Soft divider / meter ticks (light) ---------- */
+  --divider-soft: rgba(15, 23, 42, 0.06);
+  --meter-tick:   rgba(15, 23, 42, 0.18);
 }
 
 /* Reduced-motion: disable hazard-5 pulse and most transitions */

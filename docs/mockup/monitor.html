@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" data-theme-toggle="off">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>aiSpeechMulti · Monitor · Mock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/aism-theme.css">
+<link rel="stylesheet" href="assets/aism-theme-warm.css">
+<script src="assets/aism-theme.js"></script>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <a href="index.html" class="topbar__brand">🎙️ aiSpeechMulti</a>
+  <span class="topbar__mock">MOCKUP · 僅供 UI 預覽</span>
+  <nav class="topbar__nav">
+    <a href="index.html">首頁</a>
+    <a href="capture.html">capture</a>
+    <a href="monitor.html" class="active">monitor</a>
+    <a href="display.html">display</a>
+    <a href="lab.html">Lab</a>
+    <a href="grafana.html">Grafana</a>
+  </nav>
+  <button id="themeToggleBtn" class="topbar__theme" onclick="toggleTheme()" title="切換主題（dark → light → warm）">🌙</button>
+</header>
+
+<!-- 💰 cost status bar -->
+<div class="cost-bar">
+  <div class="cost-bar__item">💰 今日 <span class="cost-bar__amount cost-bar__amount--accent">NT$ 87.42</span></div>
+  <div class="cost-bar__item">session <span class="cost-bar__amount">NT$ 12.18</span></div>
+  <div class="cost-bar__item">預算 <span class="cost-bar__amount cost-bar__amount--warn">68% / NT$ 130</span></div>
+  <div class="cost-bar__item">5/6 席位活動中</div>
+  <button class="btn btn--ghost cost-bar__btn" onclick="toggleCostExpand(this)" style="font-size:12px;padding:4px 10px">▼ 展開</button>
+</div>
+
+<div id="cost-detail" style="display:none; background: var(--bg-1); border-bottom: 1px solid var(--border); padding: 16px 24px;">
+  <table class="data" style="max-width: 880px">
+    <thead>
+      <tr><th>席位</th><th>引擎</th><th class="text-sec">秒數</th><th class="text-sec">成本 NT$</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><span class="badge badge--ch1">ch1</span> CC 控制長</td><td>scribe_rt</td><td class="mono">1842s</td><td class="mono">NT$ 24.18</td></tr>
+      <tr><td><span class="badge badge--ch1">ch1</span> CC 控制長</td><td>google chirp_3</td><td class="mono">1842s</td><td class="mono">NT$ 12.42</td></tr>
+      <tr><td><span class="badge badge--ch2">ch2</span> MTC 正線控制工程師</td><td>scribe_rt</td><td class="mono">923s</td><td class="mono">NT$ 12.10</td></tr>
+      <tr><td><span class="badge badge--ch3">ch3</span> DTC 機廠控制工程師</td><td>scribe_rt</td><td class="mono">1234s</td><td class="mono">NT$ 16.18</td></tr>
+      <tr><td><span class="badge badge--ch4">ch4</span> PC 電力工程師</td><td>sensevoice_local</td><td class="mono">2103s</td><td class="mono">NT$ 0.00 <span class="muted">(local)</span></td></tr>
+      <tr><td><span class="badge badge--ch6">ch6</span> IA 資訊員</td><td>scribe_rt</td><td class="mono">418s</td><td class="mono">NT$ 5.48</td></tr>
+      <tr><td><span class="badge badge--ch5">ch5</span> EC 設備工程師</td><td colspan="3" class="muted">未連線</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<main class="container">
+
+  <h1 class="h1">📺 Monitor · 6 路即時辨識監看</h1>
+  <p class="h1-sub">3×2 方格排列。每個 lane：左側上下分區（席位資訊 / 統計），右側為辨識文字。</p>
+
+  <div class="lane-grid">
+
+    <!-- ch1 -->
+    <div class="lane">
+      <div class="lane__side">
+        <div class="lane__header">
+          <div class="flex flex-gap" style="align-items:center;gap:6px">
+            <span class="badge badge--ch1">ch1</span>
+            <strong>CC</strong>
+          </div>
+          <div class="lane__role">控制長</div>
+          <small class="mono">scribe_rt + google</small>
+        </div>
+        <hr class="lane__divider">
+        <div class="lane__stats">
+          <span>筆數 <b>184</b></span>
+          <span>平均信心 <b>89%</b></span>
+          <span>時長 <b>31:08</b></span>
+          <span class="muted">無錯字回報</span>
+        </div>
+      </div>
+      <div class="lane__feed">
+        <div class="transcript"><span class="transcript__time mono">10:23</span><span class="transcript__text">列車進入月台</span><span class="transcript__conf mono">94%</span></div>
+        <div class="transcript"><span class="transcript__time mono">10:24</span><span class="transcript__text">OCC 收到，注意月台間隙</span><span class="transcript__conf mono">91%</span></div>
+        <div class="transcript transcript--hazard"><span class="transcript__time mono">10:24</span><span class="transcript__text">⚠️ 月台門故障，請查證</span><span class="transcript__conf mono">88%</span></div>
+        <div class="transcript"><span class="transcript__time mono">10:25</span><span class="transcript__text">確認車站 G05 已啟動隔離</span><span class="transcript__conf mono">87%</span></div>
+        <div class="transcript transcript--partial"><span class="transcript__time mono">10:25</span><span class="transcript__text">收到，正在派員前往現場處理...</span><span class="transcript__conf mono">—</span></div>
+      </div>
+    </div>
+
+    <!-- ch2 -->
+    <div class="lane">
+      <div class="lane__side">
+        <div class="lane__header">
+          <div class="flex flex-gap" style="align-items:center;gap:6px">
+            <span class="badge badge--ch2">ch2</span>
+            <strong>MTC</strong>
+          </div>
+          <div class="lane__role">正線控制工程師</div>
+          <small class="mono">scribe_rt</small>
+        </div>
+        <hr class="lane__divider">
+        <div class="lane__stats">
+          <span>筆數 <b>92</b></span>
+          <span>平均信心 <b>93%</b></span>
+          <span>時長 <b>15:23</b></span>
+          <span class="muted">無錯字回報</span>
+        </div>
+      </div>
+      <div class="lane__feed">
+        <div class="transcript"><span class="transcript__time mono">10:21</span><span class="transcript__text">收到 MTC 通報</span><span class="transcript__conf mono">95%</span></div>
+        <div class="transcript"><span class="transcript__time mono">10:22</span><span class="transcript__text">維修人員已到位</span><span class="transcript__conf mono">93%</span></div>
+        <div class="transcript"><span class="transcript__time mono">10:23</span><span class="transcript__text">下站待命</span><span class="transcript__conf mono">90%</span></div>
+        <div class="transcript"><span class="transcript__time mono">10:24</span><span class="transcript__text">回報控制中心已就緒，等候進一步指示</span><span class="transcript__conf mono">92%</span></div>
+      </div>
+    </div>
+
+    <!-- ch3 -->
+    <div class="lane">
+      <div class="lane__side">
+        <div class="lane__header">
+          <div class="flex flex-gap" style="align-items:center;gap:6px">
+            <span class="badge badge--ch3">ch3</span>
+            <strong>DTC</strong>
+          </div>
+          <div class="lane__role">機廠控制工程師</div>
+          <small class="mono">scribe_rt + google</small>
+        </div>
+        <hr class="lane__divider">
+        <div class="lane__stats">
+          <span>筆數 <b>123</b></span>
+          <span>平均信心 <b>91%</b></span>
+          <span>時長 <b>20:34</b></span>
+          <span class="text-accent">2 條 ✏️ 修正</span>
+        </div>
+      </div>
+      <div class="lane__feed">
+        <div class="transcript"><span class="transcript__time mono">10:18</span><span class="transcript__text">DTC 收到</span><span class="transcript__conf mono">96%</span></div>
+        <div class="transcript"><span class="transcript__time mono">10:19</span><span class="transcript__text">第三節車廂門無法關閉</span><span class="transcript__conf mono">89%</span></div>
+        <div class="transcript"><span class="transcript__time mono">10:20</span><span class="transcript__text">已通知檢修班</span><span class="transcript__conf mono">92%</span></div>
+        <div class="transcript transcript--hazard"><span class="transcript__time mono">10:22</span><span class="transcript__text">⚠️ 軌道異物警報觸發</span><span class="transcript__conf mono">85%</span></div>
+        <div class="transcript"><span class="transcript__time mono">10:23</span><span class="transcript__text">已派員前往</span><span class="transcript__conf mono">90%</span></div>
+      </div>
+    </div>
+
+    <!-- ch4 -->
+    <div class="lane">
+      <div class="lane__side">
+        <div class="lane__header">
+          <div class="flex flex-gap" style="align-items:center;gap:6px">
+            <span class="badge badge--ch4">ch4</span>
+            <strong>PC</strong>
+          </div>
+          <div class="lane__role">電力工程師</div>
+          <small class="mono">sensevoice_local</small>
+        </div>
+        <hr class="lane__divider">
+        <div class="lane__stats">
+          <span>筆數 <b>78</b></span>
+          <span>平均信心 <b>87%</b></span>
+          <span>時長 <b>13:42</b></span>
+          <span class="muted">本機離線</span>
+        </div>
+      </div>
+      <div class="lane__feed">
+        <div class="transcript"><span class="transcript__time mono">10:17</span><span class="transcript__text">PC 站長您好</span><span class="transcript__conf mono">90%</span></div>
+        <div class="transcript"><span class="transcript__time mono">10:19</span><span class="transcript__text">第二月台疏散完畢</span><span class="transcript__conf mono">87%</span></div>
+        <div class="transcript"><span class="transcript__time mono">10:22</span><span class="transcript__text">電梯維護中</span><span class="transcript__conf mono">85%</span></div>
+        <div class="transcript"><span class="transcript__time mono">10:24</span><span class="transcript__text">通報已完成，等候下一步指示</span><span class="transcript__conf mono">88%</span></div>
+      </div>
+    </div>
+
+    <!-- ch5 -->
+    <div class="lane" style="opacity: 0.55">
+      <div class="lane__side">
+        <div class="lane__header">
+          <div class="flex flex-gap" style="align-items:center;gap:6px">
+            <span class="badge badge--ch5">ch5</span>
+            <strong>EC</strong>
+          </div>
+          <div class="lane__role">設備工程師</div>
+          <small class="mono">未連線</small>
+        </div>
+        <hr class="lane__divider">
+        <div class="lane__stats">
+          <span class="muted">—</span>
+        </div>
+      </div>
+      <div class="lane__feed" style="display:flex;align-items:center;justify-content:center">
+        <p class="muted text-small" style="text-align:center; margin: 0">
+          🔌 尚未連線<br>
+          <small>待 capture 端啟動</small>
+        </p>
+      </div>
+    </div>
+
+    <!-- ch6 -->
+    <div class="lane">
+      <div class="lane__side">
+        <div class="lane__header">
+          <div class="flex flex-gap" style="align-items:center;gap:6px">
+            <span class="badge badge--ch6">ch6</span>
+            <strong>IA</strong>
+          </div>
+          <div class="lane__role">資訊員</div>
+          <small class="mono">scribe_rt</small>
+        </div>
+        <hr class="lane__divider">
+        <div class="lane__stats">
+          <span>筆數 <b>56</b></span>
+          <span>平均信心 <b>92%</b></span>
+          <span>時長 <b>6:58</b></span>
+          <span class="muted">無錯字回報</span>
+        </div>
+      </div>
+      <div class="lane__feed">
+        <div class="transcript"><span class="transcript__time mono">10:20</span><span class="transcript__text">資訊系統回報正常</span><span class="transcript__conf mono">94%</span></div>
+        <div class="transcript"><span class="transcript__time mono">10:21</span><span class="transcript__text">已同步事件至 OCC log</span><span class="transcript__conf mono">92%</span></div>
+        <div class="transcript"><span class="transcript__time mono">10:23</span><span class="transcript__text">列車運行紀錄已歸檔</span><span class="transcript__conf mono">93%</span></div>
+        <div class="transcript"><span class="transcript__time mono">10:25</span><span class="transcript__text">通報事件 #2026-0518-03</span><span class="transcript__conf mono">90%</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="card mt-24">
+    <h3 class="card__title">⚙️ 即時控制</h3>
+    <div class="flex flex-gap" style="flex-wrap: wrap">
+      <button class="btn btn--ghost mock-action" data-toast="已暫停 6 路（mock）">⏸ 暫停全部</button>
+      <button class="btn btn--ghost mock-action" data-toast="已匯出 CSV（mock）">⬇️ 匯出今日紀錄 CSV</button>
+      <button class="btn btn--ghost mock-action" data-toast="開啟 Grafana 警報設定（mock）">⚠️ 編輯告警閾值</button>
+      <button class="btn btn--ghost mock-action" data-toast="切換為大字模式（mock）">🔍 大字模式</button>
+    </div>
+  </div>
+
+</main>
+
+<script src="assets/nav.js"></script>
+</body>
+</html>

@@ -22,6 +22,20 @@
       "unit": "audio_seconds",
       "usd_per_unit": 0.000400,
       "_note": "$0.024/min ÷ 60（請以 GCP 帳單校準）"
+    },
+    "gemini-2.5-flash": {
+      "type": "llm",
+      "unit": "tokens",
+      "usd_per_1m_in": 0.30,
+      "usd_per_1m_out": 2.50,
+      "_note": "Gemini 2.5 Flash 公開定價 2026-Q1（請以實際帳單為準）"
+    },
+    "gemini-2.5-pro": {
+      "type": "llm",
+      "unit": "tokens",
+      "usd_per_1m_in": 1.25,
+      "usd_per_1m_out": 10.00,
+      "_note": "Gemini 2.5 Pro 公開定價 2026-Q1（請以實際帳單為準）"
     }
   }
 }

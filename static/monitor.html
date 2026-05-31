@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>aiSpeechMulti — 監控 Monitor</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.ico">
-<link rel="stylesheet" href="/static/css/tokens.css">
-<link rel="stylesheet" href="/static/css/base.css">
-<link rel="stylesheet" href="/static/css/components.css">
-<script src="/static/js/theme-switcher.js"></script>
+<link rel="stylesheet" href="/static/css/tokens.css?v=1.2">
+<link rel="stylesheet" href="/static/css/base.css?v=1.2">
+<link rel="stylesheet" href="/static/css/components.css?v=1.2">
+<script src="/static/js/theme-switcher.js?v=1.2"></script>
 <style>
   body { background: var(--neutral-1); }
   .page { padding: var(--space-5) var(--space-6); max-width: 1600px; margin: 0 auto; }
@@ -129,7 +129,7 @@
   .ch-color-3 { color: var(--ch-3); }
   .ch-color-4 { color: var(--ch-4); }
   .ch-color-5 { color: var(--ch-5); }
-  .ch-color-6 { color: var(--brand-primary); }
+  .ch-color-6 { color: var(--ch-6); }
 
   .transcript {
     display: grid;
@@ -229,7 +229,7 @@
 </style>
 </head>
 <body>
-<a href="#main-content" class="skip-link">跳至 5 路即時辨識</a>
+<a href="#main-content" class="skip-link">跳至 6 路即時辨識</a>
 <div class="page">
 
 <!-- ─── 成本 status bar (Phase A 2026-05-08) ─── -->
@@ -322,14 +322,13 @@
 // 設定
 // ============================================================================
 const CHANNEL_IDS   = ['ch1', 'ch2', 'ch3', 'ch4', 'ch5', 'ch6'];
-const SEAT_LABELS   = { ch1: 'CC', ch2: 'MTC', ch3: 'DTC', ch4: 'PC', ch5: 'EC', ch6: 'IA' };
 const SEAT_FULL     = {
-  ch1: '行控中心 (CC)',
-  ch2: '主控台 (MTC)',
-  ch3: '備援台 (DTC)',
-  ch4: '司機員 (PC)',
-  ch5: '緊急 (EC)',
-  ch6: '事件 (IA)',
+  ch1: '控制長 (CC)',
+  ch2: '正線控制工程師 (MTC)',
+  ch3: '機廠控制工程師 (DTC)',
+  ch4: '電力工程師 (PC)',
+  ch5: '設備工程師 (EC)',
+  ch6: '資訊員 (IA)',
 };
 const POLL_INTERVAL = 2000;
 const FEED_MAX_ROWS = 30;       // 每 lane 保留筆數
@@ -348,8 +347,8 @@ function initLanes() {
   const container = document.getElementById('lanes-container');
   CHANNEL_IDS.forEach((id, i) => {
     const idx = i + 1;
-    const colorClass = idx <= 5 ? `ch-color-${idx}` : 'ch-color-6';
-    const badgeClass = idx <= 5 ? `badge--ch${idx}` : '';
+    const colorClass = `ch-color-${idx}`;
+    const badgeClass = `badge--ch${idx}`;
     const isLast = i === CHANNEL_IDS.length - 1;
 
     const lane = document.createElement('div');
@@ -405,8 +404,7 @@ async function pollChannels() {
         const streamMode = info.stream_mode  || 'batch';
         meta.textContent = `${backend} · ${streamMode}`;
         status.textContent = 'Live';
-        const cls = idx <= 5 ? `ch${idx}` : '';
-        status.className = `badge badge--${cls || 'success'} badge--dot`;
+        status.className = `badge badge--ch${idx} badge--dot`;
       } else {
         meta.textContent = '等待連線…';
         status.textContent = 'Standby';
@@ -605,7 +603,13 @@ async function refreshCost(base) {
     const r = await fetch(`${base}/api/usage/today`, { signal: AbortSignal.timeout(3000) });
     if (!r.ok) return;
     const d = await r.json();
-    updateCostBar(d.today_total_twd, d.session_total_twd, d.active_channel_count);
+    // 「席位活動中」= 現在有 WebSocket 連線的席位數（不再與 ledger 綁定）
+    // 這樣本地端 sensevoice（不計成本）即時辨識時也能正確顯示 N/6
+    // 兼容沒有 currently_streaming_count 欄位的舊 server fallback 回 active_channel_count
+    const activeCount = (d.currently_streaming_count !== undefined)
+                        ? d.currently_streaming_count
+                        : d.active_channel_count;
+    updateCostBar(d.today_total_twd, d.session_total_twd, activeCount);
     renderExpand(d.by_channel, d.max_channel_slots);
   } catch (_) { /* 靜默 */ }
 }

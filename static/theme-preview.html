@@ -28,6 +28,7 @@
   .lane-chip.l3 { color: var(--ch-3); border-color: var(--ch-3); background: var(--ch-3-bg); }
   .lane-chip.l4 { color: var(--ch-4); border-color: var(--ch-4); background: var(--ch-4-bg); }
   .lane-chip.l5 { color: var(--ch-5); border-color: var(--ch-5); background: var(--ch-5-bg); }
+  .lane-chip.l6 { color: var(--ch-6); border-color: var(--ch-6); background: var(--ch-6-bg); }
 
   .hazards { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--space-2); margin-top: var(--space-3); }
   .hz { padding: var(--space-2); text-align: center; border-radius: var(--radius-1); font-family: var(--font-mono); font-size: var(--fs-small); font-weight: var(--fw-semibold); color: var(--neutral-0); }
@@ -51,7 +52,7 @@
     <header class="head">
       <div>
         <h1>主題預覽</h1>
-        <p style="color: var(--neutral-10); margin-top: var(--space-2);">點右側按鈕切換 <code>data-theme</code>。預設為 <strong>dark-cool</strong>（teal 冷色），切到 <strong>dark-warm</strong>（amber 暖色）後 neutrals + brand + 5 路 channel 全部換色，<strong>hazard 0-5 與 semantic 不換</strong>（紅黃綠語意保留）。</p>
+        <p style="color: var(--neutral-10); margin-top: var(--space-2);">點右側按鈕切換 <code>data-theme</code>。預設為 <strong>dark-cool</strong>（teal 冷色），切到 <strong>dark-warm</strong>（amber 暖色）後 neutrals + brand + 6 路 channel 全部換色，<strong>hazard 0-5 與 semantic 不換</strong>（紅黃綠語意保留）。</p>
       </div>
       <div class="toggle-row">
         <span class="theme-name" id="themeLabel">🌙 dark-cool</span>
@@ -80,13 +81,14 @@
       <div class="sw"><div class="sw__chip" style="background: var(--brand-secondary)"></div><div class="sw__name">brand-secondary</div><div class="sw__role">輔助強調</div></div>
     </div>
 
-    <h2>3 · 5 路 Channel（語意：ch1-5 對應 5 路通訊管道）</h2>
+    <h2>3 · 6 路 Channel（語意：ch1-6 對應 6 個席位通訊管道）</h2>
     <div class="lanes">
       <div class="lane-chip l1">CH1</div>
       <div class="lane-chip l2">CH2</div>
       <div class="lane-chip l3">CH3</div>
       <div class="lane-chip l4">CH4</div>
       <div class="lane-chip l5">CH5</div>
+      <div class="lane-chip l6">CH6</div>
     </div>
 
     <h2>4 · Hazard 0-5（跨主題不變，紅黃綠語意保留）</h2>

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-aiSpeechMulti - 五路無線電語音即時辨識 API
+aiSpeechMulti - 六路無線電語音即時辨識 API
 版本: 2.0.0 (2026-03-24)
 
 版本歷史:
@@ -13,10 +13,10 @@ aiSpeechMulti - 五路無線電語音即時辨識 API
     v1.2.0 (2026-03-20): 初始版本（單引擎批次）
 
 架構說明（v2.0 dual 模式）:
-    瀏覽器 ×5 (Web Audio API → PCM)
+    瀏覽器 ×6 (Web Audio API → PCM)
         │ WebSocket  /ws/stream/{channel_id}?mode=dual&backend=google
         ▼
-    FastAPI — asyncio 管理五路並發
+    FastAPI — asyncio 管理六路並發
         ├── Scribe v2 Realtime WebSocket ──→ partial/committed → 即時推播前端
         │        wss://api.elevenlabs.io/v1/speech-to-text/realtime
         │        延遲：~150ms TTFT
@@ -34,7 +34,7 @@ aiSpeechMulti - 五路無線電語音即時辨識 API
     GET  /api/transcripts — 辨識結果（含 stt_backend 欄位）
     GET  /api/health      — 健康檢查
     GET  /                — 音訊擷取頁面（index.html）
-    GET  /monitor         — 五路即時監控頁面（monitor.html）
+    GET  /monitor         — 六路即時監控頁面（monitor.html）
     GET  /favicon.ico     — 瀏覽器圖示
 
 mode 說明:
@@ -175,7 +175,7 @@ class ChannelState:
 
 
 # ==============================================================================
-# ② StreamManager — 五路管道生命週期管理
+# ② StreamManager — 六路管道生命週期管理
 # ==============================================================================
 
 class StreamManager:
@@ -448,7 +448,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="aiSpeechMulti API",
-    description="五路無線電語音即時辨識系統（dual/scribe_rt/google_stream/batch 四模式）",
+    description="六路無線電語音即時辨識系統（dual/scribe_rt/google_stream/batch 四模式）",
     version="2.0.0",
     lifespan=lifespan,
 )
@@ -475,7 +475,7 @@ async def root():
 
 @app.get("/capture", include_in_schema=False)
 async def capture():
-    """音訊擷取頁面（原 /，仍是 5 路擷取入口）。"""
+    """音訊擷取頁面（原 /，6 路席位擷取入口）。"""
     return FileResponse("static/index.html", headers=_NO_CACHE)
 
 
@@ -1220,7 +1220,7 @@ async def audio_stream(
     mode:    str = Query(default=None,  description="串流模式：dual | scribe_rt | google_stream | batch | sensevoice_local"),
 ):
     """
-    五路無線電語音串流端點（v2.0 多模式）。
+    六路無線電語音串流端點（v2.0 多模式）。
 
     query params:
         mode=dual              雙引擎（推薦）：Scribe RT 即時字幕 + Google 批次確認存庫
@@ -1310,7 +1310,7 @@ async def audio_stream(
 # ⑧ REST API 端點
 # ==============================================================================
 
-@app.get("/api/channels", summary="查詢五路管道即時狀態")
+@app.get("/api/channels", summary="查詢六路管道即時狀態")
 async def get_channels():
     """
     回傳各管道連線時間、辨識筆數、最新文字、使用引擎。

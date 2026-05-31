@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" data-theme-toggle="off">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>aiSpeechMulti · Grafana · Mock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/aism-theme.css">
+<link rel="stylesheet" href="assets/aism-theme-warm.css">
+<script src="assets/aism-theme.js"></script>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <a href="index.html" class="topbar__brand">🎙️ aiSpeechMulti</a>
+  <span class="topbar__mock">MOCKUP · 僅供 UI 預覽</span>
+  <nav class="topbar__nav">
+    <a href="index.html">首頁</a>
+    <a href="capture.html">capture</a>
+    <a href="monitor.html">monitor</a>
+    <a href="display.html">display</a>
+    <a href="lab.html">Lab</a>
+    <a href="grafana.html" class="active">Grafana</a>
+  </nav>
+  <button id="themeToggleBtn" class="topbar__theme" onclick="toggleTheme()" title="切換主題（dark → light → warm）">🌙</button>
+</header>
+
+<main class="container">
+
+  <div class="flex-between mb-16">
+    <div>
+      <h1 class="h1">📊 aiSpeechMulti 語音辨識監控</h1>
+      <p class="h1-sub">7 大區塊 · 25 panels · 資料來源 SQLite + cer_history</p>
+    </div>
+    <div class="flex flex-gap">
+      <select class="select" style="width:160px"><option>最近 24 小時</option><option>最近 7 天</option><option>最近 30 天</option></select>
+      <button class="btn btn--ghost mock-action" data-toast="重新整理 dashboard（mock）">🔄</button>
+    </div>
+  </div>
+
+  <!-- Row 1 整體統計 -->
+  <div class="grafana-row">
+    <div class="grafana-row__title">📊 整體統計</div>
+    <div class="grafana-row__panels">
+      <div class="grafana-panel">
+        <div class="grafana-panel__title">總辨識筆數（24h）</div>
+        <div class="grafana-panel__value">12,847</div>
+        <div class="grafana-panel__sub">↑ 8.4% vs 前日</div>
+      </div>
+      <div class="grafana-panel">
+        <div class="grafana-panel__title">平均信心度</div>
+        <div class="grafana-panel__value">89.2%</div>
+        <div class="grafana-panel__sub">↓ 1.1pp vs 前週</div>
+      </div>
+      <div class="grafana-panel">
+        <div class="grafana-panel__title">總時長</div>
+        <div class="grafana-panel__value">38h 14m</div>
+        <div class="grafana-panel__sub">6 路席位累計</div>
+      </div>
+      <div class="grafana-panel">
+        <div class="grafana-panel__title">⚠️ 危害事件</div>
+        <div class="grafana-panel__value" style="color: var(--critical)">23</div>
+        <div class="grafana-panel__sub">L3 以上 · 24h</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 2 辨識量趨勢 -->
+  <div class="grafana-row">
+    <div class="grafana-row__title">📈 辨識量趨勢</div>
+    <div class="grafana-row__panels">
+      <div class="grafana-panel" style="grid-column: span 2">
+        <div class="grafana-panel__title">每小時辨識筆數</div>
+        <svg class="sparkline" viewBox="0 0 600 80" preserveAspectRatio="none">
+          <polyline class="spark-fill" points="0,80 0,52 50,48 100,40 150,35 200,30 250,28 300,22 350,25 400,18 450,20 500,15 550,18 600,12 600,80"></polyline>
+          <polyline class="spark-line" points="0,52 50,48 100,40 150,35 200,30 250,28 300,22 350,25 400,18 450,20 500,15 550,18 600,12"></polyline>
+        </svg>
+        <div class="grafana-panel__sub">尖峰 10:00~11:00 · 1,842 筆</div>
+      </div>
+      <div class="grafana-panel">
+        <div class="grafana-panel__title">每日辨識筆數</div>
+        <svg class="sparkline" viewBox="0 0 200 80" preserveAspectRatio="none">
+          <g fill="var(--accent)" opacity="0.7">
+            <rect x="5" y="40" width="20" height="40"/>
+            <rect x="30" y="32" width="20" height="48"/>
+            <rect x="55" y="20" width="20" height="60"/>
+            <rect x="80" y="28" width="20" height="52"/>
+            <rect x="105" y="14" width="20" height="66"/>
+            <rect x="130" y="10" width="20" height="70"/>
+            <rect x="155" y="22" width="20" height="58"/>
+          </g>
+        </svg>
+        <div class="grafana-panel__sub">7 天 · 平均 11,234</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 3 引擎與管道分析 -->
+  <div class="grafana-row">
+    <div class="grafana-row__title">🔍 引擎與管道分析</div>
+    <div class="grafana-row__panels">
+      <div class="grafana-panel">
+        <div class="grafana-panel__title">各引擎成功率</div>
+        <table class="data">
+          <tr><td>scribe_rt</td><td class="mono text-accent">98.4%</td></tr>
+          <tr><td>google chirp_3</td><td class="mono text-accent">97.1%</td></tr>
+          <tr><td>sensevoice_ft</td><td class="mono text-accent">96.8%</td></tr>
+          <tr><td>gemini-2.5-pro</td><td class="mono text-accent">95.2%</td></tr>
+          <tr><td>sensevoice</td><td class="mono">94.1%</td></tr>
+        </table>
+      </div>
+      <div class="grafana-panel">
+        <div class="grafana-panel__title">各席位辨識量</div>
+        <svg class="sparkline" viewBox="0 0 200 80" preserveAspectRatio="none">
+          <g>
+            <rect x="10" y="20" width="20" height="60" fill="var(--ch1)" opacity="0.7"/>
+            <rect x="40" y="40" width="20" height="40" fill="var(--ch2)" opacity="0.7"/>
+            <rect x="70" y="30" width="20" height="50" fill="var(--ch3)" opacity="0.7"/>
+            <rect x="100" y="55" width="20" height="25" fill="var(--ch4)" opacity="0.7"/>
+            <rect x="130" y="65" width="20" height="15" fill="var(--ch5)" opacity="0.7"/>
+            <rect x="160" y="70" width="20" height="10" fill="var(--ch6)" opacity="0.7"/>
+          </g>
+        </svg>
+        <div class="grafana-panel__sub">ch1 最忙（41%）</div>
+      </div>
+      <div class="grafana-panel">
+        <div class="grafana-panel__title">平均處理延遲</div>
+        <div class="grafana-panel__value" style="font-size: 22px">154 ms</div>
+        <div class="grafana-panel__sub">P95: 320ms · P99: 580ms</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 4 關鍵字危害分析 -->
+  <div class="grafana-row">
+    <div class="grafana-row__title">⚠️ 關鍵字危害分析</div>
+    <div class="grafana-row__panels">
+      <div class="grafana-panel">
+        <div class="grafana-panel__title">告警等級分布</div>
+        <table class="data">
+          <tr><td><span class="badge badge--err">L5</span></td><td class="mono">3</td></tr>
+          <tr><td><span class="badge badge--warn">L4</span></td><td class="mono">8</td></tr>
+          <tr><td><span class="badge badge--warn">L3</span></td><td class="mono">12</td></tr>
+          <tr><td><span class="badge badge--mut">L1-L2</span></td><td class="mono">87</td></tr>
+        </table>
+      </div>
+      <div class="grafana-panel">
+        <div class="grafana-panel__title">高頻關鍵字 Top 5</div>
+        <table class="data">
+          <tr><td>月台門</td><td class="mono">42</td></tr>
+          <tr><td>軌道</td><td class="mono">28</td></tr>
+          <tr><td>故障</td><td class="mono">21</td></tr>
+          <tr><td>疏散</td><td class="mono">14</td></tr>
+          <tr><td>緊急</td><td class="mono">9</td></tr>
+        </table>
+      </div>
+      <div class="grafana-panel">
+        <div class="grafana-panel__title">各席位危害比</div>
+        <svg class="sparkline" viewBox="0 0 200 80" preserveAspectRatio="none">
+          <g>
+            <rect x="10" y="30" width="20" height="50" fill="var(--critical)" opacity="0.6"/>
+            <rect x="40" y="55" width="20" height="25" fill="var(--critical)" opacity="0.4"/>
+            <rect x="70" y="40" width="20" height="40" fill="var(--critical)" opacity="0.5"/>
+            <rect x="100" y="60" width="20" height="20" fill="var(--critical)" opacity="0.3"/>
+            <rect x="130" y="70" width="20" height="10" fill="var(--critical)" opacity="0.3"/>
+          </g>
+        </svg>
+        <div class="grafana-panel__sub">ch1 危害比最高</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 5 最近紀錄 -->
+  <div class="grafana-row">
+    <div class="grafana-row__title">🎙️ 最近辨識記錄</div>
+    <div class="grafana-row__panels" style="grid-template-columns: 1fr">
+      <div class="grafana-panel">
+        <table class="data">
+          <thead><tr><th>時間</th><th>席位</th><th>引擎</th><th>內容</th><th>信心</th><th>等級</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">10:25:32</td><td><span class="badge badge--ch4">ch4</span></td><td>sensevoice</td><td>PC 已通知第二月台疏散</td><td class="mono">87%</td><td><span class="badge badge--warn">L2</span></td></tr>
+            <tr><td class="mono">10:25:14</td><td><span class="badge badge--ch1">ch1</span></td><td>scribe</td><td>OCC 收到，啟動緊急處置程序</td><td class="mono">92%</td><td><span class="badge badge--warn">L3</span></td></tr>
+            <tr><td class="mono">10:25:08</td><td><span class="badge badge--ch3">ch3</span></td><td>scribe</td><td>軌道異物警報觸發，緊急停車</td><td class="mono">85%</td><td><span class="badge badge--err">L5</span></td></tr>
+            <tr><td class="mono">10:24:51</td><td><span class="badge badge--ch2">ch2</span></td><td>scribe</td><td>MTC 維修人員已抵達 G05 月台</td><td class="mono">93%</td><td><span class="badge badge--mut">L0</span></td></tr>
+            <tr><td class="mono">10:24:23</td><td><span class="badge badge--ch3">ch3</span></td><td>google</td><td>DTC 收到，第三節車廂門無法關閉</td><td class="mono">89%</td><td><span class="badge badge--warn">L2</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 6 檔案評測 -->
+  <div class="grafana-row">
+    <div class="grafana-row__title">📁 檔案辨識評測記錄</div>
+    <div class="grafana-row__panels" style="grid-template-columns: 1fr">
+      <div class="grafana-panel">
+        <table class="data">
+          <thead><tr><th>跑分日期</th><th>引擎</th><th>段數</th><th>raw CER</th><th>final CER</th><th>改善</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">2026-05-15</td><td>sensevoice_ft</td><td>63</td><td class="mono">30.78%</td><td class="mono text-accent">28.12%</td><td class="mono" style="color:var(--success)">-2.66pp</td></tr>
+            <tr><td class="mono">2026-05-10</td><td>gemini-2.5-pro</td><td>63</td><td class="mono">49.34%</td><td class="mono">48.40%</td><td class="mono" style="color:var(--success)">-0.94pp</td></tr>
+            <tr><td class="mono">2026-05-10</td><td>scribe</td><td>63</td><td class="mono">66.15%</td><td class="mono">62.43%</td><td class="mono" style="color:var(--success)">-3.72pp</td></tr>
+            <tr><td class="mono">2026-05-10</td><td>chirp_3</td><td>63</td><td class="mono">82.81%</td><td class="mono">81.70%</td><td class="mono" style="color:var(--success)">-1.11pp</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 7 CER 趨勢 -->
+  <div class="grafana-row">
+    <div class="grafana-row__title">📈 CER 趨勢</div>
+    <div class="grafana-row__panels">
+      <div class="grafana-panel" style="grid-column: span 2">
+        <div class="grafana-panel__title">各引擎 CER 隨時間變化</div>
+        <svg class="sparkline" viewBox="0 0 600 100" preserveAspectRatio="none" style="height: 100px">
+          <polyline class="spark-line" stroke="var(--ch3)" points="0,80 100,75 200,70 300,55 400,40 500,35 600,28" fill="none" stroke-width="2"/>
+          <polyline class="spark-line" stroke="var(--ch2)" points="0,45 100,42 200,40 300,38 400,42 500,40 600,40" fill="none" stroke-width="2"/>
+          <polyline class="spark-line" stroke="var(--ch1)" points="0,90 100,88 200,85 300,82 400,80 500,75 600,72" fill="none" stroke-width="2"/>
+        </svg>
+        <div class="grafana-panel__sub flex flex-gap" style="margin-top:8px;font-size:11px">
+          <span><span style="color:var(--ch3)">━</span> sensevoice_ft</span>
+          <span><span style="color:var(--ch2)">━</span> gemini-2.5-pro</span>
+          <span><span style="color:var(--ch1)">━</span> scribe</span>
+        </div>
+      </div>
+      <div class="grafana-panel">
+        <div class="grafana-panel__title">距 CER 20% 目標</div>
+        <div class="grafana-panel__value" style="color:var(--warning)">8.12pp</div>
+        <div class="grafana-panel__sub">當前最佳 28.12% · sensevoice_ft</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mt-24" style="background: var(--bg-2)">
+    <p class="text-sec text-small" style="margin:0">這是 Grafana :3000 的模擬版面。實際使用會自動更新，這個 mockup 是靜態快照（資料時間 2026-05-18）。</p>
+  </div>
+
+</main>
+
+<script src="assets/nav.js"></script>
+</body>
+</html>

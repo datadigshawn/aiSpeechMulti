@@ -49,6 +49,7 @@ data/*.db-wal
 
 # 暫存音檔與封存
 experiments/temp_upload/
+experiments/temp_youtube/
 data/audio_archive/
 
 # 實驗資料（辨識結果保留，原始音訊排除）

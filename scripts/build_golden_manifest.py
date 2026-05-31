@@ -53,8 +53,11 @@ DEFAULT_DATASET_DIR = PROJECT_ROOT / "experiments" / "golden_dataset"
 AUDIO_EXTENSIONS = {".wav", ".mp3", ".m4a", ".flac", ".ogg", ".aac"}
 
 # ── 檔名解析正則 ───────────────────────────────────────────────────
-# 範例: 001_daily_UltraLog063_20260321_154513.wav
-FILENAME_PATTERN = re.compile(r"^(\d{3})_(\w+?)_(.+)$")
+# 範例:
+#   001_daily_UltraLog063_20260321_154513.wav     ← 原始批次（3 位數字）
+#   G0001_emergency_席位1_2025122_192236.wav      ← 後續批次（字母前綴 + 4 位數字）
+# 接受兩種：純數字 ≥3 位，或字母前綴後接 ≥3 位數字
+FILENAME_PATTERN = re.compile(r"^([A-Z]?\d{3,4})_(\w+?)_(.+)$")
 
 # 已知事件類型（用於驗證）
 KNOWN_EVENT_TYPES = {"daily", "door", "track", "emergency", "control"}

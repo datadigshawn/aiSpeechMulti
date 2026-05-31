@@ -40,6 +40,91 @@ git pull origin main
 
 ---
 
+## 1.5 從 M2 同步音檔到桌機（首次或新增 GT 時）
+
+> ⚠️ **為何需要這步**：`*.wav` 在 `.gitignore` 中，`git pull` 只帶 code + `experiments/golden_dataset/ground_truth/*.txt`，**不會帶 audio**。Fine-tune 需要音檔 + GT 配對，必須另外把音檔送上桌機。
+
+**現況**（2026-05）：
+- `experiments/golden_dataset/audio/` ≈ **26 MB / 146 個 .wav**
+- 桌機目標路徑：`Y:\Projects\aiSpeechMulti\experiments\golden_dataset\audio\`
+
+### 🚀 最快：一鍵腳本 `scripts/sync_to_3090.sh`
+
+從 M2 端執行（推薦）：
+
+```bash
+# 第一次：設定 host alias（之後永久生效）
+cat > ~/.aispeech_3090.env <<EOF
+AISPEECH_3090_HOST=3090            # 你 ~/.ssh/config 內定義的 alias
+AISPEECH_3090_PATH=/Y/Projects/aiSpeechMulti
+EOF
+
+# 上傳：git push + rsync audio 一次搞定
+./scripts/sync_to_3090.sh up
+
+# 只傳音檔
+./scripts/sync_to_3090.sh audio
+
+# 只 push code
+./scripts/sync_to_3090.sh code
+
+# 訓練完拉 checkpoint 回 M2
+./scripts/sync_to_3090.sh down
+
+# 看本機 / 桌機檔數對不對
+./scripts/sync_to_3090.sh status
+
+# 預覽不執行
+./scripts/sync_to_3090.sh up --dry-run
+```
+
+腳本詳情：`./scripts/sync_to_3090.sh --help`
+
+---
+
+### 手動：rsync（增量同步）
+
+從 M2 端執行：
+
+```bash
+# 只傳新增/變動的 .wav，已存在且相同的會跳過
+rsync -avh --progress \
+    /Users/apple/Projects/projectArea/aiSpeechMulti/experiments/golden_dataset/audio/ \
+    <ssh-host>:/Y/Projects/aiSpeechMulti/experiments/golden_dataset/audio/
+```
+
+> Windows 桌機透過 OpenSSH 看到的路徑：`C:/Users/<user>/...` 或 `Y:/...`（依當時 mapped drive 設定）。第一次跑前請先在桌機 PowerShell 用 `ls` 確認目標目錄存在。
+
+### 替代：scp（完整重新上傳）
+
+不會增量、適合第一次：
+
+```bash
+scp -r \
+    /Users/apple/Projects/projectArea/aiSpeechMulti/experiments/golden_dataset/audio/ \
+    <ssh-host>:/Y/Projects/aiSpeechMulti/experiments/golden_dataset/
+```
+
+### 驗證上傳結果（在桌機 PowerShell 跑）
+
+```powershell
+cd Y:\Projects\aiSpeechMulti
+# 計數應該與 manifest.csv 一致
+(Get-ChildItem experiments\golden_dataset\audio\*.wav).Count
+# 總大小應該約 26 MB
+"{0:N1} MB" -f ((Get-ChildItem experiments\golden_dataset\audio\*.wav | Measure-Object -Property Length -Sum).Sum / 1MB)
+```
+
+### 何時要再跑
+
+- ✅ 第一次設定桌機
+- ✅ 新增黃金語料段落（manifest.csv 變更後）
+- ❌ 一般 code change → 只跑 `git pull` 即可（不用重傳音檔）
+
+> 💡 對應的 SSH host alias 與實際指令請查 [Obsidian 筆記：`aiSpeechMulti/docs/scp 同步指令備忘.md`](Obsidian)。
+
+---
+
 ## 2. Python 環境
 
 建議用 conda 或 venv 隔離：

@@ -454,8 +454,9 @@ def lab_plotly_layout(title: str | None = None, height: int = 480) -> dict:
     )
 
 
-# 5 路 channel 色（與 static / Grafana 對齊）— design tokens hex
-LAB_CHANNEL_COLORS = ["#65c8d4", "#bce26d", "#e2c46d", "#e58fc1", "#b58fe5"]
+# 6 路 channel 色（與 static / Grafana 對齊）— design tokens hex
+# ch1-ch6: teal-blue / lime-green / amber / magenta / violet / coral(IA)
+LAB_CHANNEL_COLORS = ["#65c8d4", "#bce26d", "#e2c46d", "#e58fc1", "#b58fe5", "#e69180"]
 LAB_BRAND_PRIMARY  = "#3fbdc7"
 
 
@@ -640,7 +641,9 @@ def render_speech_page():
 
     # ── Step 3：音檔載入 ────────────────────────────────────────────────
     st.subheader("Step 3　載入語音檔案")
-    tab_upload, tab_server = st.tabs(["上傳本機檔案", "瀏覽伺服器音檔"])
+    tab_upload, tab_server, tab_youtube = st.tabs([
+        "上傳本機檔案", "瀏覽伺服器音檔", "🎬 貼上 YouTube 連結",
+    ])
 
     selected_upload_files = []
     selected_server_files = []
@@ -679,6 +682,74 @@ def render_speech_page():
             if selected_display:
                 selected_server_files = [display_to_path[d] for d in selected_display]
                 st.success(f"已選擇 {len(selected_server_files)} 個檔案")
+
+    with tab_youtube:
+        from utils.youtube_fetcher import probe as yt_probe, download_audio as yt_download, estimate_cost_twd
+
+        # session 狀態：probe 結果 + 已下載清單（survive streamlit rerun）
+        if "yt_probe" not in st.session_state:
+            st.session_state["yt_probe"] = None
+        if "yt_downloaded" not in st.session_state:
+            st.session_state["yt_downloaded"] = []  # list[Path]
+
+        yt_url = st.text_input(
+            "YouTube 影片網址",
+            placeholder="https://www.youtube.com/watch?v=...",
+            key="yt_url_input",
+            help="貼上完整 URL；yt-dlp 抓出音軌為 16kHz mono WAV，存到 experiments/temp_youtube/",
+        )
+
+        col_probe, col_clear = st.columns([2, 1])
+        with col_probe:
+            if st.button("📊 預估時長與成本", disabled=not yt_url.strip(), use_container_width=True):
+                try:
+                    with st.spinner("讀取影片資訊中…"):
+                        info = yt_probe(yt_url.strip())
+                    st.session_state["yt_probe"] = info
+                except RuntimeError as e:
+                    st.session_state["yt_probe"] = None
+                    st.error(f"❌ {e}")
+        with col_clear:
+            if st.button("🗑 清空 YouTube 下載清單", use_container_width=True,
+                         disabled=not st.session_state["yt_downloaded"]):
+                st.session_state["yt_downloaded"] = []
+                st.session_state["yt_probe"] = None
+                st.rerun()
+
+        info = st.session_state["yt_probe"]
+        if info:
+            cost = estimate_cost_twd(info["duration_s"], engine="google_stt_chirp_3")
+            mins = info["duration_s"] / 60
+            st.markdown(f"**🎬 {info['title']}**")
+            col_a, col_b, col_c = st.columns(3)
+            col_a.metric("時長", f"{mins:.1f} 分鐘")
+            col_b.metric("估計 STT 成本", f"NT$ {cost['twd']:.2f}", help=f"${cost['usd']:.4f} USD × {cost['usd_to_twd']:.1f}")
+            col_c.metric("上傳者", info["uploader"] or "—")
+
+            if mins > 30:
+                st.warning(f"⚠️ 影片較長（{mins:.1f} 分鐘），估計成本 NT$ {cost['twd']:.2f}。確認後再下載。")
+            elif mins > 5:
+                st.info(f"ℹ️ 影片 {mins:.1f} 分鐘，成本 NT$ {cost['twd']:.2f}")
+
+            if st.button("✅ 確認下載並加入辨識清單", type="primary", use_container_width=True):
+                try:
+                    with st.spinner(f"下載音軌中…（{mins:.1f} 分鐘的影片需要幾十秒到幾分鐘）"):
+                        audio_path = yt_download(yt_url.strip())
+                    if audio_path not in st.session_state["yt_downloaded"]:
+                        st.session_state["yt_downloaded"].append(audio_path)
+                    st.success(f"✅ 已下載：`{audio_path.name}`")
+                    st.session_state["yt_probe"] = None  # 清空 probe 結果準備下一支
+                    st.rerun()
+                except RuntimeError as e:
+                    st.error(f"❌ 下載失敗：{e}")
+
+        if st.session_state["yt_downloaded"]:
+            st.divider()
+            st.caption(f"已下載 {len(st.session_state['yt_downloaded'])} 支影片，會自動加入辨識清單：")
+            for p in st.session_state["yt_downloaded"]:
+                st.write(f"  - `{p.name}`")
+            # 自動併入 server_files 走原本 STT 管線
+            selected_server_files = list(selected_server_files) + list(st.session_state["yt_downloaded"])
 
     # ── Step 4：詞彙優化 ─────────────────────────────────────────────────
     st.write("")
@@ -1019,6 +1090,29 @@ def render_speech_page():
     st.divider()
     has_files  = bool(selected_upload_files or selected_server_files)
     can_execute = has_files and (not merge_results or bool(event_name.strip()))
+
+    # 診斷區：永遠顯示，方便排查「按下沒反應」的問題
+    with st.expander("🔍 偵錯資訊（按鈕為何 enabled/disabled）", expanded=not can_execute):
+        n_up = len(selected_upload_files) if selected_upload_files else 0
+        n_sv = len(selected_server_files) if selected_server_files else 0
+        st.write(f"- **上傳檔案** `selected_upload_files`: {n_up} 個")
+        if n_up:
+            for f in selected_upload_files:
+                st.write(f"    - `{getattr(f, 'name', f)}`")
+        st.write(f"- **伺服器/YT 檔案** `selected_server_files`: {n_sv} 個")
+        if n_sv:
+            for f in selected_server_files:
+                st.write(f"    - `{f}`")
+        st.write(f"- **`has_files`**: `{has_files}`")
+        st.write(f"- **`merge_results`**: `{merge_results}`")
+        st.write(f"- **`event_name`**: `{event_name.strip() or '(空)'}`")
+        st.write(f"- **`can_execute`** (按鈕 enabled 必要條件): `{can_execute}`")
+        yt_dl = st.session_state.get("yt_downloaded", [])
+        st.write(f"- **session_state['yt_downloaded']**: {len(yt_dl)} 個")
+        if yt_dl:
+            for p in yt_dl:
+                st.write(f"    - `{p}`")
+
     col_btn, col_hint = st.columns([2, 5])
 
     with col_btn:
@@ -1038,9 +1132,11 @@ def render_speech_page():
 
     with col_hint:
         if not has_files:
-            st.caption("請先在上方載入至少一個音檔")
+            st.caption("⚠️ 請先在上方載入至少一個音檔（看上方偵錯資訊判斷哪裡少了）")
         elif merge_results and not event_name.strip():
-            st.caption("請輸入事件名稱後再執行")
+            st.caption("⚠️ 請輸入事件名稱後再執行")
+        else:
+            st.caption("✅ 可以點「執行辨識」")
 
 
 # ============================================================================
@@ -1192,6 +1288,149 @@ def transcribe_google_stt_with_vad(engine, audio_file: Path, output_dir: Path, m
 # ============================================================================
 # 輔助函式：辨識完成後的結果區（可安全重複渲染，不會重觸辨識）
 # ============================================================================
+def _render_report_section(all_results, filename_datetimes, output_dir,
+                           event_name, timestamp):
+    """📝 重點整理（LLM 報告）區塊：手動觸發 Gemini 把逐字稿整理成 5 段結構報告。"""
+    success_results = [r for r in all_results if r["status"] == "success" and r.get("transcript")]
+    if not success_results:
+        return  # 沒成功的辨識結果就不顯示報告區
+
+    st.divider()
+    st.subheader("📝 重點整理（LLM 報告）")
+    st.caption(
+        "把逐字稿丟給 Gemini 產出 5 段結構化報告："
+        "一句話總結／核心觀點／關鍵術語／章節時間軸／行動建議。"
+    )
+
+    col_model, col_btn = st.columns([2, 3])
+    with col_model:
+        report_model = st.selectbox(
+            "Gemini 模型",
+            options=["gemini-2.5-flash", "gemini-2.5-pro"],
+            index=0,
+            key="report_model_select",
+            help="Flash 快+便宜（5-15 秒, ~NT$0.1）；Pro 慢+貴但品質高（30-60 秒, ~NT$1）",
+        )
+    with col_btn:
+        st.write("")  # 對齊 selectbox label
+        gen_clicked = st.button("✨ 產生報告", type="primary", key="gen_report_btn",
+                                 use_container_width=True)
+
+    # 從 session_state 取回上次產生的報告（避免重 rerun 後消失）
+    if "report_md" not in st.session_state:
+        st.session_state["report_md"] = None
+        st.session_state["report_meta"] = None
+
+    if gen_clicked:
+        # 組合多檔逐字稿：單檔直接用，多檔加分隔
+        if len(success_results) == 1:
+            combined = success_results[0]["transcript"]
+        else:
+            combined = "\n\n".join(
+                f"=== {r['filename']} ===\n{r['transcript']}" for r in success_results
+            )
+
+        from utils.speech_report import (
+            generate_report as _gen_report,
+            format_report_file as _fmt_report,
+            parse_audio_time_range as _parse_range,
+            safe_filename_fragment as _safe_frag,
+        )
+        import threading as _threading
+        import time as _time_mod
+
+        # 用 background thread + 主 thread 輪詢，讓「已執行 X 秒」會跳
+        report_progress = st.progress(0, text=f"📡 呼叫 {report_model}…")
+        holder = {"result": None, "error": None}
+
+        def _worker():
+            try:
+                holder["result"] = _gen_report(combined, model=report_model)
+            except Exception as e:
+                holder["error"] = e
+
+        th = _threading.Thread(target=_worker, daemon=True)
+        th.start()
+        _t0 = _time_mod.time()
+        while th.is_alive():
+            _e = int(_time_mod.time() - _t0)
+            _es = f"{_e//60}分{_e%60:02d}秒" if _e >= 60 else f"{_e}秒"
+            report_progress.progress(
+                min(_e / 60.0, 0.95),  # 視覺進度條（假定 60 秒上限為滿；只是 UX）
+                text=f"📡 {report_model} 產生報告中…　|　已執行 {_es}",
+            )
+            _time_mod.sleep(1)
+        th.join()
+        report_progress.empty()
+
+        if holder["error"]:
+            st.error(f"❌ 產生報告失敗：{holder['error']}")
+            return
+
+        result = holder["result"]
+        sources = [r["filename"] for r in success_results]
+        audio_range = _parse_range(filename_datetimes)
+        report_txt = _fmt_report(
+            result["report_md"],
+            sources=sources,
+            audio_time_range=audio_range,
+            generated_at=datetime.now(),
+        )
+
+        # 存檔到 output_dir
+        gen_ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        source_tag = _safe_frag(event_name) if event_name else _safe_frag(
+            Path(sources[0]).stem if sources else "report"
+        )
+        report_filename = f"語音辨識報告_{source_tag}_{gen_ts}.txt"
+        report_path = output_dir / report_filename
+        try:
+            report_path.write_text(report_txt, encoding="utf-8")
+            saved_msg = f"📄 報告已存至：`{report_filename}`"
+        except Exception as _se:
+            saved_msg = f"⚠️ 寫檔失敗（不影響下載）：{_se}"
+
+        # 寫進 session_state 以 survive rerun
+        st.session_state["report_md"] = result["report_md"]
+        st.session_state["report_meta"] = {
+            "model":       result["model"],
+            "elapsed_s":   result["elapsed_s"],
+            "tokens_in":   result["tokens_in"],
+            "tokens_out":  result["tokens_out"],
+            "cost_twd":    result["cost"]["twd"],
+            "cost_usd":    result["cost"]["usd"],
+            "fallback":    result["cost"]["fallback_pricing"],
+            "report_txt":  report_txt,
+            "filename":    report_filename,
+            "saved_msg":   saved_msg,
+        }
+
+    # 顯示既有報告（若有）
+    if st.session_state.get("report_md"):
+        meta = st.session_state["report_meta"]
+        col_a, col_b, col_c = st.columns(3)
+        col_a.metric("耗時", f"{meta['elapsed_s']} 秒")
+        col_b.metric("Tokens", f"{meta['tokens_in']:,} → {meta['tokens_out']:,}")
+        cost_label = f"NT$ {meta['cost_twd']:.4f}" if meta['cost_twd'] < 1 else f"NT$ {meta['cost_twd']:.2f}"
+        col_c.metric(
+            "成本",
+            cost_label,
+            help=f"USD {meta['cost_usd']:.5f}" + (" (內建估價)" if meta["fallback"] else ""),
+        )
+
+        st.info(meta["saved_msg"])
+        with st.expander("📖 報告全文", expanded=True):
+            st.markdown(st.session_state["report_md"])
+
+        st.download_button(
+            f"⬇️ 下載報告（{meta['filename']}）",
+            data=meta["report_txt"].encode("utf-8"),
+            file_name=meta["filename"],
+            mime="text/plain",
+            key="dl_report",
+        )
+
+
 def _render_results_section(all_results, total, output_dir, timestamp,
                              merge_results, event_name, filename_datetimes):
     """顯示辨識摘要、下載按鈕、危害等級設定與返回首頁按鈕。"""
@@ -1257,6 +1496,15 @@ def _render_results_section(all_results, total, output_dir, timestamp,
             key="dl_all",
         )
 
+    # ── 📝 重點整理（LLM 報告）────────────────────────────────────────────
+    _render_report_section(
+        all_results=all_results,
+        filename_datetimes=filename_datetimes,
+        output_dir=output_dir,
+        event_name=event_name,
+        timestamp=timestamp,
+    )
+
     # ── 危害等級設定 ──────────────────────────────────────────────────────
     last_eid = st.session_state.get("last_event_id")
     if last_eid:
@@ -1319,12 +1567,19 @@ def render_running_page():
     st.write(f"模型：**{model_label}**　　子模型：`{sub_model}`　　{vocab_badge}{merge_badge}{preproc_badge}")
     st.divider()
 
+    # ── 全程進度元件（提前建立，確保任何階段都有 UI 反饋）──────────────────
+    progress_bar = st.progress(0, text="準備中…")
+    status_msg   = st.empty()
+
     # ── 準備音檔清單 ──────────────────────────────────────────────────────
     audio_paths = []
     if uploaded_files:
         upload_dir = TEMP_UPLOAD_DIR / "source_audio"
         upload_dir.mkdir(parents=True, exist_ok=True)
-        for uf in uploaded_files:
+        n_upload = len(uploaded_files)
+        for i, uf in enumerate(uploaded_files, 1):
+            size_mb = len(uf.getbuffer()) / 1024 / 1024
+            progress_bar.progress(0, text=f"📤 保存音檔 {i}/{n_upload}：{uf.name}（{size_mb:.1f} MB）")
             dest = upload_dir / uf.name
             dest.write_bytes(uf.getbuffer())
             audio_paths.append(dest)
@@ -1374,9 +1629,15 @@ def render_running_page():
 
     # ── 初始化模型 ────────────────────────────────────────────────────────
     total        = len(audio_paths)
-    progress_bar = st.progress(0, text="初始化模型中，請稍候...")
-    status_msg   = st.empty()
+    progress_bar.progress(0, text=f"🤖 初始化 {model_label} 模型…")
     all_results  = []
+
+    if model_type in ("sensevoice", "sensevoice_ft"):
+        status_msg.info(f"💡 首次使用 {model_label} 需下載 ~500MB 模型（VAD + 主模型），之後啟動約 2 秒")
+    elif model_type == "whisper":
+        status_msg.info("💡 首次使用 Whisper 需下載模型，視大小數百 MB 到數 GB 不等")
+    else:
+        status_msg.info(f"📡 連線 {model_label} API…")
 
     try:
         from scripts.batch_inference import BatchInference, setup_google_credentials
@@ -1433,8 +1694,6 @@ def render_running_page():
                 language_code=actual_language_code if model_type == "google_stt" else "cmn-Hant-TW",
             )
 
-        status_msg.empty()
-
         # ── 匯入前處理工具（懶載入，避免未安裝時整頁崩潰）─────────────────
         _denoise_fn  = None
         _vad_fn      = None
@@ -1451,9 +1710,19 @@ def render_running_page():
                 st.warning("⚠️ Silero VAD 未安裝，VAD 功能略過（pip install silero-vad）")
                 use_vad = False
 
+        status_msg.empty()  # 清掉初始化期間的提示，準備顯示辨識進度
+        import time as _time_mod
+        _t_start = _time_mod.time()
+
         for i, audio_file in enumerate(audio_paths):
             audio_file = Path(audio_file)
-            progress_bar.progress(i / total, text=f"辨識中：{audio_file.name}  ({i + 1}/{total})")
+            _file_size_mb = audio_file.stat().st_size / 1024 / 1024 if audio_file.exists() else 0
+            _elapsed = int(_time_mod.time() - _t_start)
+            _elapsed_str = f"{_elapsed//60}分{_elapsed%60:02d}秒" if _elapsed >= 60 else f"{_elapsed}秒"
+            progress_bar.progress(
+                i / total,
+                text=f"🎯 辨識中 ({i + 1}/{total})：{audio_file.name}　|　{_file_size_mb:.1f} MB　|　已執行 {_elapsed_str}",
+            )
             try:
                 # ── 音訊前處理（降噪 → VAD）─────────────────────────────────
                 preproc_file = audio_file   # 預設使用原始檔
@@ -1519,16 +1788,50 @@ def render_running_page():
                 except Exception as _ape:
                     st.caption(f"　　ℹ️ smart-preproc 略過：{_ape}")
 
+                # ── 在 background thread 跑 transcribe，主 thread 每秒更新計時 UI ──
+                # 否則單檔模式下整個 Python thread 被 STT 卡住，「已執行 X 秒」永遠 0 秒
+                import threading as _threading
+
+                def _run_transcribe_in_thread(fn):
+                    holder = {"result": None, "error": None}
+                    def _worker():
+                        try:
+                            holder["result"] = fn()
+                        except Exception as e:
+                            holder["error"] = e
+                    th = _threading.Thread(target=_worker, daemon=True)
+                    th.start()
+                    while th.is_alive():
+                        _elapsed = int(_time_mod.time() - _t_start)
+                        _es = f"{_elapsed//60}分{_elapsed%60:02d}秒" if _elapsed >= 60 else f"{_elapsed}秒"
+                        progress_bar.progress(
+                            i / total,
+                            text=f"🎯 辨識中 ({i + 1}/{total})：{audio_file.name}　|　{_file_size_mb:.1f} MB　|　已執行 {_es}",
+                        )
+                        _time_mod.sleep(1)
+                    th.join()
+                    if holder["error"]:
+                        raise holder["error"]
+                    return holder["result"]
+
                 if model_type == "whisper":
-                    raw_text = whisper_transcribe(str(preproc_file), model_size=sub_model)
+                    raw_text = _run_transcribe_in_thread(
+                        lambda: whisper_transcribe(str(preproc_file), model_size=sub_model)
+                    )
                     result   = {"transcript": raw_text}
                 elif model_type == "google_stt":
-                    result = transcribe_google_stt_with_vad(engine, preproc_file, output_dir)
+                    result = _run_transcribe_in_thread(
+                        lambda: transcribe_google_stt_with_vad(engine, preproc_file, output_dir)
+                    )
                 elif model_type == "gemini":
-                    result = transcribe_gemini_with_chunking(engine, preproc_file, output_dir)
+                    result = _run_transcribe_in_thread(
+                        lambda: transcribe_gemini_with_chunking(engine, preproc_file, output_dir)
+                    )
                 else:
                     # hybrid / sensevoice / sensevoice_ft 共用此路徑
-                    result = engine.transcribe_file(preproc_file)
+                    result = _run_transcribe_in_thread(
+                        lambda: engine.transcribe_file(preproc_file)
+                    )
 
                 # 暫存檔清理
                 if preproc_file != audio_file:
@@ -3975,13 +4278,18 @@ def render_lab_sidebar():
         current = st.session_state.get("page", "speech")
         labels = [label for _, label in PAGES]
         keys   = [k for k, _ in PAGES]
+        # 內部執行階段（如 "running"）不在 sidebar 選項中，對應到其 parent
+        # 否則 sidebar 會把 page 蓋回 parent 並 rerun，永遠跳不到 running
+        INTERNAL_PAGE_PARENTS = {"running": "speech"}
+        parent_of_current = INTERNAL_PAGE_PARENTS.get(current, current)
         try:
-            idx = keys.index(current)
+            idx = keys.index(parent_of_current)
         except ValueError:
             idx = 0
         choice = st.radio("頁面", labels, index=idx, label_visibility="collapsed", key="lab_nav_radio")
         chosen_key = keys[labels.index(choice)]
-        if chosen_key != current:
+        # 只在使用者真的切到不同 sidebar 項目時才換頁；停留在 parent 不觸發
+        if chosen_key != parent_of_current:
             st.session_state["page"] = chosen_key
             st.rerun()
 
@@ -4008,7 +4316,7 @@ def render_lab_sidebar():
         st.markdown(
             f"""
             - [🎙️ 即時擷取]({api_base}/capture)
-            - [📡 五路監控]({api_base}/monitor)
+            - [📡 六路監控]({api_base}/monitor)
             - [📺 大螢幕投放]({api_base}/display)
             - [📊 Grafana](http://localhost:3000)
             """

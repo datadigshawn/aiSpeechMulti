@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" data-theme-toggle="off">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>aiSpeechMulti · Landing · Mock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/aism-theme.css">
+<link rel="stylesheet" href="assets/aism-theme-warm.css">
+<script src="assets/aism-theme.js"></script>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <a href="index.html" class="topbar__brand">🎙️ aiSpeechMulti</a>
+  <span class="topbar__mock">MOCKUP · 僅供 UI 預覽</span>
+  <nav class="topbar__nav">
+    <a href="index.html" class="active">首頁</a>
+    <a href="capture.html">capture</a>
+    <a href="monitor.html">monitor</a>
+    <a href="display.html">display</a>
+    <a href="lab.html">Lab</a>
+    <a href="grafana.html">Grafana</a>
+  </nav>
+  <button id="themeToggleBtn" class="topbar__theme" onclick="toggleTheme()" title="切換主題（dark → light → warm）">🌙</button>
+</header>
+
+<main class="container container--narrow">
+
+  <div class="landing-hero">
+    <h1>aiSpeechMulti</h1>
+    <p>多引擎無線電語音辨識與評測平台</p>
+  </div>
+
+  <div class="health-bar">
+    <div><span class="health-dot"></span>FastAPI :8000</div>
+    <div><span class="health-dot"></span>Streamlit Lab :8501</div>
+    <div><span class="health-dot health-dot--warn"></span>Grafana :3000</div>
+    <div class="muted">更新於 2 秒前</div>
+  </div>
+
+  <div class="entry-grid">
+
+    <a class="entry-card" href="capture.html">
+      <span class="entry-card__icon">🎤</span>
+      <div class="entry-card__title">Capture</div>
+      <p class="entry-card__sub">場域端 6 路麥克風開關、即時音量條與連線狀態</p>
+      <span class="entry-card__port">:8000/capture</span>
+    </a>
+
+    <a class="entry-card" href="monitor.html">
+      <span class="entry-card__icon">📺</span>
+      <div class="entry-card__title">Monitor</div>
+      <p class="entry-card__sub">操作員工作站：6 路同時辨識、partial / committed 即時推送</p>
+      <span class="entry-card__port">:8000/monitor</span>
+    </a>
+
+    <a class="entry-card" href="display.html">
+      <span class="entry-card__icon">🖥️</span>
+      <div class="entry-card__title">Display</div>
+      <p class="entry-card__sub">控制室大螢幕：純文字大字、關鍵字高亮、無干擾顯示</p>
+      <span class="entry-card__port">:8000/display</span>
+    </a>
+
+    <a class="entry-card" href="lab.html">
+      <span class="entry-card__icon">🧪</span>
+      <div class="entry-card__title">Lab</div>
+      <p class="entry-card__sub">研究操作台：9 個分頁含批次辨識、評測、搜尋、詞彙表</p>
+      <span class="entry-card__port">:8501</span>
+    </a>
+
+    <a class="entry-card" href="grafana.html">
+      <span class="entry-card__icon">📊</span>
+      <div class="entry-card__title">Grafana</div>
+      <p class="entry-card__sub">維運監控：7 大區塊、25 panels、CER 趨勢、危害分析</p>
+      <span class="entry-card__port">:3000</span>
+    </a>
+
+  </div>
+
+  <div class="section-title">這個 mockup 是什麼？</div>
+  <div class="card">
+    <p style="margin-top:0">這是 aiSpeechMulti 系統的 <b>UI 預覽版</b>。所有頁面之間可以正常互點，但所有「送出」「上傳」「辨識」「儲存」等按鈕<b>不會真的做事</b>，按下後右下角會跳提示 toast。</p>
+    <p style="margin-bottom:0" class="text-sec">本階段目的：讓你針對 <b>UI 長相、版面配置</b> 提出意見，而非實際操作。回饋格式見 <code>docs/mockup/README.md</code>。</p>
+  </div>
+
+  <div class="section-title">推薦動線</div>
+  <div class="card">
+    <ol style="margin:0; padding-left:20px; line-height:2">
+      <li>點 <a href="capture.html">Capture</a> 看現場錄音端的設定卡片</li>
+      <li>點 <a href="monitor.html">Monitor</a> 看 6 路席位即時字幕 + 💰 成本 status bar</li>
+      <li>點 <a href="display.html">Display</a> 看控制室大螢幕字體 + 關鍵字告警樣式</li>
+      <li>點 <a href="lab.html">Lab</a> 走完 9 個分頁（左側 sidebar 切換）</li>
+      <li>點 <a href="grafana.html">Grafana</a> 看 7 大區塊 dashboard 布局</li>
+    </ol>
+  </div>
+
+</main>
+
+<script src="assets/nav.js"></script>
+</body>
+</html>

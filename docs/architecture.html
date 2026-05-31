@@ -187,12 +187,12 @@
       <a class="qcard" href="http://localhost:8000/capture" target="_blank">
         <div class="qicon">🎙️</div>
         <div class="qtitle">即時擷取</div>
-        <div class="qdesc">5 路麥克風 → WebSocket</div>
+        <div class="qdesc">6 路麥克風 → WebSocket</div>
         <span class="qurl">:8000/capture</span>
       </a>
       <a class="qcard" href="http://localhost:8000/monitor" target="_blank">
         <div class="qicon">📡</div>
-        <div class="qtitle">五路監控</div>
+        <div class="qtitle">六路監控</div>
         <div class="qdesc">操作員密集監控</div>
         <span class="qurl">:8000/monitor</span>
       </a>
@@ -296,7 +296,7 @@ flowchart TB
       <div class="tab-pane" id="tab-dataflow">
         <div class="mermaid">
 flowchart LR
-    mic[🎤 5 路麥克風<br/>瀏覽器 ×5]
+    mic[🎤 6 路麥克風<br/>瀏覽器 ×6]
     cap[capture.html<br/>WebAudio API]
     ws{{WebSocket<br/>/ws/stream}}
 

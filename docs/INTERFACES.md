@@ -25,13 +25,13 @@
 | 路徑 | 檔案 | 角色 | 用途 |
 |---|---|---|---|
 | `http://localhost:8000/` | [static/landing.html](../static/landing.html) | 所有人 | 入口 landing：5 個服務徽章 + 跳轉 |
-| `http://localhost:8000/capture` | [static/index.html](../static/index.html) | 場域端機 | 5 路麥克風擷取，推 PCM 上 WebSocket |
-| `http://localhost:8000/monitor` | [static/monitor.html](../static/monitor.html) | 操作員 | 5 路即時辨識監控（partial / committed） |
+| `http://localhost:8000/capture` | [static/index.html](../static/index.html) | 場域端機 | 6 路麥克風擷取（席位 ch1-ch6），推 PCM 上 WebSocket |
+| `http://localhost:8000/monitor` | [static/monitor.html](../static/monitor.html) | 操作員 | 6 路即時辨識監控（partial / committed） |
 | `http://localhost:8000/display` | [static/display.html](../static/display.html) | 控制室大螢幕 | 純文字大字無干擾顯示 |
 
 ### Landing 頁特性
 
-- 顯示 5 個入口卡（即時擷取 / 五路監控 / 大螢幕投放 / Lab / Grafana）
+- 顯示 5 個入口卡（即時語音辨識 / 關鍵字告警監控 / 即時語音監控 / 語音檔案辨識 / 運維監測儀表板）
 - 每個入口附 ● 健康徽章（綠/紅/灰）
 - 10 秒輪詢 `/api/landing/status` 自動更新狀態
 - 純 vanilla JS + CSS，零依賴
@@ -66,7 +66,7 @@
 ### Lab 側邊欄「🔗 其他介面」連結
 
 - 🎙️ 即時擷取 → `:8000/capture`
-- 📡 五路監控 → `:8000/monitor`
+- 📡 六路監控 → `:8000/monitor`
 - 📺 大螢幕投放 → `:8000/display`
 - 📊 Grafana → `:3000`
 
@@ -155,13 +155,13 @@ python scripts/finetune_sensevoice.py --mode lora --lora-rank 32 --epochs 60 --l
 
 | endpoint | 用途 |
 |---|---|
-| `WS /ws/stream/{channel_id}?mode=dual&backend=google` | 5 路即時串流（4 種 mode） |
+| `WS /ws/stream/{channel_id}?mode=dual&backend=google` | 6 路即時串流（4 種 mode） |
 
 ### REST — 系統 / 辨識
 
 | endpoint | 用途 |
 |---|---|
-| `GET /api/channels` | 5 路管道狀態 |
+| `GET /api/channels` | 6 路管道狀態 |
 | `GET /api/transcripts` | 辨識結果查詢 |
 | `GET /api/keywords` | 關鍵字清單（display 頁用） |
 | `GET /api/test_scribe` | Scribe RT 連線診斷 |
@@ -206,7 +206,7 @@ python scripts/finetune_sensevoice.py --mode lora --lora-rank 32 --epochs 60 --l
 ```
 :8000/          → Landing（5 入口）
 :8000/capture   → 擷取頁（場域）
-:8000/monitor   → 5 路監控（操作員）
+:8000/monitor   → 6 路監控（操作員）
 :8000/display   → 大螢幕（控制室）
 
 :8501/          → Streamlit Lab（9 頁 sidebar 切換）

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" data-theme-toggle="off">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>aiSpeechMulti · Capture · Mock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/aism-theme.css">
+<link rel="stylesheet" href="assets/aism-theme-warm.css">
+<script src="assets/aism-theme.js"></script>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <a href="index.html" class="topbar__brand">🎙️ aiSpeechMulti</a>
+  <span class="topbar__mock">MOCKUP · 僅供 UI 預覽</span>
+  <nav class="topbar__nav">
+    <a href="index.html">首頁</a>
+    <a href="capture.html" class="active">capture</a>
+    <a href="monitor.html">monitor</a>
+    <a href="display.html">display</a>
+    <a href="lab.html">Lab</a>
+    <a href="grafana.html">Grafana</a>
+  </nav>
+  <button id="themeToggleBtn" class="topbar__theme" onclick="toggleTheme()" title="切換主題（dark → light → warm）">🌙</button>
+</header>
+
+<main class="container container--narrow">
+
+  <h1 class="h1">🎤 Capture · 場域端錄音控制台</h1>
+  <p class="h1-sub">選席位、選模式、選引擎 → 按「開始監聽」開始送 PCM 到 FastAPI。</p>
+
+  <div class="card">
+    <h3 class="card__title">🔗 連線設定</h3>
+
+    <div class="form-row">
+      <label>席位代號</label>
+      <select class="select">
+        <option>ch1 · CC 控制長</option>
+        <option>ch2 · MTC 正線控制工程師</option>
+        <option>ch3 · DTC 機廠控制工程師</option>
+        <option>ch4 · PC 電力工程師</option>
+        <option>ch5 · EC 設備工程師</option>
+        <option>ch6 · IA 資訊員</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <label>串流模式</label>
+      <select class="select">
+        <option>dual ⭐ — Scribe RT + Google batch（推薦）</option>
+        <option>scribe_rt — ElevenLabs Scribe（~150ms）</option>
+        <option>google_stream — Google streaming</option>
+        <option>sensevoice_local — 本機離線</option>
+        <option>batch — Google 15 秒批次</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <label>引擎</label>
+      <select class="select">
+        <option>google · chirp_3</option>
+        <option>google · chirp_3_hans</option>
+        <option>elevenlabs · scribe</option>
+        <option>sensevoice · base</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <label>伺服器</label>
+      <input class="input mono" value="ws://localhost:8000">
+    </div>
+
+    <div class="form-row">
+      <label></label>
+      <div>
+        <button class="btn btn--lg" data-state="off" onclick="toggleCapture(this)">🎤 開始監聽</button>
+        <button class="btn btn--ghost mock-action" data-toast="健康檢查（mock）">健康檢查</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 class="card__title">🎙️ 音訊輸入裝置</h3>
+
+    <div class="form-row">
+      <label>輸入裝置</label>
+      <select class="select">
+        <option>預設麥克風</option>
+        <option>MacBook Pro 內建麥克風</option>
+        <option>BlackHole 2ch（虛擬迴路）</option>
+        <option>USB Audio Device</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <label></label>
+      <button class="btn btn--ghost mock-action" data-toast="已掃描裝置列表（mock）">🔄 掃描裝置</button>
+    </div>
+
+    <div class="form-row">
+      <label>音量</label>
+      <div style="flex:1">
+        <div style="background: var(--bg-0); border: 1px solid var(--border); height: 16px; border-radius: 4px; overflow: hidden; display: flex; gap: 1px; padding: 2px;">
+          <div style="background: var(--success); height: 100%; width: 30%;"></div>
+          <div style="background: var(--success); height: 100%; width: 25%;"></div>
+          <div style="background: var(--warning); height: 100%; width: 15%;"></div>
+          <div style="background: var(--bg-2); height: 100%; flex: 1;"></div>
+        </div>
+        <small class="muted">-12 dB · 即時更新</small>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 class="card__title">⚙️ 音訊前處理</h3>
+
+    <label class="checkbox" style="margin-bottom: 10px">
+      <input type="checkbox"> VAD 靜音過濾（threshold 0.5）
+    </label>
+    <div class="form-row">
+      <label class="text-sec text-small">threshold</label>
+      <input class="input" type="range" min="0.1" max="0.9" step="0.05" value="0.5">
+    </div>
+
+    <label class="checkbox" style="margin-top: 16px">
+      <input type="checkbox"> DeepFilterNet 降噪
+    </label>
+    <p class="muted text-small" style="margin: 4px 0 0 26px">使用 GPU 加速降噪，建議無線電通訊環境開啟</p>
+  </div>
+
+  <div class="card" style="background: var(--bg-2); border-color: var(--accent)">
+    <h3 class="card__title">📡 連線狀態</h3>
+    <div class="flex flex-gap" style="flex-wrap: wrap">
+      <span class="badge badge--ok"><span class="health-dot" style="width:6px;height:6px"></span> WebSocket 已連線</span>
+      <span class="badge badge--ok">PCM 16kHz mono</span>
+      <span class="badge badge--mut">已送 0 / 0 packets</span>
+      <span class="badge badge--mut">本 session 0 秒</span>
+    </div>
+  </div>
+
+</main>
+
+<script src="assets/nav.js"></script>
+</body>
+</html>

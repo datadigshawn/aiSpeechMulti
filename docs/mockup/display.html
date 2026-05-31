@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" data-theme-toggle="off">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>aiSpeechMulti · Display · Mock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/aism-theme.css">
+<link rel="stylesheet" href="assets/aism-theme-warm.css">
+<script src="assets/aism-theme.js"></script>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <a href="index.html" class="topbar__brand">🎙️ aiSpeechMulti</a>
+  <span class="topbar__mock">MOCKUP · 僅供 UI 預覽</span>
+  <nav class="topbar__nav">
+    <a href="index.html">首頁</a>
+    <a href="capture.html">capture</a>
+    <a href="monitor.html">monitor</a>
+    <a href="display.html" class="active">display</a>
+    <a href="lab.html">Lab</a>
+    <a href="grafana.html">Grafana</a>
+  </nav>
+  <button id="themeToggleBtn" class="topbar__theme" onclick="toggleTheme()" title="切換主題（dark → light → warm）">🌙</button>
+</header>
+
+<div class="display-page">
+
+  <div class="display-header">
+    <div>
+      <h1 style="margin:0; font-size:28px">控制室即時顯示</h1>
+      <p style="margin:6px 0 0" class="text-sec">5 公尺外可讀的大字模式 · 關鍵字依告警等級放大顯示</p>
+    </div>
+    <div>
+      <div class="display-time">10:25:43</div>
+      <small class="muted">2026-05-18</small>
+    </div>
+  </div>
+
+  <div class="display-alert">
+    🚨 L5 緊急事件：軌道異物警報已觸發 — 請立即派員處置
+  </div>
+
+  <div class="display-entry">
+    <div class="display-entry__meta">
+      <span class="mono">10:24:18</span>
+      <span class="badge badge--ch1">ch1</span>
+      <span class="badge badge--mut">scribe</span>
+    </div>
+    <div class="display-entry__text">
+      列車進入月台，<span class="kw-l3">月台門故障</span>，請<span class="kw-l1">查證</span>
+    </div>
+  </div>
+
+  <div class="display-entry">
+    <div class="display-entry__meta">
+      <span class="mono">10:24:23</span>
+      <span class="badge badge--ch3">ch3</span>
+      <span class="badge badge--mut">google</span>
+    </div>
+    <div class="display-entry__text">
+      DTC 收到，第三節車廂門無法關閉
+    </div>
+  </div>
+
+  <div class="display-entry">
+    <div class="display-entry__meta">
+      <span class="mono">10:24:51</span>
+      <span class="badge badge--ch2">ch2</span>
+      <span class="badge badge--mut">scribe</span>
+    </div>
+    <div class="display-entry__text">
+      MTC 維修人員已抵達 G05 月台
+    </div>
+  </div>
+
+  <div class="display-entry">
+    <div class="display-entry__meta">
+      <span class="mono">10:25:08</span>
+      <span class="badge badge--ch3">ch3</span>
+      <span class="badge badge--err">scribe</span>
+    </div>
+    <div class="display-entry__text">
+      <span class="kw-l5">軌道異物</span>警報觸發，<span class="kw-l4">緊急停車</span>
+    </div>
+  </div>
+
+  <div class="display-entry">
+    <div class="display-entry__meta">
+      <span class="mono">10:25:14</span>
+      <span class="badge badge--ch1">ch1</span>
+      <span class="badge badge--mut">scribe</span>
+    </div>
+    <div class="display-entry__text">
+      OCC 收到，啟動<span class="kw-l3">緊急處置</span>程序
+    </div>
+  </div>
+
+  <div class="display-entry">
+    <div class="display-entry__meta">
+      <span class="mono">10:25:32</span>
+      <span class="badge badge--ch4">ch4</span>
+      <span class="badge badge--mut">sensevoice</span>
+    </div>
+    <div class="display-entry__text">
+      PC 已通知第二月台<span class="kw-l2">疏散</span>
+    </div>
+  </div>
+
+  <div style="margin-top: 36px; padding: 16px; background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius); display: flex; justify-content: space-between; align-items: center;">
+    <div class="flex flex-gap text-sec text-small">
+      <span>關鍵字等級對照：</span>
+      <span><span class="kw-l1">L1-L2</span> 注意</span>
+      <span><span class="kw-l3">L3-L4</span> 危險（放大）</span>
+      <span><span class="kw-l5">L5</span> 緊急（放大+描邊+橫幅）</span>
+    </div>
+    <div class="flex flex-gap">
+      <button class="btn btn--ghost mock-action" data-toast="切換為隱藏工具列（mock）" style="font-size:12px;padding:5px 10px">🙈 隱藏工具列</button>
+      <button class="btn btn--ghost mock-action" data-toast="切換 channel filter（mock）" style="font-size:12px;padding:5px 10px">⚙️ 篩選席位</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="assets/nav.js"></script>
+</body>
+</html>

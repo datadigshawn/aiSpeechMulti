@@ -1,6 +1,6 @@
 # aiSpeechMulti
 
-> 五路無線電語音即時辨識平台 · 多 STT 引擎 + LLM 後修正 + 黃金語料 CER 追蹤
+> 六路無線電語音即時辨識平台 · 多 STT 引擎 + LLM 後修正 + 黃金語料 CER 追蹤
 
 [![tests](https://github.com/datadigshawn/aiSpeechMulti/actions/workflows/test.yml/badge.svg)](https://github.com/datadigshawn/aiSpeechMulti/actions/workflows/test.yml)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue)](https://www.python.org/)
@@ -12,9 +12,9 @@
 
 ## 一、它是什麼
 
-針對 **窄頻無線電語音**（如捷運 OCC 控制中心 5 路通訊）設計的多引擎辨識平台：
+針對 **窄頻無線電語音**（如捷運 OCC 控制中心 6 路通訊）設計的多引擎辨識平台：
 
-- **即時：** 5 路同時擷取麥克風輸入，WebSocket 串流到後端，~150ms TTFT 即時推播 partial transcript
+- **即時：** 6 路同時擷取麥克風輸入（席位 ch1-ch6），WebSocket 串流到後端，~150ms TTFT 即時推播 partial transcript
 - **離線/批次：** 黃金語料集自動跑分 6 個 STT 引擎，CER 評測排序，支援 fine-tune
 - **後處理飛輪：** 規則庫（基底 + 引擎 overlay + contextual + LLM）持續優化字準
 - **可觀測：** Grafana dashboard 看引擎/危害/CER 趨勢
@@ -197,8 +197,8 @@ python -m aispeech finetune --mode lora --lora-rank 32 --epochs 60
 ## 六、核心資料流
 
 ```
-Browser ×5 (PCM 16kHz)
-    │ WebSocket /ws/stream/{1-5}?mode=dual
+Browser ×6 (PCM 16kHz)
+    │ WebSocket /ws/stream/{ch1-ch6}?mode=dual
     ▼
 FastAPI asyncio
     ├─→ Scribe v2 RT  ──→ partial → 前端  (~150ms TTFT)

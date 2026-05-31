@@ -1,0 +1,27 @@
+# aiSpeechMulti UI Mockup · Netlify 部署設定
+# 公網 URL: https://testui-aispeech.netlify.app
+
+[build]
+  # 部署目錄根 = 本檔案所在目錄
+  publish = "."
+
+# ───── HTTP headers ─────
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "microphone=()"  # mockup 不需麥克風
+
+# 靜態資源較積極快取
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"  # 1 day
+
+# HTML 維持較短快取以利更新
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=300"  # 5 min

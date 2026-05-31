@@ -1,7 +1,7 @@
 /* ============================================================
-   aiSpeechMulti — Theme Switcher (Phase 1)
+   aiSpeechMulti — Theme Switcher (Phase 2)
    ─────────────────────────────────────────────
-   兩套主題：dark-cool (預設) / dark-warm (夜班暖色)
+   三套主題：dark-cool (預設) → dark-warm (夜班暖色) → light (白天)
    - localStorage 持久化（key: aispeech-theme）
    - URL ?theme=X 鎖定（給大螢幕投放避免誤觸）
    - 跨頁同步（同 origin 之 storage event）
@@ -11,10 +11,11 @@
   "use strict";
 
   const STORAGE_KEY = "aispeech-theme";
-  const THEMES      = ["dark-cool", "dark-warm"];
+  const THEMES      = ["dark-cool", "dark-warm", "light"];
   const META = {
     "dark-cool": { icon: "🌙", label: "深冷" },
     "dark-warm": { icon: "🔥", label: "暖琥珀" },
+    "light":     { icon: "☀️", label: "白天" },
   };
 
   function isLocked() {
@@ -39,6 +40,8 @@
   function applyTheme(theme, opts = {}) {
     if (!THEMES.includes(theme)) theme = "dark-cool";
     document.documentElement.setAttribute("data-theme", theme);
+    // 告知瀏覽器 color-scheme（影響 scrollbar / native input 配色）
+    document.documentElement.style.colorScheme = theme === "light" ? "light" : "dark";
 
     if (!opts.skipPersist && !isLocked()) {
       try { localStorage.setItem(STORAGE_KEY, theme); } catch (_) {}
@@ -55,7 +58,7 @@
       if (isLocked()) {
         btn.setAttribute("disabled", "true");
         btn.setAttribute("aria-disabled", "true");
-        btn.title = "URL 已用 ?theme= 鎖定，無法切換";
+        btn.title = `URL 已用 ?theme=${theme} 鎖定，無法切換`;
       }
     });
 

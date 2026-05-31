@@ -6,11 +6,11 @@
 <title>即時語音辨識投放</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.ico">
 <!-- design-system-v1: 引入 design tokens（變數覆寫舊的 --bg / --text 等別名）-->
-<link rel="stylesheet" href="/static/css/tokens.css">
-<link rel="stylesheet" href="/static/css/base.css">
+<link rel="stylesheet" href="/static/css/tokens.css?v=1.2">
+<link rel="stylesheet" href="/static/css/base.css?v=1.2">
 <!-- theme-switcher (Phase 1)：display 預設不放切換按鈕，避免控制室誤觸；
      若需鎖定，可用 ?theme=dark-cool 或 ?theme=dark-warm 帶 query param -->
-<script src="/static/js/theme-switcher.js"></script>
+<script src="/static/js/theme-switcher.js?v=1.2"></script>
 <style>
   /* ── 全局 ── */
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -230,6 +230,7 @@
       <option value="ch3">ch3</option>
       <option value="ch4">ch4</option>
       <option value="ch5">ch5</option>
+      <option value="ch6">ch6</option>
     </select>
   </div>
 
@@ -287,7 +288,7 @@
   <div class="tb-sep"></div>
 
   <div class="tb-group">
-    <button data-theme-toggle aria-label="切換主題（dark-cool / dark-warm）"
+    <button data-theme-toggle aria-label="切換主題（深冷 → 暖琥珀 → 白天）"
             style="background: var(--neutral-3); border: 1px solid var(--neutral-7);
                    color: var(--neutral-12); padding: 3px 10px; border-radius: 4px;
                    cursor: pointer; font-size: 12px;">

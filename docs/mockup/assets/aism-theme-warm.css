@@ -1,0 +1,65 @@
+/* ============================================================
+   aiSpeechMulti — Dark-Warm extension + ch-6 補丁
+   ============================================================
+   載入時機：在 aism-theme.css 之後、style.css 之前
+   作用：
+     1. 為 kit 預設 dark + light 兩主題補上 --ch-6（第 6 通道）
+     2. 新增 [data-theme="dark-warm"] 三選一夜班主題
+            （琥珀暖色，低藍光，對應原專案 dark-warm）
+   ============================================================ */
+
+/* ---------- 通道 6 補丁（kit 只有 ch-1..5） ---------- */
+:root {
+  --ch-6:    oklch(0.78 0.13 40);          /* warm orange，與 ch-3 amber 區隔 */
+  --ch-6-bg: oklch(0.78 0.13 40 / 0.14);
+}
+[data-theme="light"] {
+  --ch-6:    oklch(0.55 0.16 40);
+  --ch-6-bg: oklch(0.55 0.16 40 / 0.10);
+}
+
+/* ============================================================
+   [data-theme="dark-warm"] — 夜班暖色主題（低藍光）
+   ============================================================ */
+[data-theme="dark-warm"] {
+  color-scheme: dark;
+
+  /* ---------- 暖色中性 neutrals ---------- */
+  --neutral-0:  #14110d;   /* 最深 */
+  --neutral-1:  #1c1813;   /* page bg */
+  --neutral-2:  #25201a;   /* surface */
+  --neutral-3:  #2d2720;   /* surface raised */
+  --neutral-4:  #352e25;   /* surface hover */
+  --neutral-5:  #3d352a;   /* surface active */
+  --neutral-6:  #463c30;   /* hairline */
+  --neutral-7:  #574a3a;   /* strong border */
+  --neutral-8:  #76674f;   /* muted text */
+  --neutral-9:  #948268;   /* secondary */
+  --neutral-10: #b09b7c;   /* body dim */
+  --neutral-11: #c9b594;   /* body */
+  --neutral-12: #e2d5b8;   /* primary text （warm cream） */
+  --neutral-13: #f2e9d1;   /* highest */
+
+  /* ---------- 品牌：琥珀暖色 ---------- */
+  --brand-primary:        oklch(0.78 0.13 65);
+  --brand-primary-hover:  oklch(0.84 0.13 65);
+  --brand-primary-active: oklch(0.72 0.13 65);
+  --brand-primary-dim:    oklch(0.62 0.10 65);
+  --brand-primary-bg:     oklch(0.42 0.06 65 / 0.20);
+  --brand-secondary:      oklch(0.72 0.12 105);   /* 暖綠 */
+
+  /* ---------- 狀態色（沿用語意，微暖調整） ---------- */
+  --success:        oklch(0.74 0.14 130);
+  --success-bg:     oklch(0.74 0.14 130 / 0.14);
+  --warning:        oklch(0.80 0.14 70);
+  --warning-bg:     oklch(0.80 0.14 70 / 0.16);
+  --danger:         oklch(0.68 0.18 25);
+  --danger-bg:      oklch(0.68 0.18 25 / 0.18);
+  --danger-strong:  oklch(0.62 0.22 25);
+
+  /* ---------- 第 6 通道（warm 對應）---------- */
+  --ch-6:    oklch(0.80 0.13 40);
+  --ch-6-bg: oklch(0.80 0.13 40 / 0.16);
+
+  /* ch-1..5 與 hazard-* 維持 :root 的 dark 值（語意意義不隨主題變） */
+}

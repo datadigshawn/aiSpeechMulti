@@ -9,7 +9,7 @@
 
 ## 1 · 專案目的與規劃
 
-**用途**：台北捷運（推測）OCC 控制中心**五路無線電**對話即時辨識系統，支援多 STT 引擎評測 + LLM 後修正 + 黃金語料 CER 追蹤。
+**用途**：台北捷運（推測）OCC 控制中心**六路無線電**對話即時辨識系統，支援多 STT 引擎評測 + LLM 後修正 + 黃金語料 CER 追蹤。
 
 **三層介面**（根據 [INTERFACES.md](./INTERFACES.md)）：
 
@@ -37,8 +37,8 @@
 ```mermaid
 flowchart TD
     subgraph Realtime[":8000 即時層"]
-        Cap[capture.html<br/>5 路麥克風]
-        Mon[monitor.html<br/>5 路監控]
+        Cap[capture.html<br/>6 路麥克風]
+        Mon[monitor.html<br/>6 路監控]
         Disp[display.html<br/>大螢幕]
     end
 
@@ -102,9 +102,9 @@ flowchart TD
 ### 3.1 即時模式（dual mode）
 
 ```
-Browser × 5 (Web Audio API)
+Browser × 6 (Web Audio API)
     │ PCM frames (16kHz mono)
-    ▼ WebSocket /ws/stream/{1-5}?mode=dual
+    ▼ WebSocket /ws/stream/{ch1-ch6}?mode=dual
 FastAPI asyncio dispatcher
     ├─→ Scribe v2 RT WebSocket  ──→ partial → 前端  (~150ms TTFT)
     └─→ AudioBuffer (15s)        ──→ Google STT chirp_3 → confirmed

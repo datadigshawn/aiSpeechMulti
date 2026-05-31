@@ -11,7 +11,7 @@ app_dashboard.py — DEPRECATED
   2. 即時介面         →  python app_api.py 後開瀏覽器
      :8000/           landing
      :8000/capture    擷取頁
-     :8000/monitor    五路監控
+     :8000/monitor    六路監控
      :8000/display    大螢幕投放
 
 舊的 home / monitor / running 三頁已移除（取代為靜態 HTML WebSocket 推送版）。
@@ -38,7 +38,7 @@ st.markdown(
     | 介面 | 啟動方式 | 包含 |
     |---|---|---|
     | 🔬 **研究工作台 Lab** | `streamlit run app_lab.py` | 批次辨識、評測、詞彙、CER 趨勢、修正飛輪、事件管理 |
-    | 📡 **即時介面** | `python app_api.py` 後開 `:8000/` | 擷取頁、五路監控、大螢幕投放、Landing |
+    | 📡 **即時介面** | `python app_api.py` 後開 `:8000/` | 擷取頁、六路監控、大螢幕投放、Landing |
 
     舊的 `home` / `monitor` / `running` 三頁已移除，
     對應功能改由 FastAPI 直供的靜態 HTML 提供（WebSocket 推送，體驗優於原 Streamlit 輪詢版）。

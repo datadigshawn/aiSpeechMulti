@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>aiSpeechMulti · 新手介面導覽 · 簡報</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+
+<style>
+:root {
+  --bg: #0b0d12;
+  --bg-2: #11141b;
+  --bg-3: #1a1d24;
+  --border: #262a33;
+  --text: #e6e9ef;
+  --text-dim: #9aa3b3;
+  --muted: #6a7180;
+  --accent: #3fbdc7;
+  --accent-soft: rgba(63, 189, 199, 0.16);
+  --success: #5dc47e;
+  --warning: #e2b85a;
+  --danger: #f37777;
+  --ch1: #5fb3d4;
+  --ch2: #b97cdf;
+  --ch3: #fcb858;
+  --ch4: #5fd49a;
+  --ch5: #f87171;
+  --ch6: #ffaa66;
+}
+
+html, body { background: var(--bg); }
+.reveal {
+  font-family: 'Inter', 'Noto Sans TC', -apple-system, sans-serif;
+  color: var(--text);
+  font-size: 32px;
+}
+.reveal .slides { text-align: left; }
+.reveal .slides > section { padding: 36px 48px; }
+
+.reveal h1, .reveal h2, .reveal h3 { color: var(--text); font-family: inherit; text-transform: none; letter-spacing: -0.01em; }
+.reveal h1 { font-size: 1.7em; font-weight: 700; margin-bottom: 0.4em; }
+.reveal h2 { font-size: 1.3em; font-weight: 600; margin-bottom: 0.5em; }
+.reveal h3 { font-size: 1.0em; font-weight: 600; color: var(--text-dim); margin-bottom: 0.4em; }
+.reveal p, .reveal li { line-height: 1.55; }
+.reveal code { font-family: 'JetBrains Mono', monospace; background: var(--bg-3); padding: 2px 8px; border-radius: 4px; font-size: 0.85em; color: var(--accent); }
+.reveal a { color: var(--accent); text-decoration: none; }
+.reveal a:hover { text-decoration: underline; }
+.reveal strong { color: var(--text); font-weight: 700; }
+.reveal em { color: var(--accent); font-style: normal; }
+.reveal blockquote {
+  background: var(--bg-2); border-left: 3px solid var(--accent); padding: 0.6em 1em;
+  font-style: normal; color: var(--text-dim); margin: 0.6em 0; box-shadow: none;
+  font-size: 0.9em;
+}
+
+.reveal table {
+  margin: 0.6em 0; border-collapse: collapse; width: 100%; font-size: 0.7em;
+}
+.reveal table th, .reveal table td {
+  border: none; border-bottom: 1px solid var(--border);
+  padding: 10px 14px; text-align: left;
+}
+.reveal table th {
+  color: var(--text-dim); font-weight: 500; font-size: 0.9em;
+  text-transform: uppercase; letter-spacing: 0.6px; background: var(--bg-2);
+}
+.reveal table td { color: var(--text); }
+.reveal table tr:last-child td { border-bottom: none; }
+
+.reveal pre {
+  background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: none; padding: 1em; font-size: 0.55em;
+}
+.reveal pre code { background: none; padding: 0; font-size: 1em; color: var(--text); }
+
+/* badges */
+.badge {
+  display: inline-block; padding: 2px 10px; border-radius: 12px;
+  font-size: 0.65em; font-weight: 500; letter-spacing: 0.3px;
+}
+.badge--ch1 { background: rgba(95,179,212,0.16); color: var(--ch1); }
+.badge--ch2 { background: rgba(185,124,223,0.16); color: var(--ch2); }
+.badge--ch3 { background: rgba(252,184,88,0.16); color: var(--ch3); }
+.badge--ch4 { background: rgba(95,212,154,0.16); color: var(--ch4); }
+.badge--ch5 { background: rgba(248,113,113,0.16); color: var(--ch5); }
+.badge--ch6 { background: rgba(255,170,102,0.16); color: var(--ch6); }
+.badge--ok { background: rgba(93,196,126,0.16); color: var(--success); }
+.badge--warn { background: rgba(226,184,90,0.16); color: var(--warning); }
+.badge--err { background: rgba(243,119,119,0.16); color: var(--danger); }
+
+/* sections */
+.section-hero {
+  text-align: center; padding: 8% 0 0;
+}
+.section-hero .eyebrow {
+  color: var(--accent); font-size: 0.5em; letter-spacing: 0.3em;
+  text-transform: uppercase; margin-bottom: 0.6em;
+}
+.section-hero h1 { font-size: 2.4em; margin-bottom: 0.3em; }
+.section-hero p { color: var(--text-dim); font-size: 0.7em; }
+
+/* cover */
+.cover {
+  text-align: center; padding-top: 8%;
+}
+.cover .brand {
+  font-size: 0.6em; color: var(--accent); letter-spacing: 0.3em;
+  text-transform: uppercase; margin-bottom: 0.8em;
+}
+.cover h1 { font-size: 2.6em; margin: 0 0 0.3em; font-weight: 900; }
+.cover .sub { color: var(--text-dim); font-size: 0.7em; margin-bottom: 1.6em; }
+.cover .meta { color: var(--muted); font-size: 0.5em; font-family: 'JetBrains Mono', monospace; }
+
+/* card grid */
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+
+.tile {
+  background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 18px 16px;
+}
+.tile h3 { color: var(--accent); font-size: 0.7em; margin: 0 0 4px; }
+.tile p { color: var(--text); margin: 0; font-size: 0.6em; line-height: 1.45; }
+.tile .icon { font-size: 1.6em; margin-bottom: 6px; display: block; }
+
+.flow {
+  background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 24px 32px; font-family: 'JetBrains Mono', monospace; font-size: 0.62em;
+  white-space: pre-wrap; line-height: 1.85; color: var(--text-dim);
+}
+.flow .step { color: var(--text); }
+
+/* layout helpers */
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
+.split-3-2 { display: grid; grid-template-columns: 3fr 2fr; gap: 28px; align-items: start; }
+
+.note { color: var(--text-dim); font-size: 0.7em; margin-top: 0.6em; }
+
+ul { list-style: none; padding: 0; margin: 0.5em 0; }
+ul li { padding: 4px 0 4px 24px; position: relative; }
+ul li::before {
+  content: '▸'; color: var(--accent); position: absolute; left: 0;
+}
+ol { padding-left: 1.5em; }
+ol li { padding: 4px 0; }
+
+/* footer */
+.reveal .slide-number {
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted);
+  bottom: 16px; right: 18px;
+}
+.reveal .progress { color: var(--accent); }
+
+/* keyword highlight */
+.kw-l5 { color: var(--danger); font-weight: 700; text-shadow: 0 0 12px rgba(243,119,119,0.6); }
+.kw-l3 { color: var(--warning); font-weight: 600; }
+
+/* mockup preview iframe */
+.preview-link {
+  display: inline-block; padding: 8px 16px; background: var(--accent-soft);
+  color: var(--accent); border-radius: 8px; font-size: 0.6em; margin-top: 10px;
+  border: 1px solid var(--accent); font-family: 'JetBrains Mono', monospace;
+}
+
+/* end */
+.end-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; max-width: 80%; margin: 1em auto 0; }
+.end-tile {
+  background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 22px; text-align: center;
+}
+.end-tile .label { font-size: 0.6em; color: var(--text-dim); margin-bottom: 8px; }
+.end-tile a { font-size: 0.7em; font-family: 'JetBrains Mono', monospace; word-break: break-all; }
+</style>
+
+</head>
+<body>
+
+<div class="reveal">
+  <div class="slides">
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- Slide 1: Cover                                   -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section>
+      <div class="cover">
+        <div class="brand">🎙️ aiSpeechMulti</div>
+        <h1>新手介面導覽</h1>
+        <p class="sub">30 分鐘把 5 個面板點過一輪，找出版面配置的改善機會</p>
+        <p class="meta">2026-05-19 · UI feedback session</p>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- Slide 2: 五大入口                                -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section>
+      <h1>五大面板</h1>
+      <p class="note">每個面板對應一種使用場景與角色。</p>
+      <table>
+        <thead>
+          <tr><th>頁面</th><th>用途</th><th>主要使用對象</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>🎤 首頁</strong></td><td>主要入口頁面</td><td>所有人</td></tr>
+          <tr><td><strong>🎤 Capture</strong></td><td>即時語音辨識（即時字幕）</td><td>開播人員</td></tr>
+          <tr><td><strong>📺 Monitor</strong></td><td>即時語音辨識監控（6 通道）</td><td>控制長、後台管理人員</td></tr>
+          <tr><td><strong>🖥️ Display</strong></td><td>即時語音關鍵字告警</td><td>開播人員</td></tr>
+          <tr><td><strong>🧪 Lab</strong></td><td>語音檔案批次辨識、準確率評測</td><td>事件重建人員、歷史資料調閱者</td></tr>
+          <tr><td><strong>📊 Grafana</strong></td><td>系統運作監控（看趨勢、統計）</td><td>後台管理人員</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- Slide 3: 30 分鐘動線                              -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section>
+      <h1>30 分鐘動線</h1>
+      <div class="flow"><span class="step">1. 啟動服務</span>                                      <em>(5 min)</em>
+      ↓
+<span class="step">2. :8000 看 landing → Capture / Monitor / Display</span>   <em>(5 min)</em>
+      ↓
+<span class="step">3. :8501 Lab → 9 個分頁各 30 秒</span>                     <em>(10 min)</em>
+      ↓
+<span class="step">4. :3000 Grafana → 滑過 7 大區塊</span>                    <em>(5 min)</em>
+      ↓
+<span class="step">5. 完整跑一輪：上傳音檔 → 查歷史 → 加一個關鍵字</span>      <em>(5 min)</em></div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- Slide 4: 章節 — 即時辨識                          -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section>
+      <div class="section-hero">
+        <div class="eyebrow">PART 1</div>
+        <h1>🎤 即時語音辨識</h1>
+        <p>場景：現場有麥克風，要把講話內容即時辨識為字幕</p>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- Slide 5: Capture 頁面結構                         -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section>
+      <h1>Capture · 錄音端三大卡片</h1>
+      <div class="grid-3">
+        <div class="tile">
+          <span class="icon">🔗</span>
+          <h3>連線設定</h3>
+          <p>席位代號 / 串流模式 / 引擎 / 伺服器位址<br><br><strong>開始監聽</strong> 按鈕</p>
+        </div>
+        <div class="tile">
+          <span class="icon">🎙️</span>
+          <h3>音訊輸入裝置</h3>
+          <p>麥克風選擇<br>掃描裝置按鈕<br>即時音量條</p>
+        </div>
+        <div class="tile">
+          <span class="icon">⚙️</span>
+          <h3>音訊前處理</h3>
+          <p>VAD 靜音過濾<br>（threshold 0.5）<br>DeepFilterNet 降噪</p>
+        </div>
+      </div>
+      <p class="note"><a href="capture.html" target="_blank">→ 開啟 mockup capture 頁</a></p>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- Slide 6: 怎麼點選 Capture                         -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section>
+      <h1>怎麼點選 Capture</h1>
+      <table>
+        <thead><tr><th>動作</th><th>對應操作</th></tr></thead>
+        <tbody>
+          <tr><td>選你坐的位置</td><td><strong>席位代號</strong> dropdown → ch1~ch6</td></tr>
+          <tr><td>選辨識方式</td><td><strong>串流模式</strong> dropdown → 預設 <code>dual</code></td></tr>
+          <tr><td>選辨識引擎</td><td><strong>引擎</strong> dropdown → 預設 <code>google chirp_3</code></td></tr>
+          <tr><td>選麥克風</td><td>先按 <strong>掃描裝置</strong>，再從 dropdown 挑</td></tr>
+          <tr><td>開始辨識</td><td>按 <strong>開始監聽</strong>（變紅=錄音中）</td></tr>
+        </tbody>
+      </table>
+      <p class="note">6 個席位代號：<span class="badge badge--ch1">ch1 CC</span> <span class="badge badge--ch2">ch2 MTC</span> <span class="badge badge--ch3">ch3 DTC</span> <span class="badge badge--ch4">ch4 PC</span> <span class="badge badge--ch5">ch5 EC</span> <span class="badge badge--ch6">ch6 IA</span></p>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- Slide 7: 五種串流模式                             -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section>
+      <h1>五種串流模式對比</h1>
+      <table>
+        <thead><tr><th>模式</th><th>延遲</th><th>來源</th><th>何時用</th></tr></thead>
+        <tbody>
+          <tr><td><strong>dual</strong> ⭐</td><td>~150ms</td><td>Scribe 即時 + Google 批次確認</td><td><strong>預設、最穩</strong></td></tr>
+          <tr><td>scribe_rt</td><td>~150ms</td><td>純 ElevenLabs Scribe</td><td>想最快</td></tr>
+          <tr><td>google_stream</td><td>~500ms</td><td>Google streaming</td><td>對照組</td></tr>
+          <tr><td>sensevoice_local</td><td>~1s</td><td>本機離線</td><td>機密、無網路</td></tr>
+          <tr><td>batch</td><td>~15s</td><td>Google 批次（15 秒一段）</td><td>不在意即時</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- Slide 8: Monitor 6 路                              -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section>
+      <h1>Monitor · 6 路即時辨識監看</h1>
+      <div class="split-3-2">
+        <div>
+          <h3>每個 lane 排版</h3>
+          <pre><code>┌──────────┬──────────────────┐
+│ ch1  CC  │ 10:23 列車進入月台    │
+│ 控制長   │ 10:24 OCC 收到...    │
+│ scribe_rt│ 10:24 ⚠️ 月台門故障  │
+│ ──────── │ 10:25 確認 G05 隔離  │
+│ 筆數 184 │                      │
+│ 信心 89% │                      │
+│ 時長 ... │                      │
+└──────────┴──────────────────┘
+   左側 180px       右側 1fr</code></pre>
+        </div>
+        <div>
+          <h3>頂部 💰 status bar</h3>
+          <ul>
+            <li>今日 NT$ 87.42</li>
+            <li>session NT$ 12.18</li>
+            <li>預算 68% / NT$ 130</li>
+            <li>5/6 席位活動中</li>
+            <li>▼ 展開可看每席 × 引擎細項</li>
+          </ul>
+        </div>
+      </div>
+      <p class="note"><a href="monitor.html" target="_blank">→ 開啟 mockup monitor 頁</a></p>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- Slide 9: Display 大螢幕                            -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section>
+      <h1>Display · 控制室大螢幕</h1>
+      <p class="note">5 公尺外可讀的大字 · 關鍵字依告警等級放大變色</p>
+      <table>
+        <thead><tr><th>等級</th><th>視覺</th><th>範例（Display 上呈現）</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge badge--ok">L0</span></td><td>普通</td><td>列車進入月台</td></tr>
+          <tr><td><span class="badge badge--warn">L1-L2</span></td><td>變色文字</td><td>請<span class="kw-l3" style="font-size:0.9em">查證</span></td></tr>
+          <tr><td><span class="badge badge--warn">L3-L4</span></td><td>放大 1.5× + 變色</td><td><span class="kw-l3">月台門故障</span></td></tr>
+          <tr><td><span class="badge badge--err">L5</span></td><td>放大 + 描邊 + 閃爍 banner</td><td><span class="kw-l5">軌道異物</span></td></tr>
+        </tbody>
+      </table>
+      <p class="note"><a href="display.html" target="_blank">→ 開啟 mockup display 頁</a></p>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- Slide 10: 章節 — 檔案辨識                          -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section>
+      <div class="section-hero">
+        <div class="eyebrow">PART 2</div>
+        <h1>📁 語音檔案辨識</h1>
+        <p>場景：拿一段錄音，想看辨識結果</p>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- Slide 11: Lab speech 五步驟                        -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section>
+      <h1>Lab speech · 五步驟</h1>
+      <ol>
+        <li><strong>選模型類別</strong>：google_stt / sensevoice / sensevoice_ft ⭐ / gemini / hybrid</li>
+        <li><strong>選子模型</strong>：chirp_3 / chirp_3_hans / gemini-2.5-pro 等</li>
+        <li><strong>上傳音檔</strong>：拖拉 wav/mp3/m4a/flac/ogg/aac</li>
+        <li><strong>詞彙表設定</strong>：☑ 啟用詞彙加權（三層架構）</li>
+        <li><strong>音訊前處理</strong>：VAD / DeepFilterNet 降噪</li>
+      </ol>
+      <p class="note">→ 按 <strong>🚀 開始辨識</strong> → 顯示 raw + 4 階段後處理（car_norm → dict → contextual → LLM）+ 信心度色塊 + ✏️ 修正按鈕</p>
+      <p class="note"><a href="lab.html#speech" target="_blank">→ 開啟 mockup Lab speech 頁</a></p>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- Slide 12: 章節 — 詞彙 + 告警                       -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section>
+      <div class="section-hero">
+        <div class="eyebrow">PART 3</div>
+        <h1>📚 詞彙庫 + 告警</h1>
+        <p>建立關鍵字 → 後處理修正 + 告警等級觸發</p>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- Slide 13: 詞彙表編輯                               -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section>
+      <h1>Lab vocabulary · 三大區塊</h1>
+      <div class="grid-3">
+        <div class="tile">
+          <span class="icon">🔍</span>
+          <h3>篩選列</h3>
+          <p>搜尋術語 / 類別 / 告警等級 三條件</p>
+        </div>
+        <div class="tile">
+          <span class="icon">📋</span>
+          <h3>編輯表格</h3>
+          <p>Excel-like 即時編輯<br>term / category / boost / alert / pinyin / 常見錯誤</p>
+        </div>
+        <div class="tile">
+          <span class="icon">➕</span>
+          <h3>新增表單</h3>
+          <p>新增單筆詞條<br>必填：術語<br>選填：其他 6 欄</p>
+        </div>
+      </div>
+      <p class="note">三層架構：<code>term_filter.json</code>（基底）+ <code>engines/{engine}.json</code>（覆寫）+ <code>contextual_corrections.json</code>（前後文）</p>
+      <p class="note"><a href="lab.html#vocabulary" target="_blank">→ 開啟 mockup Lab 詞彙表</a></p>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- Slide 14: 告警等級對應                             -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section>
+      <h1>告警等級對應表</h1>
+      <table>
+        <thead><tr><th>等級</th><th>Display 視覺</th><th>Monitor 視覺</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge badge--ok">L0</span> 普通</td><td>普通</td><td>普通</td></tr>
+          <tr><td><span class="badge badge--warn">L1-L2</span> 注意 / 警示</td><td>變色文字</td><td>變色</td></tr>
+          <tr><td><span class="badge badge--warn">L3-L4</span> 危險 / 緊急</td><td>放大 1.5× + 變色</td><td>背景變色</td></tr>
+          <tr><td><span class="badge badge--err">L5</span> 災難</td><td>放大 + 描邊 + 閃爍 banner</td><td>背景變紅</td></tr>
+        </tbody>
+      </table>
+      <p class="note">告警散在三處：display.html 視覺 / monitor.html 背景 / Grafana 統計區塊</p>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- Slide 15: 章節 — 評測 + 查詢                       -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section>
+      <div class="section-hero">
+        <div class="eyebrow">PART 4</div>
+        <h1>📊 CER 評測 + 歷史查詢</h1>
+        <p>量化辨識準確率 · 三種方式翻查歷史</p>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- Slide 16: CER 評測 4 步                            -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section>
+      <h1>Lab evaluation · 四步驟</h1>
+      <ol>
+        <li><strong>選案例</strong>：頂部 dropdown 挑 <code>experiments/</code> 子目錄</li>
+        <li><strong>上傳音檔</strong>：拖到 source_audio 區</li>
+        <li><strong>上傳 ground truth</strong>：<code>.txt</code> / <code>.csv</code></li>
+        <li><strong>上傳 ASR output</strong>：辨識結果 → 按 <strong>開始評測</strong></li>
+      </ol>
+      <p class="note">結果顯示：<strong>CER %</strong>（紅 = 刪除 / 綠 = 新增 字元對照 diff）</p>
+      <h3 style="margin-top:1em">CLI 版本（跑 6 引擎全批次）</h3>
+      <pre><code>python -m aispeech eval-batch
+→ 結果存到 experiments/llm_correction_poc/cer_history.csv
+→ python -m aispeech data sync-cer    # 同步到 Grafana</code></pre>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- Slide 17: 三種查詢歷史方式                          -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section>
+      <h1>三種查詢歷史方式</h1>
+      <div class="grid-3">
+        <div class="tile">
+          <span class="icon">🔍</span>
+          <h3>Lab 全文搜尋</h3>
+          <p>輸入字串<br>≥3 字 → FTS5 索引（快）<br>&lt;3 字 → LIKE（慢）</p>
+        </div>
+        <div class="tile">
+          <span class="icon">🗂️</span>
+          <h3>Lab 事件管理</h3>
+          <p>挑事件 → 改危害 / 備注 / 修正 transcript<br>修正會進飛輪 → 下次更準</p>
+        </div>
+        <div class="tile">
+          <span class="icon">📊</span>
+          <h3>Grafana 趨勢</h3>
+          <p>7 區塊 · 25 panels<br>含 CER 趨勢、危害分布、Top 關鍵字</p>
+        </div>
+      </div>
+      <p class="note"><a href="lab.html#search" target="_blank">→ Lab 搜尋</a> · <a href="lab.html#management" target="_blank">→ 事件管理</a> · <a href="grafana.html" target="_blank">→ Grafana</a></p>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- Slide 18: 章節 — 主題 + 小技巧                     -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section>
+      <div class="section-hero">
+        <div class="eyebrow">PART 5</div>
+        <h1>🎨 主題切換 + 小技巧</h1>
+        <p>三種主題對應不同班別 · 跨頁設定持久化</p>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- Slide 19: 三主題切換                               -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section>
+      <h1>三主題切換</h1>
+      <p class="note">右上 🌙 按鈕循環切換，記在瀏覽器 localStorage</p>
+      <table>
+        <thead><tr><th>主題</th><th>按鈕</th><th>用途</th><th>色調</th></tr></thead>
+        <tbody>
+          <tr><td><code>dark</code></td><td style="font-size:1.4em">🌙</td><td>日班 / 預設</td><td>冷調 cool teal</td></tr>
+          <tr><td><code>light</code></td><td style="font-size:1.4em">☀️</td><td>白班</td><td>純白底 + 深 teal</td></tr>
+          <tr><td><code>dark-warm</code></td><td style="font-size:1.4em">🔥</td><td>夜班低藍光</td><td>琥珀暖色 + warm cream</td></tr>
+        </tbody>
+      </table>
+      <p class="note">主題切換軸：循環順序 dark → light → dark-warm → dark...</p>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- Slide 20: 給新手的回饋格式                          -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section>
+      <h1>給新手的回饋格式</h1>
+      <p class="note">走完一輪後請依此格式紀錄你發現的改善點：</p>
+      <pre><code>### 介面：{capture / monitor / display / Lab-哪一頁 / Grafana}
+
+### 我覺得不直覺的地方
+- 例：席位代號的 dropdown 文字太小
+
+### 我建議的改法
+- 例：放大字體並改成卡片式按鈕
+
+### 我為什麼這樣建議
+- 例：操作員會在低光環境下使用，dropdown 點選費神
+
+### 嚴重度
+- 高 / 中 / 低</code></pre>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- Slide 21: End                                     -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <section>
+      <div class="section-hero">
+        <h1 style="font-size:2.2em">謝謝！</h1>
+        <p>請開始嘗試介面，並把回饋整理出來</p>
+      </div>
+      <div class="end-grid">
+        <div class="end-tile">
+          <div class="label">🌐 Mockup 公網</div>
+          <a href="index.html">testui-aispeech.netlify.app</a>
+        </div>
+        <div class="end-tile">
+          <div class="label">📖 完整新手手冊</div>
+          <a href="https://github.com/datadigshawn/aiSpeechMulti" style="font-size:0.6em">docs/操作手冊-新手版.md</a>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script>
+  Reveal.initialize({
+    hash: true,
+    slideNumber: 'c/t',
+    controls: true,
+    progress: true,
+    center: false,
+    transition: 'fade',
+    width: 1280,
+    height: 800,
+    margin: 0.05,
+  });
+</script>
+
+</body>
+</html>
