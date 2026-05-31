@@ -1,5 +1,5 @@
 {
-  "format": "hf",
+  "format": "funasr",
   "include_corrections": false,
   "split_ratios": [
     0.8,
@@ -9,8 +9,8 @@
   "seed": 42,
   "manifest_source": "experiments/golden_dataset/manifest.csv",
   "counts": {
-    "train": 46,
-    "val": 6,
-    "test": 10
+    "train": 123,
+    "val": 13,
+    "test": 21
   }
 }

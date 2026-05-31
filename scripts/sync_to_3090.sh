@@ -97,15 +97,22 @@ push_audio() {
         echo "🎵 rsync audio → 3090（增量）"
         rsync -avh --progress ${DRY_RUN} "$LOCAL_AUDIO" "$REMOTE_AUDIO"
     else
-        local wav_count
-        wav_count=$(find "$LOCAL_AUDIO" -name "*.wav" 2>/dev/null | wc -l | tr -d ' ')
-        echo "🎵 scp audio → 3090（${wav_count} 個 .wav；rsync 不在桌機，用 scp 全量傳）"
+        # 支援所有 manifest 接受的音檔格式（與 build_golden_manifest.py 一致）
+        # 用 find 收集成 array，一次 scp（避免每檔起 ssh session）
+        local -a audio_files
+        while IFS= read -r -d '' f; do audio_files+=("$f"); done < <(
+            find "$LOCAL_AUDIO" -maxdepth 1 -type f \
+                \( -name "*.wav" -o -name "*.mp3" -o -name "*.m4a" \
+                   -o -name "*.flac" -o -name "*.ogg" -o -name "*.aac" \) \
+                -print0 2>/dev/null
+        )
+        local audio_count="${#audio_files[@]}"
+        echo "🎵 scp audio → 3090（${audio_count} 個音檔；rsync 不在桌機，用 scp 全量傳）"
         if [ -n "$DRY_RUN" ]; then
-            echo "  (dry-run: 會傳 ${wav_count} 個 wav 到 ${REMOTE_AUDIO})"
+            echo "  (dry-run: 會傳 ${audio_count} 個音檔到 ${REMOTE_AUDIO})"
             return
         fi
-        # 用 scp -r 上傳；Windows OpenSSH 路徑用 /C:/ 或直接 Windows 樣式
-        scp -r "$LOCAL_AUDIO"*.wav "$REMOTE_AUDIO"
+        [ "$audio_count" -gt 0 ] && scp "${audio_files[@]}" "$REMOTE_AUDIO"
     fi
 }
 
