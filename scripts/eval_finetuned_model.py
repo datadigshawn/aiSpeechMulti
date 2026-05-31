@@ -159,11 +159,16 @@ def evaluate_label(label: str, post_process: str = "") -> dict | None:
         "--engine-label", label,
         "--post-process", post_process,
     ]
-    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+    # Windows 預設 subprocess encoding = OEMCP (cp950)，emoji 會炸 UnicodeDecodeError
+    # 顯式指定 utf-8 + errors=replace，跨平台都安全
+    proc = subprocess.run(
+        cmd, capture_output=True, text=True, timeout=600,
+        encoding="utf-8", errors="replace",
+    )
     if proc.returncode != 0:
-        print(f"  ⚠️ batch_eval 失敗 ({label}): {proc.stderr[-200:]}")
+        print(f"  ⚠️ batch_eval 失敗 ({label}): {(proc.stderr or '')[-200:]}")
         return None
-    out = proc.stdout
+    out = proc.stdout or ""
     raw_cer = final_cer = None
     for line in out.splitlines():
         if "平均 CER raw" in line:

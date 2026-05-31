@@ -78,8 +78,9 @@ push_code() {
     [ -n "$DRY_RUN" ] && { echo "  (dry-run skip)"; return; }
     git push origin "$branch"
     echo "🔄 桌機端執行 git pull"
-    ssh "$HOST" "cd ${REMOTE_PATH} && git pull origin ${branch}" || \
-        echo "⚠️  桌機 git pull 失敗（可能 SSH 沒設好；請手動到桌機 git pull）"
+    # 用 PowerShell 友善寫法（cd 與 git pull 用 ; 串接；PowerShell 不認 &&）
+    ssh "$HOST" "powershell -NoProfile -Command \"cd ${REMOTE_PATH}; git pull origin ${branch}\"" || \
+        echo "⚠️  桌機 git pull 失敗（請手動到桌機 git pull）"
 }
 
 push_audio() {
