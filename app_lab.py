@@ -119,9 +119,9 @@ SUB_MODEL_OPTIONS = {
     "sensevoice": [
         ("SenseVoiceSmall — 🔒 離線、含情緒辨識（推薦）", "iic/SenseVoiceSmall"),
     ],
-    # Fine-tuned SenseVoice（LoRA r32_e60，2026-05-01 訓練）
+    # Fine-tuned SenseVoice（LoRA r32_e60_v2_157gt，2026-05-31 訓練，113 段）
     "sensevoice_ft": [
-        ("SenseVoice + LoRA r32 e60 — ⭐ 捷運通訊專用（CER 28.12%）", "sensevoice_ft_r32"),
+        ("SenseVoice + LoRA r32 e60 v2 (113段) — ⭐ 捷運通訊專用（CER 25.42%）", "sensevoice_ft_v2_157gt"),
     ],
 }
 
@@ -629,11 +629,12 @@ def render_speech_page():
 
     if model_type == "sensevoice_ft":
         st.info(
-            "⭐ **SenseVoice Fine-tuned（捷運通訊專用）**  \n"
-            "• 在 SenseVoiceSmall 上以 LoRA (rank=32) 微調 60 epoch（46 段訓練語料）  \n"
-            "• **全 63 段 CER**：raw 29.50% / +全 pipeline **28.12%** ⭐（baseline 65.84%）  \n"
+            "⭐ **SenseVoice Fine-tuned v2（捷運通訊專用）**  \n"
+            "• 在 SenseVoiceSmall 上以 LoRA (rank=32) 微調，**113 段**訓練語料（2026-05-31）  \n"
+            "• **19 段 test set CER**：raw **26.20%** / +full pipeline **25.42%** ⭐（baseline 65.84%）  \n"
+            "• 對比 v1 (46 段, 5/1) **改善 -2.70pp**；距 20% 目標剩 5.42pp  \n"
             "• **完全離線**、含情緒/事件辨識（同基礎模型）  \n"
-            "• 需要 LoRA checkpoint：`experiments/finetune_runs/sensevoice_lora_r32_e60/best.pt`  \n"
+            "• 需要 LoRA checkpoint：`experiments/finetune_runs/sensevoice_lora_r32_e60_v2_157gt/best.pt`  \n"
             "• ⚠️ 首次使用須安裝 `peft`，且該 checkpoint 不在 git，需從訓練機複製"
         )
 

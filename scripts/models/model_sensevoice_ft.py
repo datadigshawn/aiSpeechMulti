@@ -29,9 +29,11 @@ logger = logging.getLogger(__name__)
 
 
 # ── 預設 checkpoint 與 LoRA 設定（與訓練一致）──────────────────────────────
+# v2_157gt: 2026-05-31 訓練（113 段，test CER 25.42% with +llm）
+# legacy r32_e60: 2026-05-01 訓練（46 段，test CER 28.12% with +llm）
 _DEFAULT_CKPT = (
     Path(__file__).resolve().parents[2]
-    / "experiments" / "finetune_runs" / "sensevoice_lora_r32_e60" / "best.pt"
+    / "experiments" / "finetune_runs" / "sensevoice_lora_r32_e60_v2_157gt" / "best.pt"
 )
 _DEFAULT_LORA = {
     "r": 32,
