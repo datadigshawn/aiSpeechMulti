@@ -6,7 +6,8 @@
 # 用法：
 #   ./scripts/sync_to_3090.sh                  # = up（預設）
 #   ./scripts/sync_to_3090.sh up               # git push + rsync audio 上去
-#   ./scripts/sync_to_3090.sh down             # rsync 拉 finetune_runs/ 回 M2
+#   ./scripts/sync_to_3090.sh down [run_name]  # 拉 finetune_runs/[run_name] 回 M2
+#                                              # 不帶 run_name 會列出遠端可用 run 讓你選
 #   ./scripts/sync_to_3090.sh audio            # 只 rsync audio 上去
 #   ./scripts/sync_to_3090.sh code             # 只 git push（並在桌機 git pull）
 #   ./scripts/sync_to_3090.sh status           # 看本機 vs 桌機 audio 數量差
@@ -40,12 +41,20 @@ REMOTE_RUNS="${HOST}:${REMOTE_PATH}/experiments/finetune_runs/"
 # ── 旗標解析 ─────────────────────────────────────────────────────────────
 DRY_RUN=""
 CMD="up"
+RUN_NAME=""
 for arg in "$@"; do
     case "$arg" in
         -n|--dry-run) DRY_RUN="--dry-run" ;;
         -h|--help)    awk 'NR==1{next} /^[^#]/{exit} {sub(/^# ?/,""); print}' "$0"; exit 0 ;;
         up|down|audio|code|status) CMD="$arg" ;;
-        *) echo "❌ 未知參數：$arg" >&2; exit 2 ;;
+        # down 可帶第二個 positional 指定 run 名稱
+        *)
+            if [ "$CMD" = "down" ] && [ -z "$RUN_NAME" ] && [[ "$arg" != -* ]]; then
+                RUN_NAME="$arg"
+            else
+                echo "❌ 未知參數：$arg" >&2; exit 2
+            fi
+            ;;
     esac
 done
 
@@ -100,18 +109,44 @@ push_audio() {
     fi
 }
 
+list_remote_runs() {
+    # 列出遠端 finetune_runs/ 內所有子目錄，方便 user 挑哪個 run 拉
+    # 只列名稱避免 PowerShell escape 巢狀引號災難；要看大小自己 ssh 進去看
+    echo "📋 遠端 finetune_runs/ 內可用的訓練 run（請帶 run 名稱回呼）："
+    ssh "$HOST" "powershell -NoProfile -Command \"Get-ChildItem '${REMOTE_PATH}/experiments/finetune_runs' -Directory -Name\"" 2>&1 \
+        | grep -v WARNING | grep -v "post-quantum" | grep -v "^$" \
+        | sed 's/^/  /'
+    echo ""
+    echo "用法：./scripts/sync_to_3090.sh down <run_name>"
+    echo "  (要看 run 大小：ssh ${HOST} 'powershell -Command \"Get-ChildItem ${REMOTE_PATH}/experiments/finetune_runs/<name> -Recurse -File | Measure-Object Length -Sum\"')"
+}
+
 pull_runs() {
     mkdir -p "$LOCAL_RUNS"
+
+    # 沒指定 run name → 列出可用 runs 提示使用者選
+    if [ -z "$RUN_NAME" ]; then
+        list_remote_runs
+        return
+    fi
+
+    local remote_run="${REMOTE_PATH}/experiments/finetune_runs/${RUN_NAME}"
+    local local_run="${LOCAL_RUNS}${RUN_NAME}"
+    mkdir -p "$local_run"
+
     if $USE_RSYNC; then
-        echo "📥 rsync finetune_runs/ ← 3090（增量）"
-        rsync -avh --progress ${DRY_RUN} "$REMOTE_RUNS" "$LOCAL_RUNS"
+        echo "📥 rsync finetune_runs/${RUN_NAME}/ ← 3090（增量）"
+        rsync -avh --progress ${DRY_RUN} "${HOST}:${remote_run}/" "${local_run}/"
     else
-        echo "📥 scp finetune_runs/ ← 3090（rsync 不在桌機，用 scp 全量）"
+        # 為何不用 wildcard：scp "host:path/*" 在 Windows OpenSSH 不會做 remote glob
+        # （Unix scp 會把 * 送到 remote shell 展開，Windows OpenSSH 不會）
+        # 改用 directory copy：把整個 run 目錄複製到 finetune_runs/ 下
+        echo "📥 scp finetune_runs/${RUN_NAME}/ ← 3090（rsync 不在桌機；用 scp -r）"
         if [ -n "$DRY_RUN" ]; then
-            echo "  (dry-run: 會從 ${REMOTE_RUNS} 拉檔到 ${LOCAL_RUNS})"
+            echo "  (dry-run: 會拉 ${HOST}:${remote_run} 到 ${LOCAL_RUNS})"
             return
         fi
-        scp -r "${REMOTE_RUNS}*" "$LOCAL_RUNS"
+        scp -r "${HOST}:${remote_run}" "${LOCAL_RUNS}"
     fi
 }
 
