@@ -5,7 +5,7 @@ id,event_type,audio_file,gt_file,duration_sec,gt_char_count,gt_speaker_lines,aud
 004,track,experiments/golden_dataset/audio/004_track_UltraLog060_20260321_154613.wav,experiments/golden_dataset/ground_truth/004_track_UltraLog060_20260321_154613.txt,40.15,115,7,159.1,wav,Y,
 005,daily,experiments/golden_dataset/audio/005_daily_UltraLog060_20260321_154657.wav,experiments/golden_dataset/ground_truth/005_daily_UltraLog060_20260321_154657.txt,20.33,42,1,80.6,wav,Y,
 006,door,experiments/golden_dataset/audio/006_door_UltraLog060_20260321_154928.wav,experiments/golden_dataset/ground_truth/006_door_UltraLog060_20260321_154928.txt,17.55,35,1,69.6,wav,Y,
-007,train,experiments/golden_dataset/audio/007_train_UltraLog060_20260321_155302.wav,experiments/golden_dataset/ground_truth/007_train_UltraLog060_20260321_155302.txt,12.88,20,1,51.1,wav,Y,[⚠️ unknown event_type] [⚠️ unknown event_type] [⚠️ unknown event_type]
+007,train,experiments/golden_dataset/audio/007_train_UltraLog060_20260321_155302.wav,experiments/golden_dataset/ground_truth/007_train_UltraLog060_20260321_155302.txt,12.88,20,1,51.1,wav,Y,[⚠️ unknown event_type] [⚠️ unknown event_type] [⚠️ unknown event_type] [⚠️ unknown event_type]
 008,track,experiments/golden_dataset/audio/008_track_UltraLog060_20260321_155711.wav,experiments/golden_dataset/ground_truth/008_track_UltraLog060_20260321_155711.txt,20.52,66,2,81.3,wav,Y,
 009,daily,experiments/golden_dataset/audio/009_daily_UltraLog060_20260321_155903.wav,experiments/golden_dataset/ground_truth/009_daily_UltraLog060_20260321_155903.txt,13.76,28,1,54.6,wav,Y,
 010,control,experiments/golden_dataset/audio/010_control_UltraLog060_20260321_155930.wav,experiments/golden_dataset/ground_truth/010_control_UltraLog060_20260321_155930.txt,36.99,126,5,146.6,wav,Y,
@@ -62,8 +62,6 @@ id,event_type,audio_file,gt_file,duration_sec,gt_char_count,gt_speaker_lines,aud
 061,daily,experiments/golden_dataset/audio/061_daily_UltraLog060_20260321_170957.wav,experiments/golden_dataset/ground_truth/061_daily_UltraLog060_20260321_170957.txt,23.23,63,2,92.1,wav,Y,
 062,daily,experiments/golden_dataset/audio/062_daily_UltraLog060_20260321_171023.wav,experiments/golden_dataset/ground_truth/062_daily_UltraLog060_20260321_171023.txt,28.53,65,3,113.1,wav,Y,
 063,daily,experiments/golden_dataset/audio/063_daily_UltraLog060_20260321_171101.wav,experiments/golden_dataset/ground_truth/063_daily_UltraLog060_20260321_171101.txt,42.1,65,3,166.8,wav,Y,
-A0010,emergency,experiments/golden_dataset/audio/A0010_emergency_號誌3股_值班_20260215_055405.mp3,experiments/golden_dataset/ground_truth/A0010_emergency_號誌3股_值班_20260215_055405.txt,61.44,0,0,239.0,mp3,N,
-A0011,emergency,experiments/golden_dataset/audio/A0011_emergency_號誌3股_值班_20260215_060501.mp3,experiments/golden_dataset/ground_truth/A0011_emergency_號誌3股_值班_20260215_060501.txt,6.4,0,0,25.0,mp3,N,
 A001,emergency,experiments/golden_dataset/audio/A001_emergency_號誌3股_值班_20260215_045105.mp3,experiments/golden_dataset/ground_truth/A001_emergency_號誌3股_值班_20260215_045105.txt,161.38,741,37,627.6,mp3,Y,
 A002,emergency,experiments/golden_dataset/audio/A002_emergency_號誌3股_值班_20260215_045504.mp3,experiments/golden_dataset/ground_truth/A002_emergency_號誌3股_值班_20260215_045504.txt,62.75,225,10,244.1,mp3,Y,
 A003,emergency,experiments/golden_dataset/audio/A003_emergency_號誌3股_值班_20260215_045803.mp3,experiments/golden_dataset/ground_truth/A003_emergency_號誌3股_值班_20260215_045803.txt,41.52,134,9,161.6,mp3,Y,
@@ -72,6 +70,8 @@ A005,emergency,experiments/golden_dataset/audio/A005_emergency_號誌3股_值班
 A007,emergency,experiments/golden_dataset/audio/A007_emergency_號誌3股_值班_20260215_053503.mp3,experiments/golden_dataset/ground_truth/A007_emergency_號誌3股_值班_20260215_053503.txt,38.42,149,6,149.5,mp3,Y,
 A008,emergency,experiments/golden_dataset/audio/A008_emergency_號誌3股_值班_20260215_054401.mp3,experiments/golden_dataset/ground_truth/A008_emergency_號誌3股_值班_20260215_054401.txt,48.21,178,16,187.6,mp3,Y,
 A009,emergency,experiments/golden_dataset/audio/A009_emergency_號誌3股_值班_20260215_054502.mp3,experiments/golden_dataset/ground_truth/A009_emergency_號誌3股_值班_20260215_054502.txt,11.78,54,6,45.9,mp3,Y,
+A010,emergency,experiments/golden_dataset/audio/A010_emergency_號誌3股_值班_20260215_055405.mp3,experiments/golden_dataset/ground_truth/A010_emergency_號誌3股_值班_20260215_055405.txt,61.44,253,13,239.0,mp3,Y,
+A011,emergency,experiments/golden_dataset/audio/A011_emergency_號誌3股_值班_20260215_060501.mp3,experiments/golden_dataset/ground_truth/A011_emergency_號誌3股_值班_20260215_060501.txt,6.4,30,5,25.0,mp3,Y,
 A012,emergency,experiments/golden_dataset/audio/A012_emergency_組長_楊耀賓_20260215_054004.mp3,experiments/golden_dataset/ground_truth/A012_emergency_組長_楊耀賓_20260215_054004.txt,225.74,826,47,877.8,mp3,Y,
 A013,emergency,experiments/golden_dataset/audio/A013_emergency_組長_楊耀賓_20260215_055302.mp3,experiments/golden_dataset/ground_truth/A013_emergency_組長_楊耀賓_20260215_055302.txt,15.72,57,7,61.2,mp3,Y,
 A014,emergency,experiments/golden_dataset/audio/A014_emergency_組長_楊耀賓_20260215_061300.mp3,experiments/golden_dataset/ground_truth/A014_emergency_組長_楊耀賓_20260215_061300.txt,91.65,375,23,356.5,mp3,Y,
@@ -121,7 +121,7 @@ G0043,daily,experiments/golden_dataset/audio/G0043_daily_席位1_2025122_202024.
 G0044,control,experiments/golden_dataset/audio/G0044_control_席位1_2025122_202256.wav,experiments/golden_dataset/ground_truth/G0044_control_席位1_2025122_202256.txt,18.81,56,2,74.6,wav,Y,
 G0045,control,experiments/golden_dataset/audio/G0045_control_席位1_2025122_202338.wav,experiments/golden_dataset/ground_truth/G0045_control_席位1_2025122_202338.txt,44.5,173,4,176.3,wav,Y,
 G0046,daily,experiments/golden_dataset/audio/G0046_daily_席位1_2025122_202441.wav,experiments/golden_dataset/ground_truth/G0046_daily_席位1_2025122_202441.txt,29.92,82,5,118.6,wav,Y,
-G0047,none,experiments/golden_dataset/audio/G0047_none_席位1_2025122_202545.wav,experiments/golden_dataset/ground_truth/G0047_none_席位1_2025122_202545.txt,10.23,0,0,40.6,wav,Y,[⚠️ unknown event_type]
+G0047,none,experiments/golden_dataset/audio/G0047_none_席位1_2025122_202545.wav,experiments/golden_dataset/ground_truth/G0047_none_席位1_2025122_202545.txt,10.23,0,0,40.6,wav,Y,[⚠️ unknown event_type] [⚠️ unknown event_type]
 G0048,daily,experiments/golden_dataset/audio/G0048_daily_席位1_2025122_202600.wav,experiments/golden_dataset/ground_truth/G0048_daily_席位1_2025122_202600.txt,40.21,132,4,159.3,wav,Y,
 G0049,daily,experiments/golden_dataset/audio/G0049_daily_席位1_2025122_202640.wav,experiments/golden_dataset/ground_truth/G0049_daily_席位1_2025122_202640.txt,12.75,24,1,50.6,wav,Y,
 G0050,daily,experiments/golden_dataset/audio/G0050_daily_席位1_2025122_202713.wav,experiments/golden_dataset/ground_truth/G0050_daily_席位1_2025122_202713.txt,12.62,24,1,50.1,wav,Y,
