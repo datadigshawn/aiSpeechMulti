@@ -334,4 +334,10 @@ timestamp,timestamp_iso,engine_label,post_process,event_type,count,avg_cer_raw,a
 20260531_180707,2026-05-31T18:07:07,sensevoice_ft_v2_157gt,car_norm+dict+llm,emergency,1,0.2174,0.1739,0.0435,batch_eval_20260531_180707_sensevoice_ft_v2_157gt_car_norm+dict+llm.json
 20260531_180707,2026-05-31T18:07:07,sensevoice_ft_v2_157gt,car_norm+dict+llm,track,2,0.184,0.169,0.0149,batch_eval_20260531_180707_sensevoice_ft_v2_157gt_car_norm+dict+llm.json
 20260531_180707,2026-05-31T18:07:07,sensevoice_ft_v2_157gt,car_norm+dict+llm,train,1,0.25,0.25,0.0,batch_eval_20260531_180707_sensevoice_ft_v2_157gt_car_norm+dict+llm.json
+20260603_164638,2026-06-03T16:46:38,whisper_medium,raw,control,5,0.6013,0.5933,0.0079,batch_eval_20260603_164638_whisper_medium_raw.json
+20260603_164638,2026-06-03T16:46:38,whisper_medium,raw,daily,7,0.7717,0.7642,0.0075,batch_eval_20260603_164638_whisper_medium_raw.json
+20260603_164638,2026-06-03T16:46:38,whisper_medium,raw,door,3,0.6352,0.6352,0.0,batch_eval_20260603_164638_whisper_medium_raw.json
+20260603_164638,2026-06-03T16:46:38,whisper_medium,raw,emergency,3,0.7197,0.7256,-0.006,batch_eval_20260603_164638_whisper_medium_raw.json
+20260603_164638,2026-06-03T16:46:38,whisper_medium,raw,track,2,0.5781,0.5625,0.0156,batch_eval_20260603_164638_whisper_medium_raw.json
+20260603_164638,2026-06-03T16:46:38,whisper_medium,raw,train,1,1.0,1.0,0.0,batch_eval_20260603_164638_whisper_medium_raw.json
 al_20260501_224108_sensevoice_ft_r32_full_car_norm+dict.json,,,,,,,,,
