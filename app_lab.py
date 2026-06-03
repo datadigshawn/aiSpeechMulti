@@ -549,14 +549,15 @@ def format_with_per_sentence_timestamps(
     transcript: str,
     segments: list[dict] | None,
     start_dt: datetime | None,
+    audio_duration_sec: float | None = None,
 ) -> str:
     """把整段逐字稿轉成「[HH:MM:SS] sentence。」逐句多行格式。
 
-    - segments 存在且非空：每段內按「。」切句，按字數比例 interpolate segment 內 offset
-    - segments 為空：整段視為單一 segment（第一句用 start_dt，後續留空白對齊）
-    - start_dt 為 None：只切句不加時間（純換行）
-
-    回傳已換行的字串。
+    時間戳優先序：
+    1. segments 內有「真實時間區間」(seg_end > seg_start) → 用 segment 區間 + 字數比例
+    2. 否則用 audio_duration_sec → 整段視為 [0, audio_duration_sec]，按字數比例分散
+    3. 否則第一句用 start_dt、其餘留空白對齊
+    4. start_dt 為 None → 只切句不加時間
     """
     from datetime import timedelta as _td
 
@@ -564,13 +565,11 @@ def format_with_per_sentence_timestamps(
         return transcript
 
     def _split_sentences(text: str) -> list[str]:
-        """按 。 切句並保留句末標點。空白與純空字串會被排除。"""
         parts = [p.strip() for p in text.split("。")]
         out = []
         for i, p in enumerate(parts):
             if not p:
                 continue
-            # 末段沒以 。 結尾就不補；中間段補回 。
             if i < len(parts) - 1:
                 out.append(p + "。")
             else:
@@ -579,14 +578,15 @@ def format_with_per_sentence_timestamps(
 
     lines: list[str] = []
 
-    # ── 沒有檔名時間 → 只切句 ─────────────────────────────────────────
     if start_dt is None:
         return "\n".join(_split_sentences(transcript))
 
-    blank_ts = " " * 10  # 對齊「[HH:MM:SS] 」共 11 字元
-
-    # ── 有 segments → 逐段切句 + interpolate ──────────────────────────
-    if segments:
+    # ── 1. segments 有真實時間區間 ────────────────────────────────────
+    has_real_timing = bool(segments) and any(
+        (float(s.get("end", 0)) - float(s.get("start", 0))) > 0
+        for s in segments
+    )
+    if has_real_timing:
         for seg in segments:
             seg_text = (seg.get("text") or "").strip()
             if not seg_text:
@@ -600,16 +600,26 @@ def format_with_per_sentence_timestamps(
             total_chars = sum(len(s) for s in sents)
             cum_chars = 0
             for sent in sents:
-                if total_chars > 0 and seg_dur > 0:
-                    offset = seg_dur * (cum_chars / total_chars)
-                else:
-                    offset = 0.0
+                offset = seg_dur * (cum_chars / total_chars) if (total_chars and seg_dur) else 0.0
                 sent_dt = start_dt + _td(seconds=seg_start + offset)
                 lines.append(f"[{sent_dt.strftime('%H:%M:%S')}] {sent}")
                 cum_chars += len(sent)
         return "\n".join(lines)
 
-    # ── 無 segments → 全段第一句用 start_dt，後續留空白對齊 ────────────
+    # ── 2. 無有效 segment 時間，但有音檔長度 → 整段按字數比例分散 ──────
+    if audio_duration_sec and audio_duration_sec > 0:
+        sents = _split_sentences(transcript)
+        total_chars = sum(len(s) for s in sents)
+        cum_chars = 0
+        for sent in sents:
+            offset = audio_duration_sec * (cum_chars / total_chars) if total_chars else 0.0
+            sent_dt = start_dt + _td(seconds=offset)
+            lines.append(f"[{sent_dt.strftime('%H:%M:%S')}] {sent}")
+            cum_chars += len(sent)
+        return "\n".join(lines)
+
+    # ── 3. 兩者都沒有 → 第一句用 start_dt，其餘留空白對齊 ──────────────
+    blank_ts = " " * 10
     sents = _split_sentences(transcript)
     for i, sent in enumerate(sents):
         if i == 0:
@@ -1549,6 +1559,7 @@ def _render_results_section(all_results, total, output_dir, timestamp,
                     # 按句切 + 每句加 [HH:MM:SS] 時間戳
                     formatted = format_with_per_sentence_timestamps(
                         r["transcript"], r.get("segments"), dt,
+                        r.get("duration_sec"),
                     )
                     lines.append(formatted)
                 else:
@@ -1576,6 +1587,7 @@ def _render_results_section(all_results, total, output_dir, timestamp,
             dt = filename_datetimes.get(stem) or parse_filename_datetime(stem)
             body = format_with_per_sentence_timestamps(
                 r.get("transcript", ""), r.get("segments"), dt,
+                r.get("duration_sec"),
             ) if r.get("transcript") else "（無辨識結果）"
             return f"=== {r['filename']} ===\n{body}"
         full_text = "\n\n".join(_format_one(r) for r in all_results)
@@ -1983,16 +1995,25 @@ def render_running_page():
                 txt_file = output_dir / f"{audio_file.stem}.txt"
                 txt_file.write_text(transcript, encoding="utf-8")
                 _segments = result.get("segments")
+                # 取得音檔長度（用於 segment 缺時間資訊時 fallback 分散時間戳）
+                _audio_dur = None
+                try:
+                    import soundfile as _sf
+                    _audio_dur = float(_sf.info(str(audio_file)).duration)
+                except Exception:
+                    pass
                 _result_entry = {"filename": audio_file.name, "transcript": transcript, "status": "success"}
                 if _segments:
                     _result_entry["segments"] = _segments
+                if _audio_dur is not None:
+                    _result_entry["duration_sec"] = _audio_dur
                 if _pp_report:
                     _result_entry["post_process"] = _pp_report
                 all_results.append(_result_entry)
                 st.success(f"**{audio_file.name}**　完成")
                 _start_dt = parse_filename_datetime(audio_file.stem)
                 _display = format_with_per_sentence_timestamps(
-                    transcript, _segments, _start_dt,
+                    transcript, _segments, _start_dt, _audio_dur,
                 ) if transcript else "（無辨識結果）"
                 _h = max(80, min(400, 22 * max(1, _display.count("\n") + 1)))
                 st.text_area(
