@@ -1917,8 +1917,7 @@ def render_running_page():
                         for s in _pp_report["stages"] if s["applied"]
                     )
                     with st.expander(
-                        f"🔧 後處理修正　共 {_pp_report['total_changes']} 處　[{_stage_summary}]",
-                        key=f"expander_pp_{i}",
+                        f"🔧 後處理修正 [#{i+1}]　共 {_pp_report['total_changes']} 處　[{_stage_summary}]",
                     ):
                         for _s in _pp_report["stages"]:
                             if not _s["applied"] or _s["change_count"] == 0:
@@ -1949,8 +1948,7 @@ def render_running_page():
                     _source_label = {"google": "Google STT", "gemini": "Gemini", "scribe": "Scribe", "": "（空）"}.get(_source, _source)
                     _cer_str      = f"{_cer_between:.1%}" if _cer_between is not None else "N/A"
                     with st.expander(
-                        f"🔀 融合診斷　規則={_rule}　來源={_source_label}　CER(G↔M)={_cer_str}",
-                        key=f"expander_fuse_{i}",
+                        f"🔀 融合診斷 [#{i+1}]　規則={_rule}　來源={_source_label}　CER(G↔M)={_cer_str}",
                     ):
                         col_g, col_m = st.columns(2)
                         with col_g:
@@ -1974,8 +1972,7 @@ def render_running_page():
                     if _parts:
                         st.caption("　　".join(_parts))
                     if _segments:
-                        with st.expander(f"🔍 逐段詳細結果（{len(_segments)} 段）",
-                                         key=f"expander_sv_{i}"):
+                        with st.expander(f"🔍 逐段詳細結果 [#{i+1}]　{len(_segments)} 段"):
                             for seg in _segments:
                                 _conf = "🟢" if (seg.get("no_speech_prob", 0) < 0.3) else "🟡"
                                 _ts   = f"{seg['start']:.1f}s → {seg['end']:.1f}s"
