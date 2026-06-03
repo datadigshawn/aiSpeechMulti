@@ -1918,10 +1918,13 @@ def render_running_page():
                     return holder["result"]
 
                 if model_type == "whisper":
-                    raw_text = _run_transcribe_in_thread(
-                        lambda: whisper_transcribe(str(preproc_file), model_size=sub_model)
+                    # return_segments=True → 取得 Whisper 原生 segment 時間
+                    result = _run_transcribe_in_thread(
+                        lambda: whisper_transcribe(
+                            str(preproc_file), model_size=sub_model,
+                            return_segments=True,
+                        )
                     )
-                    result   = {"transcript": raw_text}
                 elif model_type == "google_stt":
                     result = _run_transcribe_in_thread(
                         lambda: transcribe_google_stt_with_vad(engine, preproc_file, output_dir)

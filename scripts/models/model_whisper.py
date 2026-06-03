@@ -160,6 +160,7 @@ def transcribe_with_whisper(
     use_vocabulary=True,
     language="zh",
     event_type=None,
+    return_segments=False,
 ):
     """
     使用 Whisper 辨識單一音檔
@@ -176,9 +177,12 @@ def transcribe_with_whisper(
             - None: 使用舊版通用 prompt（向後相容）
             - "default"/"daily"/"door"/"track"/"emergency"/"control":
               使用對應事件類型的強化版 prompt（含範例句）
+        return_segments (bool): 是否回傳逐段時間資訊
+            - False (預設): 回傳純文字 str（向後相容既有 caller）
+            - True: 回傳 dict {"transcript": str, "segments": [{"start","end","text"}, ...]}
 
     Returns:
-        str: 辨識文字
+        str | dict: 依 return_segments 而定
     """
     # 1. 取得模型實體
     model = load_model_once(model_size)
@@ -211,6 +215,18 @@ def transcribe_with_whisper(
         verbose=False  # 關閉進度顯示（批次處理時較乾淨）
     )
 
+    if return_segments:
+        return {
+            "transcript": result["text"].strip(),
+            "segments": [
+                {
+                    "start": float(s.get("start", 0.0)),
+                    "end":   float(s.get("end", 0.0)),
+                    "text":  (s.get("text") or "").strip(),
+                }
+                for s in result.get("segments", [])
+            ],
+        }
     return result['text'].strip()
 
 
