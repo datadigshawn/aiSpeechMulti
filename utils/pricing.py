@@ -32,13 +32,21 @@ def load_pricing(path: Path | None = None) -> dict:
         if required not in data:
             raise PricingError(f"pricing.json missing required key '{required}'")
 
-    # 各引擎的必要 keys
+    # 各引擎的必要 keys：unit 必備；費率允許兩種計價模型
+    #   - STT 單費率：usd_per_unit（搭配 unit=audio_seconds，calc_cost 使用）
+    #   - LLM 雙費率：usd_per_1m_in + usd_per_1m_out（搭配 unit=tokens，speech_report 使用）
     for engine_name, cfg in data["engines"].items():
-        for required in ("unit", "usd_per_unit"):
-            if required not in cfg:
-                raise PricingError(
-                    f"engine '{engine_name}' config missing required key '{required}'"
-                )
+        if "unit" not in cfg:
+            raise PricingError(
+                f"engine '{engine_name}' config missing required key 'unit'"
+            )
+        has_flat_rate = "usd_per_unit" in cfg
+        has_io_rate = "usd_per_1m_in" in cfg and "usd_per_1m_out" in cfg
+        if not (has_flat_rate or has_io_rate):
+            raise PricingError(
+                f"engine '{engine_name}' config needs 'usd_per_unit' "
+                f"or both 'usd_per_1m_in' and 'usd_per_1m_out'"
+            )
 
     return data
 
