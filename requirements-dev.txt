@@ -8,3 +8,6 @@
 # 測試框架
 pytest>=7.0
 pytest-cov>=4.0           # 覆蓋率報告（資訊用，非 gate）
+
+# 分析工具（scripts/cer_breakdown.py — CER 錯誤類型拆解）
+pypinyin>=0.50            # 同音/近音字分類；opencc/jiwer 已在 requirements.txt

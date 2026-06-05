@@ -111,13 +111,21 @@ def _read_csv_transcript(filepath: Path) -> str:
 def normalize_text(text: str) -> str:
     """
     評測用正規化：
-    1. 移除時間戳（[HH:MM:SS]、[MM:SS] 格式）
-    2. 全形數字 → 半形
-    3. 移除標點符號與空白（保留中文字、英數字）
-    4. 英文大寫 → 小寫
+    1. 移除行首講者標記（B: / H: / ? 等）——GT 標註，非語音內容
+    2. 移除方括號標註（[HH:MM:SS] 時間戳、[noise] 等）與 STT 講者標記【…】
+    3. 全形數字 → 半形
+    4. 移除標點符號與空白（保留中文字、英數字）
+    5. 英文大寫 → 小寫
+
+    註：講者/標註剝除規則與 experiments/llm_correction_poc/batch_eval.py 的
+    normalize_for_cer 對齊，確保 lab UI 與批次評測 CER 一致。
     """
-    # 移除時間戳
-    text = re.sub(r"\[\d{1,2}:\d{2}(:\d{2})?\]", "", text)
+    # 移除行首講者標記（B: / H: / G: / ? 等），避免標記字母被當成漏字誤計
+    text = re.sub(r"^\s*[A-Za-z?]:\s*", "", text, flags=re.MULTILINE)
+    # 移除方括號標註（含時間戳 [12:34]、[noise]、[unclear] 等）
+    text = re.sub(r"\[[^\]]*\]", "", text)
+    # 移除 STT 講者標記【講者X | 時間】
+    text = re.sub(r"【[^】]*】", "", text)
     # 全形數字轉半形
     text = text.translate(str.maketrans("０１２３４５６７８９", "0123456789"))
     # 全形英文轉半形
@@ -188,11 +196,10 @@ def calculate_cer(reference: str, hypothesis: str) -> Dict:
 
     if JIWER_OK:
         try:
-            # jiwer.process_characters 給出精確 sub/del/ins 分解
-            out = jiwer.process_characters(
-                " ".join(list(ref_norm)),
-                " ".join(list(hyp_norm)),
-            )
+            # jiwer.process_characters 直接逐字元對齊，給出精確 sub/del/ins 分解。
+            # 注意：不可用 " ".join(list(...)) 把字元用空格隔開——那會讓每個
+            # 插入/刪除多算一個空格 token（del/ins 約 2 倍），嚴重灌水 CER。
+            out = jiwer.process_characters(ref_norm, hyp_norm)
             sub  = out.substitutions
             del_ = out.deletions
             ins  = out.insertions

@@ -236,6 +236,7 @@ def run_batch(args):
                 enable_car_norm=enable_car,
                 enable_dict=enable_dict,
                 enable_llm=enable_llm,
+                enable_number_norm=not args.no_number_norm,
                 llm_model=args.llm_model,
                 llm_strictness=args.llm_strictness,
                 engine_hint=args.engine_label,
@@ -454,6 +455,8 @@ def main():
     p.add_argument("--llm-model", default="gemini-2.5-flash")
     p.add_argument("--llm-strictness", default="conservative",
                    choices=["strict", "conservative", "balanced"])
+    p.add_argument("--no-number-norm", action="store_true",
+                   help="關閉 number_norm（A1 量測用；預設仍開以維持既有行為）")
     args = p.parse_args()
     run_batch(args)
 

@@ -151,10 +151,11 @@ def scan_dataset(audio_dir: Path, gt_dir: Path, existing_notes: dict[str, str]) 
 
         # 對應的 GT 檔
         gt_path = gt_dir / f"{parsed['stem']}.txt"
-        has_gt = gt_path.exists()
 
         duration = get_audio_duration(audio_path)
         gt_chars, speaker_lines = count_gt_chars(gt_path)
+        # has_gt 需「存在且內容非空」——空白 placeholder 不算已標註（否則空檔會被當成已 GT）
+        has_gt = gt_path.exists() and gt_chars > 0
 
         row = {
             "id": parsed["id"],

@@ -48,15 +48,61 @@ REPORTS_DIR = PROJECT_ROOT / "experiments" / "finetune_runs"
 # ══════════════════════════════════════════════════════════════════════
 # 推論
 # ══════════════════════════════════════════════════════════════════════
+def _apply_lora(model, checkpoint_path: Path, device: str):
+    """把 fine-tuned checkpoint 套進 AutoModel（in-place）。checkpoint 不存在則用原始模型。"""
+    import torch
+    if not checkpoint_path.exists():
+        print(f"   ⚠️ checkpoint 不存在，改用原始 FunAudioLLM/SenseVoiceSmall")
+        return
+    try:
+        state_dict = torch.load(checkpoint_path, map_location=device, weights_only=False)
+        if isinstance(state_dict, dict) and "lora_state_dict" in state_dict:
+            from peft import LoraConfig, get_peft_model, TaskType, set_peft_model_state_dict
+            lora_config = LoraConfig(
+                r=32, lora_alpha=64,
+                target_modules=["q_proj", "k_proj", "v_proj", "out_proj",
+                                "linear_q", "linear_k", "linear_v", "linear_out"],
+                lora_dropout=0.05, bias="none",
+                task_type=TaskType.FEATURE_EXTRACTION,
+            )
+            wrapped = get_peft_model(model.model, lora_config)
+            set_peft_model_state_dict(wrapped, state_dict["lora_state_dict"])
+            model.model = wrapped
+            print(f"   ✅ LoRA checkpoint 載入成功")
+        else:
+            model.model.load_state_dict(state_dict, strict=False)
+            print(f"   ✅ full state_dict 載入成功")
+    except Exception as e:
+        print(f"   ⚠️ 載入 checkpoint 失敗: {e}；改用原始模型繼續")
+
+
+def _audio_duration_sec(sample: dict, audio_path: str) -> float:
+    """取音檔長度（秒）。優先用 funasr jsonl 的 source_len(ms)，否則探測檔案，失敗回 0。"""
+    sl = sample.get("source_len")
+    if sl:
+        return float(sl) / 1000.0
+    try:
+        import soundfile as sf
+        info = sf.info(audio_path)
+        return info.frames / info.samplerate
+    except Exception:
+        return 0.0
+
+
 def run_inference(
     checkpoint_path: Path,
     test_samples: list[dict],
     out_dir: Path,
     device: str = "auto",
+    chunk_sec: int = 45,
 ) -> dict:
     """
     用 fine-tuned checkpoint 對 test_samples 跑推論，輸出至 out_dir/{id}.txt
     回傳 {success, failed, elapsed_sec}
+
+    chunk_sec: 依長度閘控的 VAD 切段門檻（秒）。音檔 > chunk_sec 才走 fsmn-vad 切段
+        （max_single_segment_time=chunk_sec）+ merge_vad，治長段 under-generation；
+        短段不切（實測 VAD 對短段反而傷，見 S1a devlog）。0=一律不切（舊行為）。
     """
     try:
         from funasr import AutoModel
@@ -72,54 +118,47 @@ def run_inference(
         else:
             device = "cpu"
 
-    print(f"📦 載入 checkpoint: {checkpoint_path} (device={device})")
-    model = AutoModel(
-        model="FunAudioLLM/SenseVoiceSmall", hub="hf",
-        device=device, disable_update=True,
-    )
-    if not checkpoint_path.exists():
-        print(f"   ⚠️ checkpoint 不存在，改用原始 FunAudioLLM/SenseVoiceSmall")
-    else:
-        # 載入 fine-tuned 版本
-        try:
-            state_dict = torch.load(checkpoint_path, map_location=device, weights_only=False)
-            if isinstance(state_dict, dict) and "lora_state_dict" in state_dict:
-                # PEFT LoRA checkpoint：先把 base.model 包成 PEFT model 再 load
-                from peft import LoraConfig, get_peft_model, TaskType, set_peft_model_state_dict
-                lora_config = LoraConfig(
-                    r=32, lora_alpha=64,
-                    target_modules=["q_proj", "k_proj", "v_proj", "out_proj",
-                                    "linear_q", "linear_k", "linear_v", "linear_out"],
-                    lora_dropout=0.05, bias="none",
-                    task_type=TaskType.FEATURE_EXTRACTION,
-                )
-                wrapped = get_peft_model(model.model, lora_config)
-                set_peft_model_state_dict(wrapped, state_dict["lora_state_dict"])
-                # 包裝後 base.model 已被 wrapped 取代（peft 設計）
-                # 但 base.generate 在內部用 self.model.forward → 需要 base.model = wrapped
-                model.model = wrapped
-                print(f"   ✅ LoRA checkpoint 載入成功")
-            else:
-                model.model.load_state_dict(state_dict, strict=False)
-                print(f"   ✅ full state_dict 載入成功")
-        except Exception as e:
-            print(f"   ⚠️ 載入 checkpoint 失敗: {e}")
-            print(f"   改用原始模型繼續")
+    print(f"📦 載入 checkpoint: {checkpoint_path} (device={device}, "
+          f"chunk_sec={chunk_sec}{'（一律不切）' if chunk_sec <= 0 else f'：>{chunk_sec}s 才切段'})")
+    base = AutoModel(model="FunAudioLLM/SenseVoiceSmall", hub="hf",
+                     device=device, disable_update=True)
+    _apply_lora(base, checkpoint_path, device)
+
+    # 長段專用（VAD 切段）模型：lazy 載入，僅在遇到長段時才建立
+    _vad_model = {"m": None}
+
+    def get_vad_model():
+        if _vad_model["m"] is None:
+            print(f"   ↳ 載入長段 VAD 切段模型（max_single_segment_time={chunk_sec}s）")
+            m = AutoModel(model="FunAudioLLM/SenseVoiceSmall", hub="hf",
+                          device=device, disable_update=True,
+                          vad_model="fsmn-vad",
+                          vad_kwargs={"max_single_segment_time": chunk_sec * 1000})
+            _apply_lora(m, checkpoint_path, device)
+            _vad_model["m"] = m
+        return _vad_model["m"]
 
     out_dir.mkdir(parents=True, exist_ok=True)
     success = failed = 0
+    n_chunked = 0
     t0 = time.time()
     for i, s in enumerate(test_samples, 1):
         # 兼容 jsonl 兩種格式：HF (id/audio_filepath) 與 FunASR (key/source)
         sid = s.get("id") or s.get("key", f"unknown_{i}")
         audio_path = s.get("audio_filepath") or s.get("source")
         out_path = out_dir / f"{sid}.txt"
+        dur = _audio_duration_sec(s, audio_path)
+        use_vad = chunk_sec > 0 and dur > chunk_sec
+        if use_vad:
+            n_chunked += 1
         try:
+            model = get_vad_model() if use_vad else base
             results = model.generate(
                 input=audio_path,
                 cache={},
                 language="zh",
                 use_itn=True,
+                merge_vad=use_vad,
             )
             if not results:
                 txt = ""
@@ -131,7 +170,8 @@ def run_inference(
             txt = re.sub(r"<\|[^|]+\|>", "", txt).strip()
             out_path.write_text(txt, encoding="utf-8")
             success += 1
-            print(f"  [{i:3}/{len(test_samples)}] {sid}: {len(txt)} 字  {txt[:40]!r}")
+            tag = " ✂️chunk" if use_vad else ""
+            print(f"  [{i:3}/{len(test_samples)}] {sid}: {len(txt)} 字{tag}  {txt[:36]!r}")
         except Exception as e:
             failed += 1
             print(f"  [{i:3}/{len(test_samples)}] {sid}: ❌ {str(e)[:80]}")
@@ -139,6 +179,7 @@ def run_inference(
     return {
         "success":     success,
         "failed":      failed,
+        "chunked":     n_chunked,
         "elapsed_sec": round(time.time() - t0, 1),
     }
 
@@ -192,6 +233,9 @@ def main():
                     help="test set jsonl 路徑（B1 產出）")
     ap.add_argument("--baselines", default="sensevoice,gemini25pro",
                     help="對照基準引擎（逗號分隔）")
+    ap.add_argument("--chunk-sec", type=int, default=45,
+                    help="依長度閘控的 VAD 切段門檻（秒）：音檔 >此值才切段（治長段 under-generation）；"
+                         "短段不切（VAD 對短段反而傷）。0=一律不切（舊行為）")
     args = ap.parse_args()
 
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -210,7 +254,8 @@ def main():
 
         ckpt_path = Path(args.checkpoint) if args.checkpoint else Path("(none)")
         out_dir = STT_DIR / args.label
-        info = run_inference(ckpt_path, test_samples, out_dir, device=args.device)
+        info = run_inference(ckpt_path, test_samples, out_dir, device=args.device,
+                             chunk_sec=args.chunk_sec)
         print()
         print(f"📊 推論結果: success={info.get('success')}/{len(test_samples)} "
               f"failed={info.get('failed')} 耗時={info.get('elapsed_sec')}s")

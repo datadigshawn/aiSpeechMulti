@@ -40,20 +40,21 @@
 
 ```
 aiSpeechMulti/
-├── app_api.py             # FastAPI 即時層 (1570 LOC, :8000)
+├── app_api.py             # FastAPI 即時層 (1723 LOC, :8000)
 ├── app_dashboard.py       # ⚠️ deprecated 過渡頁
-├── app_lab.py             # Streamlit 研究層 (4048 LOC, :8501, 9 頁)
+├── app_lab.py             # Streamlit 研究層 (4476 LOC, :8501, 9 頁)
 ├── aispeech/              # python -m aispeech 統一 CLI
 │   ├── __init__.py
 │   └── __main__.py        # thin wrapper → scripts/*.py
-├── scripts/               # 30+ 工具腳本
-│   ├── models/            # 6 個 STT 引擎 wrapper
+├── scripts/               # 36 支工具腳本
+│   ├── models/            # 6 個 STT 引擎 wrapper + 共用設定
 │   │   ├── model_google_stt.py
 │   │   ├── model_scribe.py        # 含 RT WebSocket
 │   │   ├── model_sensevoice.py
 │   │   ├── model_sensevoice_ft.py # fine-tuned
 │   │   ├── model_whisper.py
-│   │   └── model_gemini.py
+│   │   ├── model_gemini.py
+│   │   └── radio_stt_config.py    # 引擎共用辨識參數
 │   ├── post_process.py    # 後處理 4 階段（car_norm → dict → contextual → LLM）
 │   ├── batch_stt_eval.py  # 批次跑分（manifest.csv → 6 引擎）
 │   ├── batch_inference.py # 批次推論協調
@@ -83,10 +84,10 @@ aiSpeechMulti/
 │   ├── contextual_corrections.json   # 共用基底
 │   └── correction_dict.py            # RADIO_REPLACEMENT_RULES
 ├── data/
-│   ├── aiSpeechMulti.db   # SQLite 主庫（events / audio_files / transcriptions / FTS5 / keywords）
+│   ├── aiSpeechMulti.db   # SQLite 主庫（events / audio_files / transcriptions / FTS5 / keywords / usage_log）
 │   └── audio_archive/     # 🔒 (gitignored)
 ├── experiments/
-│   ├── golden_dataset/    # 63 段黃金語料 + manifest.csv
+│   ├── golden_dataset/    # 157 段黃金語料 + manifest.csv
 │   ├── llm_correction_poc/ # CER 評測報告 + cer_history.csv
 │   ├── finetune_runs/     # 🔒 LoRA checkpoint
 │   └── regression_cases/
@@ -94,7 +95,7 @@ aiSpeechMulti/
 │   ├── docker-compose.yml
 │   ├── dashboards/aiSpeechMulti.json
 │   └── datasources/
-├── static/                # FastAPI 前端 4 頁（landing/capture/monitor/display）
+├── static/                # FastAPI 前端 5 頁（index/landing/monitor/display/theme-preview）
 ├── docs/
 │   ├── INTERFACES.md      # ★ 介面總表，必讀
 │   ├── architecture-review-2026-05-07.md
@@ -258,7 +259,7 @@ FastAPI asyncio
 完整見 [docs/architecture-review-2026-05-07.md](docs/architecture-review-2026-05-07.md)：
 
 - **Critical**：~~無 schema migration~~（✅ 2026-05-07 完成）、~~零自動化測試~~（✅ 2026-05-08 完成 56 tests + CI）
-- **Important**：無 STT 引擎抽象層、`app_lab.py` 4048 LOC god-file、`app_api.py` 1570 LOC、GCP project ID 硬編碼 8 處、離線模式規劃/ fork 未整合
+- **Important**：無 STT 引擎抽象層、`app_lab.py` 4476 LOC god-file、`app_api.py` 1723 LOC、GCP project ID 硬編碼 8 處、離線模式規劃/ fork 未整合
 - **Suggestion**：死檔 `data/aiSpeech.db`、WORKLOG 移到 `docs/devlog/`、清掉沒用的 psycopg2/sqlalchemy
 
 ### 執行測試（2026-05-08 引入）
@@ -332,4 +333,4 @@ monitor.html 頂部 status bar 顯示：
 
 ---
 
-*最後更新：2026-05-07*
+*最後更新：2026-06-04*

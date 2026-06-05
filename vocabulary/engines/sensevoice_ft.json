@@ -5,7 +5,7 @@
   "_notes": [
     "v2 訓練資料 113 段（5/31, G00xx 系列），對比 v1 46 段改善 -2.70pp",
     "fine-tuned 模型已內化詞彙正規化（OCC / G05 等英數縮寫）",
-    "number_norm 在 sensevoice_ft 上會 over-correct（樣本 002/G0063/G0068 反而退步）— 整體 car_norm+dict 略退 0.12pp",
+    "number_norm（2026-06-04 A1 配對檢定複查）：v2_157gt OFF -0.23pp 不顯著（噪音）；r32_full OFF +0.78pp 顯著變差 → number_norm 在 ft 上淨效益中性偏正，維持開啟。原『over-correct』結論未通過顯著性檢定，已撤回。",
     "LLM 後修正才是 v2 上的主力（+0.78pp 至 25.42%），emergency 類別改善最大（+4.35pp）",
     "loudnorm 音訊預處理仍對 SenseVoice 系列有效"
   ],

@@ -25,6 +25,16 @@ class TestNormalizeText:
     def test_lowercases_english(self):
         assert normalize_text("HELLO") == "hello"
 
+    def test_strips_speaker_labels(self):
+        # 行首講者標記不應洩漏成字元（否則被當漏字誤計）
+        assert normalize_text("B: 收到") == "收到"
+        assert normalize_text("H: G07站回報") == "g07站回報"
+        # 多行多講者
+        assert normalize_text("H: 呼叫OCC\nB: 聽到請回答") == "呼叫occ聽到請回答"
+
+    def test_strips_bracket_annotations(self):
+        assert normalize_text("占線中[noise]請稍候") == "占線中請稍候"
+
 
 class TestCalculateCER:
     """主 CER API：calculate_cer(ref, hyp) → dict."""
@@ -52,19 +62,17 @@ class TestCalculateCER:
         assert r["n_errors"] == 1
         assert abs(r["cer"] - 1 / 3) < 0.001
 
-    def test_insertion_counts_doubled_due_to_join_quirk(self):
-        """ref=ab, hyp=abc → ins=2（已知 quirk：cer_engine 用 ' '.join(list(s)) 把字
-        以空格分隔再餵 jiwer.process_characters，導致每個 length 變化會多算一個空格 token。
-        這對所有引擎一視同仁，相對排序不變，但絕對 CER 略偏高。"""
+    def test_insertion_counts_exact(self):
+        """ref=ab, hyp=abc → ins=1（直接逐字元對齊，不再有空格 join 加倍）。"""
         r = calculate_cer("ab", "abc")
-        assert r["ins"] == 2  # 空格 + c
+        assert r["ins"] == 1
         assert r["sub"] == 0
         assert r["del_"] == 0
 
-    def test_deletion_counts_doubled_due_to_join_quirk(self):
-        """ref=abc, hyp=ab → del=2（同上 quirk）。"""
+    def test_deletion_counts_exact(self):
+        """ref=abc, hyp=ab → del=1（直接逐字元對齊，不再有空格 join 加倍）。"""
         r = calculate_cer("abc", "ab")
-        assert r["del_"] == 2  # 空格 + c
+        assert r["del_"] == 1
         assert r["sub"] == 0
         assert r["ins"] == 0
 
