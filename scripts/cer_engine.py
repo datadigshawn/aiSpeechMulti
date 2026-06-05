@@ -33,6 +33,14 @@ try:
 except ImportError:
     JIEBA_OK = False
 
+try:
+    # 與 batch_eval.normalize_for_cer 對齊：簡繁統一（s2twp），否則 lab UI 會把
+    # 模型輸出的簡體（确/换/没…）誤計為錯誤，與批次評測數字不一致。
+    from opencc import OpenCC
+    _CC = OpenCC("s2twp")
+except Exception:
+    _CC = None
+
 
 # ============================================================================
 # 檔案讀取（支援 .txt 與 .csv）
@@ -139,6 +147,9 @@ def normalize_text(text: str) -> str:
     text = re.sub(r"[^\u4e00-\u9fff\w]", "", text)
     # 英文小寫
     text = text.lower()
+    # 簡繁統一（與 batch_eval 對齊；評分時 ref/hyp 都套，繁簡差異不計為錯誤）
+    if _CC is not None:
+        text = _CC.convert(text)
     return text
 
 

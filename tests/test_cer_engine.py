@@ -33,7 +33,16 @@ class TestNormalizeText:
         assert normalize_text("H: 呼叫OCC\nB: 聽到請回答") == "呼叫occ聽到請回答"
 
     def test_strips_bracket_annotations(self):
-        assert normalize_text("占線中[noise]請稍候") == "占線中請稍候"
+        # 方括號標註應被剝除（與是否裝 opencc 無關 → 比對「有/無標註」等價）
+        assert normalize_text("占線中[noise]請稍候") == normalize_text("占線中請稍候")
+
+    def test_simplified_to_traditional(self):
+        # 簡繁統一（與 batch_eval 對齊）：模型吐簡體不應被當錯誤
+        from scripts.cer_engine import _CC
+        if _CC is None:
+            import pytest
+            pytest.skip("opencc 未安裝")
+        assert normalize_text("确认换车") == normalize_text("確認換車")
 
 
 class TestCalculateCER:
