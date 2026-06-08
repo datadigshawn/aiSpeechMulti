@@ -230,14 +230,50 @@ def setup_model(device: str, lora_rank: int = 8, mode: str = "lora"):
 # ══════════════════════════════════════════════════════════════════════
 # 訓練 Dataset / Collate
 # ══════════════════════════════════════════════════════════════════════
-class AudioFeatureDataset:
-    """讀 jsonl + 音檔 → 用 SenseVoice WavFrontend 算 (T, 560) 特徵"""
+def _speed_perturb(wav, sr: int, factors=(0.9, 1.0, 1.1)):
+    """波形層速度擾動：隨機 0.9/1.0/1.1×（同時改變語速與音高），小資料增強標準做法。"""
+    import random
+    import torchaudio
+    f = random.choice(factors)
+    if f == 1.0:
+        return wav
+    return torchaudio.functional.resample(wav, sr, int(sr / f))
 
-    def __init__(self, jsonl_path: Path, frontend, target_sr: int = 16000, max_dur: float = 30.0):
+
+def _spec_augment(feat, time_masks: int = 2, time_frac: float = 0.05,
+                  freq_masks: int = 2, freq_width: int = 24):
+    """特徵層 SpecAugment：時間/頻率遮罩（遮成 0，即 CMVN 後的均值）。feat: (T, F)。"""
+    import random
+    import torch
+    T, F = feat.shape
+    feat = feat.clone()
+    for _ in range(time_masks):                       # 時間遮罩
+        w = max(1, int(T * time_frac))
+        if T - w <= 0:
+            break
+        t0 = random.randint(0, T - w)
+        feat[t0:t0 + w, :] = 0.0
+    for _ in range(freq_masks):                       # 頻率（通道）遮罩
+        w = random.randint(1, max(1, freq_width))
+        if F - w <= 0:
+            break
+        f0 = random.randint(0, F - w)
+        feat[:, f0:f0 + w] = 0.0
+    return feat
+
+
+class AudioFeatureDataset:
+    """讀 jsonl + 音檔 → 用 SenseVoice WavFrontend 算 (T, 560) 特徵。
+    augment=True 時套用 speed perturb（波形）+ SpecAugment（特徵）——僅用於 train，
+    val/test 一律 False。每次 __getitem__ 隨機，故 epoch 間看到不同擾動。"""
+
+    def __init__(self, jsonl_path: Path, frontend, target_sr: int = 16000,
+                 max_dur: float = 30.0, augment: bool = False):
         self.samples = JSONLDataset(jsonl_path).samples
         self.frontend = frontend     # 來自 base.kwargs["frontend"]，WavFrontend
         self.target_sr = target_sr
         self.max_samples = int(max_dur * target_sr)
+        self.augment = augment
 
     def __len__(self):
         return len(self.samples)
@@ -253,15 +289,20 @@ class AudioFeatureDataset:
         if sr != self.target_sr:
             import torchaudio
             wav = torchaudio.functional.resample(wav, sr, self.target_sr)
+        if self.augment:    # 波形層：速度擾動（在截斷前）
+            wav = _speed_perturb(wav, self.target_sr)
         if wav.shape[0] > self.max_samples:
             wav = wav[:self.max_samples]
         # WavFrontend(wav (1,T_samples), lens) → speech (1, T_frames, 560)
         wav_b = wav.unsqueeze(0)
         lens = torch.tensor([wav.shape[0]])
         speech, _ = self.frontend(wav_b, lens)  # (1, T, 560)
+        speech = speech.squeeze(0)              # (T, 560)
+        if self.augment:    # 特徵層：SpecAugment
+            speech = _spec_augment(speech)
         return {
             "key":     s.key,
-            "speech":  speech.squeeze(0),  # (T, 560)
+            "speech":  speech,
             "text":    s.text,
         }
 
@@ -442,6 +483,8 @@ def main():
     ap.add_argument("--lr", type=float, default=1e-4)
     ap.add_argument("--gradient-accum", type=int, default=4)
     ap.add_argument("--early-stop-patience", type=int, default=3)
+    ap.add_argument("--augment", action="store_true",
+                    help="訓練資料增強：speed perturb（0.9/1.1×）+ SpecAugment（僅 train，不動 val）")
     ap.add_argument("--device", choices=["auto", "cuda", "mps", "cpu"], default="auto")
     ap.add_argument("--mixed-precision", choices=["auto", "fp16", "bf16", "fp32"], default="auto")
     ap.add_argument("--check-env-only", action="store_true", help="只檢查環境不訓練")
@@ -514,8 +557,10 @@ def main():
     frontend = base.kwargs.get("frontend")
     if frontend is None:
         raise RuntimeError("base.kwargs['frontend'] 不存在（WavFrontend）")
-    train_audio_ds = AudioFeatureDataset(train_jsonl, frontend=frontend)
+    train_audio_ds = AudioFeatureDataset(train_jsonl, frontend=frontend, augment=args.augment)
     val_audio_ds = AudioFeatureDataset(val_jsonl, frontend=frontend) if val_jsonl.exists() else None
+    if args.augment:
+        print("   🔀 資料增強: ON（speed perturb + SpecAugment，僅 train）")
     collate = make_collate(tokenizer)
 
     train_loader = DataLoader(
