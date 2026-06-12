@@ -473,6 +473,7 @@ def init_session_state():
         "results":        [],
         "use_vocabulary":  True,
         "merge_results":   False,
+        "control_center_format": False,
         "preproc_vad":     False,
         "preproc_denoise": False,
         "preproc_vad_thr": 0.5,
@@ -530,16 +531,8 @@ def setup_credentials():
 # 工具：從檔名解析日期時間
 # ============================================================================
 def parse_filename_datetime(stem: str) -> datetime | None:
-    match = re.search(r'(20\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})', stem)
-    if not match:
-        return None
-    try:
-        return datetime(
-            int(match.group(1)), int(match.group(2)), int(match.group(3)),
-            int(match.group(4)), int(match.group(5)), int(match.group(6)),
-        )
-    except ValueError:
-        return None
+    from utils.control_center_export import parse_filename_datetime as _parse_dt
+    return _parse_dt(stem)
 
 
 # ============================================================================
@@ -1148,16 +1141,28 @@ def render_speech_page():
     # ── Step 7：彙整輸出 ─────────────────────────────────────────────────
     st.write("")
     st.subheader("Step 7　彙整輸出")
-    merge_results = st.checkbox(
-        "將辨識結果彙整到單一檔案",
-        value=st.session_state.get("merge_results", False),
-        key="merge_checkbox",
-        help=(
-            "依照檔名日期+時間排序，將所有辨識結果合併為一個文字檔。\n\n"
-            "輸出資料夾命名格式：{事件名}_{日期}_{開始時分}-{結束時分}\n"
-            "例：捷運火災_20251222_1922-1947"
-        ),
-    )
+    col_merge, col_occ = st.columns(2)
+    with col_merge:
+        merge_results = st.checkbox(
+            "將辨識結果彙整到單一檔案",
+            value=st.session_state.get("merge_results", False),
+            key="merge_checkbox",
+            help=(
+                "依照檔名日期+時間排序，將所有辨識結果合併為一個文字檔。\n\n"
+                "輸出資料夾命名格式：{事件名}_{日期}_{開始時分}-{結束時分}\n"
+                "例：捷運火災_20251222_1922-1947"
+            ),
+        )
+    with col_occ:
+        control_center_format = st.checkbox(
+            "產出行控中心格式",
+            value=st.session_state.get("control_center_format", False),
+            key="control_center_format_checkbox",
+            help=(
+                "依檔名時間排序，產出 Word 檔。格式包含標題日期、時間、發話者、"
+                "通聯內容、備註；發話者與備註預設留空。"
+            ),
+        )
 
     event_name = st.session_state.get("event_name", "")
     if merge_results:
@@ -1193,6 +1198,7 @@ def render_speech_page():
                 st.write(f"    - `{f}`")
         st.write(f"- **`has_files`**: `{has_files}`")
         st.write(f"- **`merge_results`**: `{merge_results}`")
+        st.write(f"- **`control_center_format`**: `{control_center_format}`")
         st.write(f"- **`event_name`**: `{event_name.strip() or '(空)'}`")
         st.write(f"- **`can_execute`** (按鈕 enabled 必要條件): `{can_execute}`")
         yt_dl = st.session_state.get("yt_downloaded", [])
@@ -1211,6 +1217,7 @@ def render_speech_page():
             st.session_state["server_files"]   = selected_server_files
             st.session_state["use_vocabulary"] = use_vocabulary
             st.session_state["merge_results"]  = merge_results
+            st.session_state["control_center_format"] = control_center_format
             st.session_state["event_name"]     = event_name.strip()
             st.session_state["results"]             = []
             st.session_state["recognition_done"]    = False
@@ -1520,7 +1527,8 @@ def _render_report_section(all_results, filename_datetimes, output_dir,
 
 
 def _render_results_section(all_results, total, output_dir, timestamp,
-                             merge_results, event_name, filename_datetimes):
+                             merge_results, event_name, filename_datetimes,
+                             control_center_format=False):
     """顯示辨識摘要、下載按鈕、危害等級設定與返回首頁按鈕。"""
     success_count = sum(1 for r in all_results if r["status"] == "success")
     error_count   = total - success_count
@@ -1599,6 +1607,27 @@ def _render_results_section(all_results, total, output_dir, timestamp,
             key="dl_all",
         )
 
+    if control_center_format:
+        try:
+            from utils.control_center_export import export_control_center_docx
+            control_center_file = export_control_center_docx(
+                all_results=all_results,
+                filename_datetimes=filename_datetimes,
+                output_dir=output_dir,
+                timestamp=timestamp,
+                event_name=event_name,
+            )
+            st.info(f"📄 行控中心格式 Word 檔已儲存：`{control_center_file.name}`")
+            st.download_button(
+                f"⬇️ 下載行控中心格式（{control_center_file.name}）",
+                data=control_center_file.read_bytes(),
+                file_name=control_center_file.name,
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                key="dl_control_center_docx",
+            )
+        except Exception as occ_err:
+            st.warning(f"⚠️ 行控中心格式產出失敗：{occ_err}")
+
     # ── 📝 重點整理（LLM 報告）────────────────────────────────────────────
     _render_report_section(
         all_results=all_results,
@@ -1647,6 +1676,7 @@ def render_running_page():
     sub_model      = st.session_state["sub_model"]
     use_vocabulary = st.session_state.get("use_vocabulary", True)
     merge_results  = st.session_state.get("merge_results", False)
+    control_center_format = st.session_state.get("control_center_format", False)
     event_name     = st.session_state.get("event_name", "").strip()
     uploaded_files = st.session_state.get("uploaded_files") or []
     server_files   = st.session_state.get("server_files") or []
@@ -1663,11 +1693,12 @@ def render_running_page():
     st.title("執行語音辨識")
     vocab_badge   = "🟢 詞彙優化：開啟" if use_vocabulary else "⚫ 詞彙優化：關閉"
     merge_badge   = f"　　🔵 彙整輸出：{event_name}" if (merge_results and event_name) else ""
+    occ_badge     = "　　🟣 行控中心格式：開啟" if control_center_format else ""
     _preproc_parts = []
     if use_vad:     _preproc_parts.append(f"VAD({vad_threshold:.2f})")
     if use_denoise: _preproc_parts.append("降噪")
     preproc_badge = f"　　🔧 前處理：{'+'.join(_preproc_parts)}" if _preproc_parts else ""
-    st.write(f"模型：**{model_label}**　　子模型：`{sub_model}`　　{vocab_badge}{merge_badge}{preproc_badge}")
+    st.write(f"模型：**{model_label}**　　子模型：`{sub_model}`　　{vocab_badge}{merge_badge}{occ_badge}{preproc_badge}")
     st.divider()
 
     # ── 全程進度元件（提前建立，確保任何階段都有 UI 反饋）──────────────────
@@ -1727,6 +1758,7 @@ def render_running_page():
             merge_results        = merge_results,
             event_name           = event_name,
             filename_datetimes   = st.session_state.get("recognition_filename_datetimes", {}),
+            control_center_format = control_center_format,
         )
         return
 
@@ -1945,14 +1977,17 @@ def render_running_page():
 
                 transcript = result.get("transcript", "")
 
-                # SenseVoice / Whisper 輸出為簡體中文，轉換為繁體中文（台灣用詞）
-                if model_type in ("sensevoice", "sensevoice_ft", "whisper") and transcript:
+                # 所有輸出落檔前統一轉為正體中文（台灣用詞）
+                if transcript:
                     try:
                         import opencc as _opencc
                         _cc = _opencc.OpenCC("s2twp")
                         transcript = _cc.convert(transcript)
-                    except ImportError:
-                        pass
+                    except ImportError as _occ_err:
+                        raise RuntimeError(
+                            "缺少 opencc-python-reimplemented，無法保證輸出為正體中文。"
+                            "請先安裝 requirements.txt 後再執行。"
+                        ) from _occ_err
 
                 # ── 後處理 Pipeline（Step 6）─────────────────────────────
                 # 讀取使用者在 Step 6 設定的開關
@@ -2213,6 +2248,7 @@ def render_running_page():
             merge_results      = merge_results,
             event_name         = event_name,
             filename_datetimes = filename_datetimes,
+            control_center_format = control_center_format,
         )
 
     except Exception as e:
@@ -3300,7 +3336,26 @@ def _render_audio_eval_mode(_json):
 
 
 def _render_text_compare_mode(_json):
-    """Tab B：純文稿比對（直接上傳 ASR 結果 + 標準文稿進行 CER 比對）。"""
+    """Tab B：純文稿比對（單一 / 批次）。"""
+
+    mode = st.radio(
+        "比對模式",
+        options=["single", "batch"],
+        format_func=lambda m: "🗎 單一檔案比對" if m == "single" else "📋 批次比對",
+        horizontal=True,
+        key="tc_mode",
+        label_visibility="collapsed",
+    )
+    st.divider()
+
+    if mode == "single":
+        _render_text_compare_single(_json)
+    else:
+        _render_text_compare_batch(_json)
+
+
+def _render_text_compare_single(_json):
+    """單一純文稿比對（原有邏輯）。"""
 
     # ── 若已完成，顯示結果 ────────────────────────────────────────────────
     if st.session_state.get("eval_text_done") and st.session_state.get("eval_text_results"):
@@ -3402,6 +3457,185 @@ def _render_text_compare_mode(_json):
         st.info("請先上傳標準文稿（Step A）與辨識結果文稿（Step B）。")
 
 
+def _render_text_compare_batch(_json):
+    """批次純文稿比對（多對多，Stem Prefix 自動配對 + 預覽確認）。"""
+    import tempfile, os
+    import pandas as pd
+    from scripts.cer_engine import (
+        read_transcript_file,
+        match_stems_by_prefix,
+        compare_multiple_texts,
+    )
+
+    # ── 若已完成，顯示結果 ─────────────────────────────────────────────────
+    if st.session_state.get("eval_text_batch_done") and st.session_state.get("eval_text_batch_results"):
+        meta = st.session_state.get("eval_text_batch_meta", {})
+        ts   = meta.get("timestamp", datetime.now().strftime("%Y%m%d_%H%M%S")).replace(" ", "_").replace(":", "")
+        _render_eval_results(
+            results      = st.session_state["eval_text_batch_results"],
+            case_name    = "批次文稿比對",
+            output_dir   = Path("."),
+            timestamp    = ts,
+            meta         = meta,
+            save_to_disk = False,
+            key_suffix   = "_batch",
+        )
+        st.divider()
+        if st.button("🔄 重新批次比對", key="eval_text_batch_reset"):
+            st.session_state["eval_text_batch_done"]    = False
+            st.session_state["eval_text_batch_results"] = None
+            st.session_state["eval_text_batch_meta"]    = {}
+            st.rerun()
+        return
+
+    st.write("")
+    st.info(
+        "**適用情境**：一次上傳多份 GT + ASR 文稿，自動依檔名配對計算整體與逐檔 CER。  \n"
+        "**配對規則**：ASR 檔名以 GT 檔名為**前綴**（Stem Prefix）。  \n"
+        "例如：`260603_..._072318.txt`  ↔  `260603_..._072318_senseVoice(4CER).txt`"
+    )
+    st.divider()
+
+    # ── Step A：上傳多份 GT ──────────────────────────────────────────────
+    st.subheader("Step A　上傳標準文稿（Ground Truth）")
+    st.caption("支援 .txt 或 .csv（自動讀取「辨識文字」欄）。可一次選取多個檔案。")
+    gt_files = st.file_uploader(
+        "選擇標準文稿（多個）",
+        type=["csv", "txt"],
+        accept_multiple_files=True,
+        key="tc_batch_gt_upload",
+    )
+
+    # ── Step B：上傳多份 ASR ─────────────────────────────────────────────
+    st.subheader("Step B　上傳辨識結果文稿")
+    st.caption("支援 .txt 或 .csv。可一次選取多個檔案。")
+    asr_files = st.file_uploader(
+        "選擇辨識結果文稿（多個）",
+        type=["csv", "txt"],
+        accept_multiple_files=True,
+        key="tc_batch_asr_upload",
+    )
+
+    if not gt_files or not asr_files:
+        st.info("請先上傳 Step A 標準文稿與 Step B 辨識結果文稿。")
+        return
+
+    # ── Step C：配對預覽 ─────────────────────────────────────────────────
+    st.subheader("Step C　配對預覽（請確認後再執行）")
+
+    gt_stems  = [Path(f.name).stem for f in gt_files]
+    asr_stems = [Path(f.name).stem for f in asr_files]
+
+    match_info    = match_stems_by_prefix(gt_stems, asr_stems)
+    matched       = match_info["matched"]        # [(gt_stem, asr_stem), ...]
+    unmatched_gt  = match_info["unmatched_gt"]   # [gt_stem, ...]
+    unmatched_asr = match_info["unmatched_asr"]  # [asr_stem, ...]
+
+    # 配對預覽表
+    preview_rows = []
+    for gt_s, asr_s in matched:
+        preview_rows.append({"狀態": "✅ 配對成功", "GT 檔名": gt_s, "ASR 檔名": asr_s})
+    for gt_s in unmatched_gt:
+        preview_rows.append({"狀態": "❌ GT 無配對", "GT 檔名": gt_s, "ASR 檔名": "—（找不到對應辨識文稿）"})
+    for asr_s in unmatched_asr:
+        preview_rows.append({"狀態": "⚠️ ASR 無配對", "GT 檔名": "—（找不到對應標準文稿）", "ASR 檔名": asr_s})
+
+    st.dataframe(pd.DataFrame(preview_rows), use_container_width=True, hide_index=True)
+    st.caption(
+        f"共 {len(gt_files)} 份 GT・{len(asr_files)} 份 ASR　→　"
+        f"✅ 配對 {len(matched)} 組・"
+        f"❌ GT 未配對 {len(unmatched_gt)} 份・"
+        f"⚠️ ASR 未配對 {len(unmatched_asr)} 份"
+    )
+
+    # ── 未配對告警 ───────────────────────────────────────────────────────
+    can_run = True
+
+    if unmatched_gt:
+        st.warning(
+            f"**⚠️ {len(unmatched_gt)} 份 GT 找不到對應辨識文稿，將不列入本次計算。**\n\n"
+            + "\n".join(f"- `{s}`" for s in unmatched_gt)
+            + "\n\n請確認辨識文稿的檔名是否以對應 GT 檔名為開頭。"
+            "確認後勾選下方核取方塊才能繼續。"
+        )
+        confirmed = st.checkbox(
+            f"我已確認上述 {len(unmatched_gt)} 份 GT 無需計算，繼續執行",
+            key="tc_batch_confirm_unmatched",
+        )
+        can_run = confirmed
+
+    if unmatched_asr:
+        st.info(
+            f"ℹ️ {len(unmatched_asr)} 份 ASR 無對應 GT，不列入計算（不影響結果）。"
+        )
+
+    if len(matched) == 0:
+        st.error("❌ 沒有任何成功配對，無法執行計算。請確認 GT 與 ASR 的檔案命名。")
+        can_run = False
+
+    # ── Step D：執行批次計算 ─────────────────────────────────────────────
+    st.subheader("Step D　執行批次準確率計算")
+
+    run_clicked = st.button(
+        f"📊 批次計算（{len(matched)} 對）",
+        type="primary",
+        key="tc_batch_run",
+        use_container_width=True,
+        disabled=not can_run,
+    )
+
+    if run_clicked:
+        gt_map  = {Path(f.name).stem: f for f in gt_files}
+        asr_map = {Path(f.name).stem: f for f in asr_files}
+        tmp_paths: list = []
+
+        def _save_tmp(uf):
+            suffix = Path(uf.name).suffix
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+            tmp.write(uf.getbuffer())
+            tmp.flush()
+            return tmp.name
+
+        with st.spinner(f"讀取 {len(matched)} 對文稿並計算 CER / WER..."):
+            try:
+                pairs_input = []
+                for gt_stem, asr_stem in matched:
+                    gt_tmp  = _save_tmp(gt_map[gt_stem])
+                    asr_tmp = _save_tmp(asr_map[asr_stem])
+                    tmp_paths.extend([gt_tmp, asr_tmp])
+
+                    gt_text  = read_transcript_file(Path(gt_tmp))
+                    asr_text = read_transcript_file(Path(asr_tmp))
+                    pairs_input.append((gt_text, asr_text, gt_stem, asr_stem))
+
+                results = compare_multiple_texts(pairs_input)
+
+                now = datetime.now()
+                meta = {
+                    "mode":          "batch_text_compare",
+                    "n_matched":     len(matched),
+                    "n_gt":          len(gt_files),
+                    "n_asr":         len(asr_files),
+                    "unmatched_gt":  unmatched_gt,
+                    "unmatched_asr": unmatched_asr,
+                    "timestamp":     now.strftime("%Y-%m-%d %H:%M:%S"),
+                }
+
+                st.session_state["eval_text_batch_done"]    = True
+                st.session_state["eval_text_batch_results"] = results
+                st.session_state["eval_text_batch_meta"]    = meta
+                st.rerun()
+
+            except Exception as e:
+                st.error(f"❌ 批次比對失敗：{e}")
+            finally:
+                for p in tmp_paths:
+                    try:
+                        os.unlink(p)
+                    except OSError:
+                        pass
+
+
 def _render_eval_results(
     results: dict,
     case_name: str,
@@ -3418,8 +3652,9 @@ def _render_eval_results(
 
     # ── 評測資訊摘要 ──────────────────────────────────────────────────────
     mode_label = {
-        "audio_asr":    "🎙️ 語音辨識 + 準確率計算",
-        "text_compare": "📄 純文稿比對",
+        "audio_asr":          "🎙️ 語音辨識 + 準確率計算",
+        "text_compare":       "📄 純文稿比對（單一）",
+        "batch_text_compare": "📋 純文稿批次比對",
     }.get(meta.get("mode", ""), "—")
 
     with st.expander("ℹ️ 評測資訊", expanded=True):
@@ -3431,6 +3666,19 @@ def _render_eval_results(
         elif meta.get("mode") == "text_compare":
             info_cols[1].markdown(f"**標準文稿**  \n{meta.get('gt_filename','—')}")
             info_cols[2].markdown(f"**辨識文稿**  \n{meta.get('asr_filename','—')}")
+        elif meta.get("mode") == "batch_text_compare":
+            n_matched = meta.get("n_matched", 0)
+            n_gt      = meta.get("n_gt", 0)
+            n_asr     = meta.get("n_asr", 0)
+            info_cols[1].markdown(f"**配對組數**  \n{n_matched} 組（GT {n_gt} 份 / ASR {n_asr} 份）")
+            skip_gt  = meta.get("unmatched_gt", [])
+            skip_asr = meta.get("unmatched_asr", [])
+            skip_note = ""
+            if skip_gt:
+                skip_note += f"GT 未配對 {len(skip_gt)} 份、"
+            if skip_asr:
+                skip_note += f"ASR 未配對 {len(skip_asr)} 份"
+            info_cols[2].markdown(f"**排除檔案**  \n{skip_note.rstrip('、') or '無'}")
         st.caption(f"評測時間：{meta.get('timestamp','—')}")
 
     st.divider()
@@ -3536,9 +3784,12 @@ def _render_eval_results(
     report_text = generate_text_report(case_name, results, meta=meta)
 
     _ts_label = timestamp.replace("-", "").replace(" ", "_").replace(":", "")[:15]
-    _fname    = case_name if case_name != "純文稿比對" else (
-        Path(meta.get("asr_filename", "compare")).stem
-    )
+    if case_name == "純文稿比對":
+        _fname = Path(meta.get("asr_filename", "compare")).stem
+    elif case_name == "批次文稿比對":
+        _fname = f"批次比對_{meta.get('n_matched', 0)}對"
+    else:
+        _fname = case_name
 
     with col_d1:
         st.download_button(
