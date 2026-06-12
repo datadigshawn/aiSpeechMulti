@@ -28,27 +28,34 @@ Bypass,equipment,18,2,Bypass,拜帕斯|百帕斯|偷拜PASS|bypas,旁路模式
 
 # ============================================================================
 # 車站代碼完整列表（綠線 G + 紅線 R）
+# 綠線實際編號：G0 起跳、無 G1/G2，含子碼 G8a/G10a（與 scripts/
+# station_code_corrector.py 的 STATION_CANON 及 GT 慣例一致；2026-06-12 校正）
+# GT 補零混用（G3/G03 皆合法），故 common_error 不收補零形互轉
 # ============================================================================
-G01,station_code,20,0,G-ling2-yi1,G零一|G 0 1|G洞一,北屯總站
-G02,station_code,20,0,G-ling2-er4,G零二|G 0 2|G洞二,舊社
-G03,station_code,20,0,G-ling2-san1,G零三|G 0 3|G洞三,松竹
-G04,station_code,20,0,G-ling2-si4,G零四|G 0 4|G洞四,四維國小
-G05,station_code,20,0,G-ling2-wu3,G零五|G 0 5|G洞五,文心崇德
-G06,station_code,20,0,G-ling2-liu4,G零六|G 0 6|G洞六,文心中清
-G07,station_code,20,0,G-ling2-qi1,G零七|G 0 7|G洞七,文華高中
-G08,station_code,20,0,G-ling2-ba1,G零八|G 0 8|G洞八,文心櫻花
-G08a,station_code,20,0,G-ling2-ba1-a,G零八a|G 0 8 a|G洞八a,文心櫻花站
-G09,station_code,20,0,G-ling2-jiu3,G零九|G 0 9|G洞九,市政府
-G10,station_code,20,0,G-yi1-ling2,G一零|G 1 0|G腰洞|G10,水安宮
-G10a,station_code,20,0,G-yi1-ling2-a,G一零a|G腰零a|G 1 0 a,文心森林公園
+G0,station_code,20,0,G-ling2-ling2,G零零|G 0 0|G洞洞,北屯總站（GT 慣用：北屯）
+G3,station_code,20,0,G-ling2-san1,G零三|G 0 3|G洞三,舊社
+G4,station_code,20,0,G-ling2-si4,G零四|G 0 4|G洞四,松竹
+G5,station_code,20,0,G-ling2-wu3,G零五|G 0 5|G洞五,四維國小（GT 慣用：四維）
+G6,station_code,20,0,G-ling2-liu4,G零六|G 0 6|G洞六,文心崇德（GT 慣用：崇德）
+G7,station_code,20,0,G-ling2-qi1,G零七|G 0 7|G洞七|G七|G柒,文心中清（GT 慣用：中清）
+G8,station_code,20,0,G-ling2-ba1,G零八|G 0 8|G洞八,文華高中（GT 慣用：文華）
+G8a,station_code,20,0,G-ling2-ba1-a,G零八a|G 0 8 a|G洞八a,文心櫻花（GT 慣用：櫻花）
+G9,station_code,20,0,G-ling2-jiu3,G零九|G 0 9|G洞九,市政府（GT 慣用：市府）
+G10,station_code,20,0,G-yi1-ling2,G一零|G 1 0|G腰洞|G10,水安宮（GT 慣用：水安）
+G10a,station_code,20,0,G-yi1-ling2-a,G一零a|G腰零a|G 1 0 a,文心森林公園（GT 慣用：森林）
 G11,station_code,20,0,G-yi1-yi1,G一一|G腰一|G 1 1|G11,南屯
-G12,station_code,20,0,G-yi1-er4,G一二|G腰二|G 1 2|G12,豐樂公園
+G12,station_code,20,0,G-yi1-er4,G一二|G腰二|G 1 2|G12,豐樂公園（GT 慣用：豐樂）
 G13,station_code,20,0,G-yi1-san1,G一三|G腰三|G 1 3|G13,大慶
 G14,station_code,20,0,G-yi1-si4,G一四|G腰四|G 1 4|G14,九張犁
 G15,station_code,20,0,G-yi1-wu3,G一五|G腰五|G 1 5|G15,九德
 G16,station_code,20,0,G-yi1-liu4,G一六|G腰六|G 1 6|G16,烏日
-G17,station_code,20,0,G-yi1-qi1,G一七|G腰七|G 1 7|G17,高鐵臺中站
+G17,station_code,20,0,G-yi1-qi1,G一七|G腰七|G 1 7|G17,高鐵臺中站（GT 慣用：高鐵）
 
+# --------------------------------------------------------------------------
+# 【待查證】R 線對應未經驗證：GT（experiments/golden_dataset/ground_truth/）
+# 中 R 站碼零出現，且下列站名與台中捷運藍線官方站名不符，疑為綠線名單順移
+# 複製。依 2026-06-12 校正決議保留原樣，待取得官方資料再校正。
+# --------------------------------------------------------------------------
 R01,station_code,20,0,R-ling2-yi1,R零一|R 0 1|R洞一,北屯機廠
 R02,station_code,20,0,R-ling2-er4,R零二|R 0 2|R洞二,舊社
 R03,station_code,20,0,R-ling2-san1,R零三|R 0 3|R洞三,松竹
@@ -89,7 +96,7 @@ R20,station_code,20,0,R-er4-ling2,R二零|R 2 0|R兒洞|R20,臺中榮總
 # 車站名稱（從測試結果提取的高頻站名）
 # ============================================================================
 南屯站,location,15,0,nan2 tun2 zhan4,南敦站|南豚站,G11南屯站
-崇德站,location,15,0,chong2 de2 zhan4,充德站|崇得站,G06文心崇德站
+崇德站,location,15,0,chong2 de2 zhan4,充德站|崇得站,G6文心崇德站
 松竹站,location,15,0,song1 zhu2 zhan4,松竹站|送竹站,G04松竹站
 高鐵站,location,18,0,gao1 tie3 zhan4,高鐵站|高鐵臺中站,G17高鐵臺中站
 九張犁站,location,15,0,jiu3 zhang1 li2 zhan4,九張犁|九張梨,G14九張犁站
@@ -198,7 +205,7 @@ over,command,12,0,over,oveR|Over|OVER,無線電結束用語（移除完畢避免
 三軌,equipment,18,2,san1 gui3,三鬼|三規|三跪,第三軌（供電軌）
 下行,location,15,1,xia4 xing2,下型|下形|夏行,下行方向軌道
 上行,location,15,1,shang4 xing2,上型|上形|商行,上行方向軌道
-G7,station_code,20,0,G-qi1,G七|G柒|G7站,文華高中（G07 簡寫）
+# G7 獨立列已併入站碼區（G7=文心中清；原「文華高中」為錯位對應，2026-06-12 校正）
 
 # ============================================================================
 # 補充：260603 北屯機廠批次根因調查新增（2026-06-12）

@@ -77,43 +77,39 @@
       "boost": 18
     },
     {
-      "value": "G01",
+      "value": "G0",
       "boost": 20
     },
     {
-      "value": "G02",
+      "value": "G3",
       "boost": 20
     },
     {
-      "value": "G03",
+      "value": "G4",
       "boost": 20
     },
     {
-      "value": "G04",
+      "value": "G5",
       "boost": 20
     },
     {
-      "value": "G05",
+      "value": "G6",
       "boost": 20
     },
     {
-      "value": "G06",
+      "value": "G7",
       "boost": 20
     },
     {
-      "value": "G07",
+      "value": "G8",
       "boost": 20
     },
     {
-      "value": "G08",
+      "value": "G8a",
       "boost": 20
     },
     {
-      "value": "G08a",
-      "boost": 20
-    },
-    {
-      "value": "G09",
+      "value": "G9",
       "boost": 20
     },
     {
@@ -601,10 +597,6 @@
       "boost": 15
     },
     {
-      "value": "G7",
-      "boost": 20
-    },
-    {
       "value": "機廠",
       "boost": 20
     },
@@ -622,5 +614,5 @@
     }
   ],
   "description": "aiSpeech 捷運無線電專業術語 PhraseSet",
-  "total_terms": 155
+  "total_terms": 153
 }
