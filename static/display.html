@@ -68,6 +68,13 @@
   .tb-group { display: flex; align-items: center; gap: 6px; }
   .tb-sep { width: 1px; height: 20px; background: var(--border); }
 
+  #btnClear {
+    background: #3a1a1a; border: 1px solid #6a2a2a;
+    color: #f88; border-radius: 4px; padding: 4px 12px;
+    cursor: pointer; font-size: 12px;
+  }
+  #btnClear:hover { background: #5a2a2a; color: #faa; }
+
   #btnHideBar {
     margin-left: auto;
     background: #333; border: none; color: var(--text-dim);
@@ -297,6 +304,8 @@
     </button>
   </div>
 
+  <button id="btnClear" onclick="clearDisplay()" aria-label="清除畫面顯示內容">🗑️ 清除畫面</button>
+
   <button id="btnHideBar" onclick="hideToolbar()" aria-label="隱藏工具列">隱藏工具列 ▲</button>
 </div>
 
@@ -348,6 +357,18 @@ function hideToolbar() {
 function showToolbar() {
   document.getElementById('toolbar').classList.remove('hidden');
   document.getElementById('btnShowBar').style.display = 'none';
+}
+
+function clearDisplay() {
+  // 清除畫面顯示，但保留 lastId：
+  // 避免清完後輪詢馬上把同批舊資料再拉回來
+  displayArea.innerHTML =
+    '<div id="emptyHint">已清除　等待新的辨識結果…<br>' +
+    '<span style="font-size:0.7em; color:#444">' +
+    new Date().toTimeString().slice(0, 8) + ' 清除</span></div>';
+  partialMap = {};
+  alertBanner.style.display = 'none';
+  if (alertTimer) { clearTimeout(alertTimer); alertTimer = null; }
 }
 
 document.getElementById('fontSize').addEventListener('input', function() {
