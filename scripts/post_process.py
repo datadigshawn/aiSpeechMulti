@@ -397,11 +397,12 @@ def post_process(
     enable_term_filter: bool = True,
     enable_number_norm: bool = True,
     enable_contextual: bool = True,
+    enable_station_code: bool = True,
 ) -> tuple[str, dict]:
     """執行後處理 pipeline
 
     Pipeline 順序：
-        [term_filter.blacklist] → car_norm → dict →
+        [term_filter.blacklist] → car_norm → dict → contextual → station_code →
             [term_filter.protect] → llm → [term_filter.restore]
 
     Args:
@@ -530,7 +531,30 @@ def post_process(
         stages.append({"name": "contextual", "applied": False,
                        "changes": [], "change_count": 0})
 
-    # snapshot：到此為止「dict + contextual」結束
+    # Stage 2.7: 站碼閉集約束（站碼/站名交叉驗證，零訓練）
+    if enable_station_code:
+        try:
+            from scripts.station_code_corrector import correct_station_codes
+            current, sc_changes = correct_station_codes(current)
+            stages.append({
+                "name": "station_code",
+                "applied": True,
+                "changes": sc_changes,
+                "change_count": len(sc_changes),
+            })
+        except Exception as _sce:
+            stages.append({
+                "name": "station_code",
+                "applied": False,
+                "changes": [],
+                "change_count": 0,
+                "error": f"StationCodeCorrector 失敗: {_sce}",
+            })
+    else:
+        stages.append({"name": "station_code", "applied": False,
+                       "changes": [], "change_count": 0})
+
+    # snapshot：到此為止「dict + contextual + station_code」結束
     snapshots["after_dict"] = current
 
     # Stage 3: LLM（含 smart skip + whitelist 保護）
