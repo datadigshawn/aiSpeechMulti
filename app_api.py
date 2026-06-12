@@ -45,6 +45,7 @@ mode 說明:
 """
 
 import asyncio
+import json
 import os
 import sqlite3
 import tempfile
@@ -549,7 +550,8 @@ def _preprocess_wav(wav_path: str, channel_id: str = "") -> tuple[str, bool]:
 
 
 async def _handle_batch_mode(
-    ws: WebSocket, channel_id: str, state: "ChannelState", stt
+    ws: WebSocket, channel_id: str, state: "ChannelState", stt,
+    recorder: "SessionRecorder | None" = None,
 ) -> None:
     """
     原有批次模式（向下相容）：
@@ -559,6 +561,7 @@ async def _handle_batch_mode(
 
     async for message in ws.iter_bytes():
         audio_buf.append(message)
+        if recorder: recorder.write_audio(message)
 
         if audio_buf.is_ready():
             wav_path = audio_buf.flush_to_wav()
@@ -591,6 +594,9 @@ async def _handle_batch_mode(
                     state.transcript_count += 1
                     state.last_text         = transcript
                     logger.debug(f"[{channel_id}][batch] {transcript[:60]}")
+                    if recorder: recorder.write_transcript(
+                        type="transcript", text=transcript,
+                        confidence=round(confidence, 4), stt_backend=state.stt_backend)
                     # Phase A 成本 ledger
                     audio_sec = result.get("audio_seconds", 0.0)
                     if audio_sec > 0:
@@ -629,6 +635,89 @@ async def _handle_batch_mode(
 SENSEVOICE_CHUNK_SECONDS = 3    # 3 秒一段（SenseVoice 推論極快，70ms/10s）
 SENSEVOICE_TARGET_BYTES  = SAMPLE_RATE * SENSEVOICE_CHUNK_SECONDS * BYTES_PER_SAMPLE  # 96,000 bytes
 
+# ── 測試錄製：SessionRecorder ────────────────────────────────────────────────
+TEST_RECORDINGS_DIR    = Path("data/test_recordings")
+# WAV RIFF 的長度欄位是 32-bit，理論上限 ~4GB。
+# 16kHz/16bit/mono ≈ 32,000 bytes/秒；3GB ≈ 26 小時，足夠一整班連續錄製。
+RECORDING_ROTATE_BYTES = 3 * 1024 * 1024 * 1024   # 3 GB
+
+
+class SessionRecorder:
+    """
+    同步錄製 WebSocket 串流：原始 PCM → WAV + 辨識結果 → JSONL。
+
+    目錄結構：
+        data/test_recordings/{channel_id}/{YYYYMMDD_HHMMSS}_{mode}_{backend}/
+            audio_001.wav      （16kHz/16bit/mono，超過 3GB 自動 rotate）
+            audio_002.wav      （若有）
+            transcript.jsonl   （每行一筆 JSON，含 timestamp）
+
+    使用方式（WebSocket handler）：
+        recorder = SessionRecorder(channel_id, mode, backend)
+        # 收到音訊：
+        recorder.write_audio(pcm_bytes)
+        # 取得辨識結果：
+        recorder.write_transcript(type="transcript", text="...", ...)
+        # 結束時：
+        recorder.close()
+    """
+
+    def __init__(self, channel_id: str, mode: str, backend: str) -> None:
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self._dir = TEST_RECORDINGS_DIR / channel_id / f"{ts}_{mode}_{backend}"
+        self._dir.mkdir(parents=True, exist_ok=True)
+
+        self._audio_idx    = 1
+        self._wav_writer   = None
+        self._bytes_written = 0
+        self._jsonl         = None
+
+        self._open_wav()
+        self._jsonl = open(self._dir / "transcript.jsonl", "w", encoding="utf-8")
+        logger.info(f"[recorder] 錄製開始 → {self._dir}")
+
+    def _open_wav(self) -> None:
+        """開啟新的 WAV 檔案寫入器。"""
+        wav_path           = self._dir / f"audio_{self._audio_idx:03d}.wav"
+        self._wav_writer   = wave.open(str(wav_path), "wb")
+        self._wav_writer.setnchannels(1)      # mono
+        self._wav_writer.setsampwidth(2)      # 16-bit
+        self._wav_writer.setframerate(16000)  # 16 kHz
+        self._bytes_written = 0
+
+    def write_audio(self, pcm: bytes) -> None:
+        """寫入 PCM 資料；超過 RECORDING_ROTATE_BYTES 時自動切下一個 WAV 檔。"""
+        if not pcm or self._wav_writer is None:
+            return
+        if self._bytes_written + len(pcm) > RECORDING_ROTATE_BYTES:
+            self._wav_writer.close()
+            self._audio_idx += 1
+            self._open_wav()
+        self._wav_writer.writeframes(pcm)
+        self._bytes_written += len(pcm)
+
+    def write_transcript(self, **fields) -> None:
+        """寫一行 JSON（含 timestamp）到 transcript.jsonl，立即 flush。"""
+        if self._jsonl is None:
+            return
+        entry = {"timestamp": datetime.now().isoformat(), **fields}
+        self._jsonl.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        self._jsonl.flush()
+
+    def close(self) -> None:
+        """安全關閉所有檔案控制代碼。"""
+        try:
+            if self._wav_writer:
+                self._wav_writer.close()
+                self._wav_writer = None
+            if self._jsonl:
+                self._jsonl.close()
+                self._jsonl = None
+            logger.info(f"[recorder] 錄製結束 → {self._dir}")
+        except Exception as exc:
+            logger.warning(f"[recorder] 關閉時發生非致命錯誤：{exc}")
+
+
 # ── SenseVoice 全域單例（避免每次連線重複載入 ~900MB 模型）──────────────
 _sensevoice_instance = None
 _sensevoice_lock     = asyncio.Lock()
@@ -644,19 +733,20 @@ async def _get_sensevoice_model():
         if _sensevoice_instance is not None:
             return _sensevoice_instance
 
-        from scripts.models.model_sensevoice import SenseVoiceModel
-        logger.info("[sensevoice] 正在載入 SenseVoice 模型（首次，含下載）...")
+        from scripts.models.model_sensevoice_ft import SenseVoiceFTModel
+        logger.info("[sensevoice] 正在載入 fine-tuned SenseVoice 模型（首次，含下載）...")
         # use_vad=False：即時模式已由 AudioBuffer 切 3 秒 chunk，不需要 FunASR 內建 VAD
         # 這樣可避免下載 fsmn-vad 模型（ModelScope 下載極不穩定）
-        stt = SenseVoiceModel(model_name="iic/SenseVoiceSmall", language="zh", use_vad=False)
+        stt = SenseVoiceFTModel(model_name="iic/SenseVoiceSmall", language="zh", use_vad=False)
         await asyncio.to_thread(stt._ensure_loaded)
         _sensevoice_instance = stt
-        logger.info("[sensevoice] SenseVoice 模型載入完成 ✅")
+        logger.info("[sensevoice] ✅ fine-tuned SenseVoice 模型就緒（LoRA r32 e60 v2_157gt，CER 25.42%）")
         return _sensevoice_instance
 
 
 async def _handle_sensevoice_local_mode(
-    ws: WebSocket, channel_id: str, state: "ChannelState"
+    ws: WebSocket, channel_id: str, state: "ChannelState",
+    recorder: "SessionRecorder | None" = None,
 ) -> None:
     """
     SenseVoice 本地端近即時辨識模式：
@@ -682,6 +772,7 @@ async def _handle_sensevoice_local_mode(
 
     async for message in ws.iter_bytes():
         audio_buf.append(message)
+        if recorder: recorder.write_audio(message)
 
         if audio_buf.is_ready():
             wav_path = audio_buf.flush_to_wav()
@@ -718,6 +809,9 @@ async def _handle_sensevoice_local_mode(
                     state.transcript_count += 1
                     state.last_text         = transcript
                     logger.debug(f"[{channel_id}][sensevoice] {transcript[:60]}")
+                    if recorder: recorder.write_transcript(
+                        type="transcript", text=transcript,
+                        confidence=round(confidence, 4), stt_backend="sensevoice")
                     # sensevoice 本地零成本，不入 ledger
                 elif result.get("error"):
                     logger.warning(f"[{channel_id}][sensevoice] STT 錯誤：{result['error']}")
@@ -738,7 +832,8 @@ async def _handle_sensevoice_local_mode(
 
 
 async def _handle_scribe_rt_mode(
-    ws: WebSocket, channel_id: str, state: "ChannelState"
+    ws: WebSocket, channel_id: str, state: "ChannelState",
+    recorder: "SessionRecorder | None" = None,
 ) -> None:
     """
     純 Scribe v2 Realtime 串流模式：
@@ -776,6 +871,7 @@ async def _handle_scribe_rt_mode(
     async def _task_browser_to_scribe():
         """接收瀏覽器 PCM → 轉發給 Scribe。"""
         async for pcm in ws.iter_bytes():
+            if recorder: recorder.write_audio(pcm)
             try:
                 await scribe.send_audio(pcm)
             except Exception as exc:
@@ -816,6 +912,8 @@ async def _handle_scribe_rt_mode(
                     state.transcript_count += 1
                     state.last_text         = tw
                     logger.debug(f"[{channel_id}][scribe_rt] committed→DB: {tw[:60]}")
+                    if recorder: recorder.write_transcript(
+                        type="transcript", text=tw, confidence=0.0, stt_backend="scribe_rt")
                     # Phase A 成本 ledger
                     _raw = msg.get("raw", {})
                     audio_sec = (_raw.get("audio_end_ms", 0) - _raw.get("audio_start_ms", 0)) / 1000.0
@@ -881,7 +979,8 @@ async def _handle_scribe_rt_mode(
 
 
 async def _handle_google_stream_mode(
-    ws: WebSocket, channel_id: str, state: "ChannelState", stt: "GoogleSTTModel"
+    ws: WebSocket, channel_id: str, state: "ChannelState", stt: "GoogleSTTModel",
+    recorder: "SessionRecorder | None" = None,
 ) -> None:
     """
     純 Google streaming_recognize() 串流模式：
@@ -908,6 +1007,7 @@ async def _handle_google_stream_mode(
     async def _task_browser_to_queue():
         """接收瀏覽器 PCM → 放入 audio_q。"""
         async for pcm in ws.iter_bytes():
+            if recorder: recorder.write_audio(pcm)
             try:
                 audio_q.put_nowait(pcm)
             except asyncio.QueueFull:
@@ -968,6 +1068,9 @@ async def _handle_google_stream_mode(
                 state.transcript_count += 1
                 state.last_text         = text
                 logger.debug(f"[{channel_id}][google_stream] final: {text[:60]}")
+                if recorder: recorder.write_transcript(
+                    type="transcript", text=text,
+                    confidence=round(confidence, 4), stt_backend="google_stream")
 
     try:
         await asyncio.gather(
@@ -989,7 +1092,8 @@ async def _handle_google_stream_mode(
 
 
 async def _handle_dual_mode(
-    ws: WebSocket, channel_id: str, state: "ChannelState", google_stt: "GoogleSTTModel"
+    ws: WebSocket, channel_id: str, state: "ChannelState", google_stt: "GoogleSTTModel",
+    recorder: "SessionRecorder | None" = None,
 ) -> None:
     """
     雙引擎並行模式（推薦）：
@@ -1066,6 +1170,9 @@ async def _handle_dual_mode(
                 state.transcript_count += 1
                 state.last_text         = transcript
                 logger.debug(f"[{channel_id}][dual/google] confirmed: {transcript[:60]}")
+                if recorder: recorder.write_transcript(
+                    type="confirmed", text=transcript,
+                    confidence=round(confidence, 4), stt_backend="google")
                 # Phase A 成本 ledger
                 audio_sec = result.get("audio_seconds", 0.0)
                 if audio_sec > 0:
@@ -1100,6 +1207,7 @@ async def _handle_dual_mode(
     # ── Task A：瀏覽器 PCM → Scribe RT + AudioBuffer ─────────────────────
     async def _task_browser_to_both():
         async for pcm in ws.iter_bytes():
+            if recorder: recorder.write_audio(pcm)
             # → Scribe RT（即時）
             if scribe.is_connected:
                 try:
@@ -1148,6 +1256,8 @@ async def _handle_dual_mode(
                     state.transcript_count += 1
                     state.last_text         = tw
                     logger.debug(f"[{channel_id}][dual/scribe] committed→DB: {tw[:60]}")
+                    if recorder: recorder.write_transcript(
+                        type="transcript", text=tw, confidence=0.0, stt_backend="scribe_rt")
                     # Phase A 成本 ledger
                     _raw = msg.get("raw", {})
                     audio_sec = (_raw.get("audio_end_ms", 0) - _raw.get("audio_start_ms", 0)) / 1000.0
@@ -1217,8 +1327,9 @@ async def _handle_dual_mode(
 async def audio_stream(
     ws:         WebSocket,
     channel_id: str,
-    backend: str = Query(default=None,  description="STT 引擎：google | scribe | sensevoice（batch 模式用）"),
-    mode:    str = Query(default=None,  description="串流模式：dual | scribe_rt | google_stream | batch | sensevoice_local"),
+    backend: str  = Query(default=None,  description="STT 引擎：google | scribe | sensevoice（batch 模式用）"),
+    mode:    str  = Query(default=None,  description="串流模式：dual | scribe_rt | google_stream | batch | sensevoice_local"),
+    record:  bool = Query(default=False, description="測試用：同步把音訊與辨識文字錄存到 data/test_recordings/"),
 ):
     """
     六路無線電語音串流端點（v2.0 多模式）。
@@ -1264,8 +1375,9 @@ async def audio_stream(
             mode = "batch"
 
     await ws.accept()
-    state = stream_manager.add(channel_id, stt_backend=backend, stream_mode=mode)
-    logger.info(f"🎙️ [{channel_id}] 連線　mode={mode}　backend={backend}")
+    state    = stream_manager.add(channel_id, stt_backend=backend, stream_mode=mode)
+    recorder = SessionRecorder(channel_id, mode, backend) if record else None
+    logger.info(f"🎙️ [{channel_id}] 連線　mode={mode}　backend={backend}　record={record}")
 
     # ── batch / scribe（v1）模式：建立 STT 模型 ───────────────────────────────
     stt = create_stt_model(backend) if mode == "batch" else None
@@ -1289,15 +1401,15 @@ async def audio_stream(
 
     try:
         if mode == "dual":
-            await _handle_dual_mode(ws, channel_id, state, google_stt)
+            await _handle_dual_mode(ws, channel_id, state, google_stt, recorder=recorder)
         elif mode == "scribe_rt":
-            await _handle_scribe_rt_mode(ws, channel_id, state)
+            await _handle_scribe_rt_mode(ws, channel_id, state, recorder=recorder)
         elif mode == "google_stream":
-            await _handle_google_stream_mode(ws, channel_id, state, google_stt)
+            await _handle_google_stream_mode(ws, channel_id, state, google_stt, recorder=recorder)
         elif mode == "sensevoice_local":
-            await _handle_sensevoice_local_mode(ws, channel_id, state)
+            await _handle_sensevoice_local_mode(ws, channel_id, state, recorder=recorder)
         else:
-            await _handle_batch_mode(ws, channel_id, state, stt)
+            await _handle_batch_mode(ws, channel_id, state, stt, recorder=recorder)
 
     except WebSocketDisconnect:
         logger.info(f"[{channel_id}] 正常斷線")
@@ -1305,6 +1417,8 @@ async def audio_stream(
         logger.error(f"[{channel_id}] 異常中斷：{exc}")
     finally:
         stream_manager.remove(channel_id)
+        if recorder:
+            recorder.close()
 
 
 # ==============================================================================

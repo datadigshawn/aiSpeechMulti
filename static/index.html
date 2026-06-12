@@ -511,6 +511,25 @@
         <span class="preproc-status off" id="denoiseStatus">關閉</span>
       </div>
 
+      <!-- 測試錄製 -->
+      <div class="preproc-item" id="recordItem">
+        <div class="preproc-header">
+          <span class="preproc-title">🧪 同步紀錄語音與辨識文字</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="recordToggle" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="preproc-desc">
+          開啟後，本次連線的原始音訊會存成 audio.wav，<br>
+          辨識文字會逐筆存成 transcript.jsonl，<br>
+          存於 data/test_recordings/{頻道}/{時間}_{模式}_{引擎}/，<br>
+          供複查辨識準確率。<br>
+          <b>需在「開始監聽」前勾選，連線中途無法切換。</b>
+        </div>
+        <span class="preproc-status off" id="recordStatus">關閉</span>
+      </div>
+
     </div>
   </div>
 
@@ -1015,7 +1034,8 @@ async function startCapture() {
   const engine    = document.getElementById('engineSelect').value;
   const mode      = document.getElementById('modeSelect').value;
   // mode=batch 時傳 backend；其他模式後端固定引擎，backend 參數供備用
-  const wsUrl     = `${serverUrl}/ws/stream/${channelId}?mode=${mode}&backend=${engine}`;
+  const record    = document.getElementById('recordToggle').checked;
+  const wsUrl     = `${serverUrl}/ws/stream/${channelId}?mode=${mode}&backend=${engine}&record=${record}`;
 
   // ── 1. 取得指定裝置的音訊流 ──────────────────────────────────────────────
   //
@@ -1112,6 +1132,12 @@ async function startCapture() {
     btn.classList.add('active');
     document.getElementById('channelSelect').disabled = true;
     document.getElementById('modeSelect').disabled    = true;
+    document.getElementById('recordToggle').disabled  = true;
+    if (record) {
+      document.getElementById('recordStatus').textContent = '錄製中';
+      document.getElementById('recordStatus').className   = 'preproc-status on';
+      addEntry('system', channelId, `🧪 測試錄製已啟用 → data/test_recordings/${channelId}/`);
+    }
     document.getElementById('engineSelect').disabled  = true;
     document.getElementById('deviceSelect').disabled  = true;
     document.getElementById('btnScan').disabled       = true;
@@ -1246,6 +1272,9 @@ function stopCapture(closeWs = true) {
   document.getElementById('engineSelect').disabled  = false;
   document.getElementById('deviceSelect').disabled  = false;
   document.getElementById('btnScan').disabled       = false;
+  document.getElementById('recordToggle').disabled  = false;
+  document.getElementById('recordStatus').textContent = '關閉';
+  document.getElementById('recordStatus').className   = 'preproc-status off';
   document.getElementById('statEngine').textContent = '—';
   document.getElementById('meterBar').style.width   = '0%';
   document.getElementById('meterDb').textContent    = '— dB';

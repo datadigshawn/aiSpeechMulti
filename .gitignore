@@ -51,6 +51,7 @@ data/*.db-wal
 experiments/temp_upload/
 experiments/temp_youtube/
 data/audio_archive/
+data/test_recordings/
 
 # 實驗資料（辨識結果保留，原始音訊排除）
 experiments/*/source_audio/
