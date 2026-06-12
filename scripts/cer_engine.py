@@ -4,8 +4,8 @@ CER / WER 計算引擎（字元錯誤率 / 詞錯誤率 / 準確率評測）
 ==========================================================
 提供：
   - 文字前處理正規化
-  - CER（字元錯誤率）：優先使用 jiwer，fallback 用 difflib
-  - WER（詞錯誤率）  ：jieba 分詞 + jiwer，fallback 用 difflib
+  - CER（字元錯誤率）：優先使用 jiwer，fallback 用純 Python Levenshtein DP
+  - WER（詞錯誤率）  ：jieba 分詞 + jiwer，fallback 用純 Python Levenshtein DP
   - 差異分析 HTML（字元級高亮顯示）
   - 逐檔與整體批次評測（同時輸出 CER 與 WER）
 
@@ -159,23 +159,36 @@ def normalize_text(text: str) -> str:
 
 def _levenshtein_edits(ref: str, hyp: str) -> Tuple[int, int, int]:
     """
-    純 Python difflib 計算字元級編輯操作數。
+    純 Python 真 Levenshtein DP 計算字元級最小編輯操作數。
     回傳 (substitutions, deletions, insertions)
+
+    注意：不可用 difflib.SequenceMatcher 近似——它找的是「最長連續相同
+    區塊」而非最小編輯距離，對吵雜 ASR 文本會對齊崩潰、嚴重高估錯誤
+    （實測北屯批次整體灌水 +13pp，個別檔案把 ~37% 算成 100%）。
+    複雜度 O(len(ref)×len(hyp))，數千字內夠快；更長文本請裝 jiwer。
     """
-    matcher = difflib.SequenceMatcher(None, ref, hyp, autojunk=False)
-    sub = del_ = ins = 0
-    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-        ref_len = i2 - i1
-        hyp_len = j2 - j1
-        if tag == "replace":
-            common  = min(ref_len, hyp_len)
-            sub    += common
-            del_   += ref_len - common
-            ins    += hyp_len - common
-        elif tag == "delete":
-            del_ += ref_len
-        elif tag == "insert":
-            ins  += hyp_len
+    n, m = len(ref), len(hyp)
+    # prev[j] = (cost, sub, del, ins)；同 cost 時偏好替換（與 jiwer 對齊習慣一致）
+    prev = [(j, 0, 0, j) for j in range(m + 1)]
+    for i in range(1, n + 1):
+        ri = ref[i - 1]
+        cur = [(i, 0, i, 0)] + [(0, 0, 0, 0)] * m
+        for j in range(1, m + 1):
+            dc, ds, dd, di = prev[j - 1]
+            if ri == hyp[j - 1]:
+                # 字元相同時走對角線必不劣，直接採用
+                cur[j] = (dc, ds, dd, di)
+                continue
+            best = (dc + 1, ds + 1, dd, di)          # substitution
+            uc, us, ud, ui = prev[j]                  # deletion（ref 多字）
+            if uc + 1 < best[0]:
+                best = (uc + 1, us, ud + 1, ui)
+            lc, ls, ld, li = cur[j - 1]               # insertion（hyp 多字）
+            if lc + 1 < best[0]:
+                best = (lc + 1, ls, ld, li + 1)
+            cur[j] = best
+        prev = cur
+    _, sub, del_, ins = prev[m]
     return sub, del_, ins
 
 
@@ -183,7 +196,7 @@ def calculate_cer(reference: str, hypothesis: str) -> Dict:
     """
     計算 CER（字元錯誤率）。
     優先使用 jiwer（更精確的 Levenshtein 對齊），
-    若未安裝則 fallback 至 difflib。
+    若未安裝則 fallback 至純 Python Levenshtein DP。
 
     回傳 dict：
       cer       : float  0.0~1.0
@@ -193,7 +206,7 @@ def calculate_cer(reference: str, hypothesis: str) -> Dict:
       del_      : int    刪除錯誤數
       ins       : int    插入錯誤數
       n_errors  : int    sub + del_ + ins
-      engine    : str    "jiwer" or "difflib"
+      engine    : str    "jiwer" or "levenshtein"
     """
     ref_norm = normalize_text(reference)
     hyp_norm = normalize_text(hypothesis)
@@ -217,10 +230,10 @@ def calculate_cer(reference: str, hypothesis: str) -> Dict:
             engine = "jiwer"
         except Exception:
             sub, del_, ins = _levenshtein_edits(ref_norm, hyp_norm)
-            engine = "difflib"
+            engine = "levenshtein"
     else:
         sub, del_, ins = _levenshtein_edits(ref_norm, hyp_norm)
-        engine = "difflib"
+        engine = "levenshtein"
 
     n_errors = sub + del_ + ins
     cer      = n_errors / n
@@ -268,7 +281,7 @@ def calculate_wer(reference: str, hypothesis: str) -> Dict:
       del_      : int    刪除錯誤數
       ins       : int    插入錯誤數
       n_errors  : int    sub + del_ + ins
-      engine    : str    "jiwer+jieba" / "jiwer" / "difflib"
+      engine    : str    "jiwer+jieba" / "jiwer" / "levenshtein"
       tokenizer : str    "jieba" / "char"
     """
     ref_tokens = _tokenize(reference)
@@ -295,10 +308,10 @@ def calculate_wer(reference: str, hypothesis: str) -> Dict:
             engine = "jiwer+jieba" if JIEBA_OK else "jiwer"
         except Exception:
             sub, del_, ins = _levenshtein_edits(ref_tokens, hyp_tokens)
-            engine = "difflib"
+            engine = "levenshtein"
     else:
         sub, del_, ins = _levenshtein_edits(ref_tokens, hyp_tokens)
-        engine = "difflib"
+        engine = "levenshtein"
 
     n_errors = sub + del_ + ins
     wer      = n_errors / n

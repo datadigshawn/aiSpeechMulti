@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from scripts.cer_engine import calculate_cer, calculate_wer, normalize_text
+from scripts.cer_engine import (
+    _levenshtein_edits,
+    calculate_cer,
+    calculate_wer,
+    normalize_text,
+)
 
 
 class TestNormalizeText:
@@ -95,6 +100,43 @@ class TestCalculateCER:
         # 完全沒對到的話 cer 應 ≤ 1.0（不會 > 1.0）
         r = calculate_cer("ab", "xyz")
         assert r["cer"] <= 1.0
+
+
+class TestLevenshteinFallback:
+    """無 jiwer 時的純 Python fallback 必須是真最小編輯距離。
+
+    回歸背景（2026-06-12 北屯根因調查）：舊版 fallback 用
+    difflib.SequenceMatcher 近似，對吵雜 ASR 文本對齊崩潰，
+    把實際 26.58% CER 的檔案算成 100%、北屯批次整體灌水 +13pp。
+    """
+
+    def test_basic_edit_counts(self):
+        assert _levenshtein_edits("abc", "axc") == (1, 0, 0)
+        assert _levenshtein_edits("abc", "ac") == (0, 1, 0)
+        assert _levenshtein_edits("abc", "abxc") == (0, 0, 1)
+        assert _levenshtein_edits("", "ab") == (0, 0, 2)
+        assert _levenshtein_edits("ab", "") == (0, 2, 0)
+
+    def test_noisy_asr_pair_not_inflated(self):
+        """260603_正線_074411 實例：difflib 舊版給 100% CER，真值 21/79。"""
+        ref = (
+            "occ通告全線occ通告全線occ完成g0北屯站至g17高鐵尾軌上下行三軌"
+            "復電作業重複通告occ完成g0北屯站至g17高鐵尾軌上下行三軌復電作業通告完畢out"
+        )
+        hyp = (
+            "occ到收消occ到收occ完成g00北通站至g17高鐵回軌上下行三軌"
+            "復電作業同步通告occ完成g00北屯站至g17高鐵軌上下行三角復電作業通告表"
+        )
+        sub, del_, ins = _levenshtein_edits(ref, hyp)
+        assert (sub, del_, ins) == (11, 8, 2)
+        # 經 calculate_cer（不論 jiwer 或 fallback）總錯誤數應為最小編輯距離
+        r = calculate_cer(ref, hyp)
+        assert r["n_errors"] == 21
+        assert abs(r["cer"] - 21 / 79) < 0.001
+
+    def test_works_on_token_lists(self):
+        """WER fallback 傳入 token list，DP 必須支援序列而非僅字串。"""
+        assert _levenshtein_edits(["占", "用"], ["占", "領"]) == (1, 0, 0)
 
 
 class TestCalculateWER:
