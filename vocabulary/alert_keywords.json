@@ -260,6 +260,13 @@
       "priority": 2
     },
     {
+      "term": "機廠",
+      "level": "IMPORTANT",
+      "category": "location",
+      "description": "北屯機廠（綠線域內無機場，機場必為誤認）",
+      "priority": 2
+    },
+    {
       "term": "OCC",
       "level": "WARNING",
       "category": "equipment",
@@ -349,10 +356,31 @@
       "category": "location",
       "description": "上行方向軌道",
       "priority": 1
+    },
+    {
+      "term": "發車",
+      "level": "WARNING",
+      "category": "action",
+      "description": "列車發車（璠為模型罕見字幻覺，GT 零出現）",
+      "priority": 1
+    },
+    {
+      "term": "備用群組",
+      "level": "WARNING",
+      "category": "equipment",
+      "description": "無線電備用頻道群組",
+      "priority": 1
+    },
+    {
+      "term": "行控中心",
+      "level": "WARNING",
+      "category": "location",
+      "description": "營運控制中心 OCC",
+      "priority": 1
     }
   ],
   "description": "aiSpeech 關鍵字告警詞彙表",
-  "total_keywords": 50,
+  "total_keywords": 54,
   "alert_levels": {
     "CRITICAL": "嚴重告警（立即處理）",
     "IMPORTANT": "重要告警（優先處理）",

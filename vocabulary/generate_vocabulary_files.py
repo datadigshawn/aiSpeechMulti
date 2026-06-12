@@ -19,6 +19,10 @@ def load_master_vocabulary(csv_file: str):
     with open(csv_file, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         for row in reader:
+            term = (row.get('term') or '').strip()
+            # CSV 內的分節註解列（# 開頭）不是詞條
+            if not term or term.startswith('#'):
+                continue
             vocabulary.append(row)
     
     return vocabulary
