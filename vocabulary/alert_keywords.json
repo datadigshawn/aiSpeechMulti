@@ -263,7 +263,7 @@
       "term": "機廠",
       "level": "IMPORTANT",
       "category": "location",
-      "description": "北屯機廠（綠線域內無機場，機場必為誤認）",
+      "description": "北屯機廠（綠線域內無機場/機艙，必為誤認；機艙為 KER 評測發現）",
       "priority": 2
     },
     {
