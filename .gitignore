@@ -38,6 +38,8 @@ env/
 data/*.db
 data/*.db-shm
 data/*.db-wal
+data/*.db.bak.*
+data/*.db.c3test*
 
 # 音訊檔案（體積大，不上傳 GitHub）
 *.wav
@@ -55,6 +57,9 @@ data/test_recordings/
 
 # 實驗資料（辨識結果保留，原始音訊排除）
 experiments/*/source_audio/
+
+# 事故證據包（CCTV/錄影/告警截圖等大型二進位，數 GB，不入版控）
+experiments/OP*/
 
 # Log 檔
 logs/
