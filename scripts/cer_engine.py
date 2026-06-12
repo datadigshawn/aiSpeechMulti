@@ -689,6 +689,151 @@ def compare_two_texts(
 
 
 # ============================================================================
+# 批次純文稿比對（多對多配對 + 整體統計）
+# ============================================================================
+
+def match_stems_by_prefix(
+    gt_stems:  List[str],
+    asr_stems: List[str],
+) -> Dict:
+    """
+    配對 GT 與 ASR 檔名：ASR stem 以 GT stem 為前綴（case-insensitive）。
+
+    規則：
+      - 對每個 GT stem，找出所有以它開頭的 ASR stem
+      - 若有多個候選，取 stem 最短的（最接近 GT 原始命名）
+      - 每個 ASR stem 至多被使用一次（先到先得）
+
+    典型命名範例：
+      GT  : 260603_北屯機廠號誌故障_正線_072318
+      ASR : 260603_北屯機廠號誌故障_正線_072318_senseVoice(4CER)
+      → ASR stem 以 GT stem 開頭 → 配對成功
+
+    Returns dict：
+      matched       : List[Tuple[str, str]]  [(gt_stem, asr_stem), ...]
+      unmatched_gt  : List[str]              找不到 ASR 的 GT stems
+      unmatched_asr : List[str]              沒被任何 GT 配到的 ASR stems
+    """
+    matched:       List[Tuple[str, str]] = []
+    used_asr:      set                   = set()
+    unmatched_gt:  List[str]             = []
+
+    for gt_stem in gt_stems:
+        gt_lower = gt_stem.lower()
+        candidates = [
+            a for a in asr_stems
+            if a.lower().startswith(gt_lower) and a not in used_asr
+        ]
+        if candidates:
+            best = min(candidates, key=len)   # 最短 stem = 最接近 GT 命名
+            matched.append((gt_stem, best))
+            used_asr.add(best)
+        else:
+            unmatched_gt.append(gt_stem)
+
+    unmatched_asr = [a for a in asr_stems if a not in used_asr]
+
+    return {
+        "matched":       matched,
+        "unmatched_gt":  unmatched_gt,
+        "unmatched_asr": unmatched_asr,
+    }
+
+
+def compare_multiple_texts(
+    matched_pairs: List[Tuple[str, str, str, str]],
+) -> Dict:
+    """
+    批次比對多對文稿，回傳與 evaluate_case() / compare_two_texts() 相容的結構。
+
+    matched_pairs: [(gt_text, asr_text, gt_name, asr_name), ...]
+      - gt_text  : 標準文稿全文
+      - asr_text : 辨識結果全文
+      - gt_name  : 顯示用 GT 檔名（stem）
+      - asr_name : 顯示用 ASR 檔名（stem），用作 per_file["stem"]
+
+    Returns：
+      { "per_file": [...], "overall": {...} }
+      格式與 evaluate_case() 完全相容，可直接傳入 _render_eval_results()。
+    """
+    per_file: List[Dict] = []
+
+    for gt_text, asr_text, gt_name, asr_name in matched_pairs:
+        cer_info  = calculate_cer(gt_text, asr_text)
+        wer_info  = calculate_wer(gt_text, asr_text)
+        diff_html = build_diff_html(gt_text, asr_text)
+
+        per_file.append({
+            "stem":          asr_name,
+            "gt_name":       gt_name,
+            "gt_text":       gt_text,
+            "asr_text":      asr_text,
+            # CER
+            "cer":           cer_info["cer"],
+            "accuracy":      cer_info["accuracy"],
+            "n_ref":         cer_info["n_ref"],
+            "sub":           cer_info["sub"],
+            "del_":          cer_info["del_"],
+            "ins":           cer_info["ins"],
+            "n_errors":      cer_info["n_errors"],
+            # WER
+            "wer":           wer_info["wer"],
+            "wer_accuracy":  wer_info["accuracy"],
+            "n_words":       wer_info["n_ref"],
+            "wer_sub":       wer_info["sub"],
+            "wer_del":       wer_info["del_"],
+            "wer_ins":       wer_info["ins"],
+            "wer_tokenizer": wer_info["tokenizer"],
+            "diff_html":     diff_html,
+            "matched":       True,
+        })
+
+    n_matched = len(per_file)
+    n_total   = n_matched   # compare_multiple_texts 只處理已配對對；未配對由 UI 層排除
+
+    if per_file:
+        mean_cer      = sum(r["cer"]      for r in per_file) / n_matched
+        mean_accuracy = sum(r["accuracy"] for r in per_file) / n_matched
+        total_chars   = sum(r["n_ref"]    for r in per_file)
+        total_errors  = sum(r["n_errors"] for r in per_file)
+        micro_cer     = total_errors / total_chars if total_chars > 0 else 0.0
+
+        mean_wer          = sum(r["wer"]          for r in per_file) / n_matched
+        mean_wer_accuracy = sum(r["wer_accuracy"] for r in per_file) / n_matched
+        total_words       = sum(r["n_words"]  for r in per_file)
+        total_wer_errors  = sum(
+            r["wer_sub"] + r["wer_del"] + r["wer_ins"] for r in per_file
+        )
+        micro_wer     = total_wer_errors / total_words if total_words > 0 else 0.0
+        wer_tokenizer = per_file[0].get("wer_tokenizer", "char")
+    else:
+        mean_cer = mean_accuracy = micro_cer = 0.0
+        mean_wer = mean_wer_accuracy = micro_wer = 0.0
+        total_chars = total_errors = total_words = total_wer_errors = 0
+        wer_tokenizer = "char"
+
+    overall = {
+        "mean_cer":           mean_cer,
+        "mean_accuracy":      mean_accuracy,
+        "total_chars":        total_chars,
+        "total_errors":       total_errors,
+        "micro_cer":          micro_cer,
+        "micro_accuracy":     max(0.0, 1.0 - micro_cer),
+        "mean_wer":           mean_wer,
+        "mean_wer_accuracy":  mean_wer_accuracy,
+        "total_words":        total_words,
+        "total_wer_errors":   total_wer_errors,
+        "micro_wer":          micro_wer,
+        "micro_wer_accuracy": max(0.0, 1.0 - micro_wer),
+        "wer_tokenizer":      wer_tokenizer,
+        "n_files_matched":    n_matched,
+        "n_files_total":      n_total,
+    }
+
+    return {"per_file": per_file, "overall": overall}
+
+
+# ============================================================================
 # CLI 測試入口
 # ============================================================================
 if __name__ == "__main__":
