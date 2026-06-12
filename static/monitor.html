@@ -258,6 +258,13 @@
       <input type="text" id="apiBase" class="api-input" value="http://localhost:8000" aria-label="FastAPI Base URL">
       <span id="apiStatus" class="badge badge--success badge--dot" aria-live="polite">—</span>
       <button class="btn btn--ghost btn--sm" id="btn-clear" type="button">清除顯示</button>
+      <select id="occ-channel" class="api-input" style="width:auto" aria-label="匯出管道"></select>
+      <select id="occ-fmt" class="api-input" style="width:auto" aria-label="匯出格式">
+        <option value="docx">Word</option>
+        <option value="pdf">PDF</option>
+        <option value="txt">txt</option>
+      </select>
+      <button class="btn btn--ghost btn--sm" id="btn-export-occ" type="button">匯出行控中心</button>
       <button data-theme-toggle class="btn btn--ghost btn--sm" aria-label="切換主題">
         <span data-theme-icon>🌙</span>
         <span data-theme-label>深冷</span>
@@ -527,6 +534,18 @@ function escHtml(s) {
 // 啟動
 // ============================================================================
 document.getElementById('btn-clear').addEventListener('click', clearFeed);
+// 匯出行控中心：填入管道選單（全部 + 六席位），點擊依選擇下載
+document.getElementById('occ-channel').innerHTML =
+  '<option value="">全部管道彙整</option>' +
+  CHANNEL_IDS.map(id => `<option value="${id}">${SEAT_FULL[id]}</option>`).join('');
+document.getElementById('btn-export-occ').addEventListener('click', () => {
+  const b   = document.getElementById('apiBase').value.replace(/\/$/, '');
+  const ch  = document.getElementById('occ-channel').value;
+  const fmt = document.getElementById('occ-fmt').value;
+  const qs  = new URLSearchParams({ limit: '1000', fmt });
+  if (ch) qs.set('channel_id', ch);
+  window.open(`${b}/api/export/control_center?${qs.toString()}`, '_blank');
+});
 initLanes();
 pollChannels();
 pollTranscripts();

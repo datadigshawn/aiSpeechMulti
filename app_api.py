@@ -74,6 +74,7 @@ from scripts.models.model_scribe import ScribeSTTModel, ScribeRealtimeStream
 from utils.logger import get_logger
 from utils.vad_filter import has_speech_in_wav_sr
 from utils.noise_filter import denoise_wav_file
+from utils.control_center_export import export_control_center_from_records
 
 # ─── 成本 ledger（Phase A 2026-05-08）─────────────────────────────────
 from utils.pricing import load_pricing
@@ -1334,6 +1335,56 @@ async def get_transcripts(
         "offset":      offset,
         "channel_id":  channel_id,
     }
+
+
+_OCC_MEDIA_TYPES = {
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "pdf":  "application/pdf",
+    "txt":  "text/plain; charset=utf-8",
+}
+
+
+@app.get("/api/export/control_center", summary="匯出行控中心格式（即時辨識結果，Word/PDF/txt）")
+async def export_control_center_endpoint(
+    channel_id: Optional[str] = Query(None),
+    limit:      int           = Query(1000, ge=1, le=5000),
+    event_name: str           = Query(""),
+    fmt:        str           = Query("docx"),
+):
+    """將即時辨識結果（DB transcripts）依時間匯出為行控中心格式。
+
+    時間欄＝該句 committed 的接收時刻（DB ``created_at``，UTC→伺服器本地）。
+    發話者／備註欄留空，比照行控中心通聯紀錄表。
+    - ``channel_id`` 省略＝全部管道彙整成一張表；指定則只匯出該管道。
+    - ``fmt``＝ ``docx``（預設）/ ``pdf``（經 LibreOffice 轉檔）/ ``txt``。
+    """
+    fmt = (fmt or "docx").lower()
+    if fmt not in _OCC_MEDIA_TYPES:
+        return JSONResponse(
+            {"ok": False, "error": f"不支援的格式：{fmt}（限 docx/pdf/txt）"}, status_code=400,
+        )
+    records = database.query(limit=limit, channel_id=channel_id)
+    if not records:
+        return JSONResponse(
+            {"ok": False, "error": "查無辨識結果可匯出"}, status_code=404,
+        )
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_dir = Path(tempfile.gettempdir()) / "aispeech_exports"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        # 匯出含 soffice 轉檔（PDF）等阻塞工作，丟到 thread 避免卡住事件迴圈
+        out_path = await asyncio.to_thread(
+            export_control_center_from_records,
+            records, out_dir,
+            timestamp=ts, event_name=event_name, fmt=fmt, utc_to_local=True,
+        )
+    except Exception as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
+    return FileResponse(
+        out_path,
+        filename=out_path.name,
+        media_type=_OCC_MEDIA_TYPES[fmt],
+    )
 
 
 @app.get("/api/test_scribe", summary="Scribe RT 連線診斷（伺服器端直接測試）")
