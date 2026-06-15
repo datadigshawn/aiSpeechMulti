@@ -65,20 +65,44 @@ AUDIO_EXTENSIONS = {".wav", ".mp3", ".m4a", ".flac", ".ogg", ".aac"}
 # 接受兩種：純數字 ≥3 位，或字母前綴後接 ≥3 位數字
 FILENAME_PATTERN = re.compile(r"^([A-Z]?\d{3,4})_(\w+?)_(.+)$")
 
-# 已知事件類型（用於驗證）
-KNOWN_EVENT_TYPES = {"daily", "door", "track", "emergency", "control"}
+# 已知事件類型（用於驗證）；incident = 檔名解析不出屬性的事故批次 fallback
+KNOWN_EVENT_TYPES = {"daily", "door", "track", "emergency", "control", "incident"}
+
+# 事故批次檔名關鍵詞（如 260603_北屯機廠號誌故障_…）→ event_type=incident
+INCIDENT_KEYWORDS = ("故障", "異常", "事故", "停電", "跳電", "搶修")
 
 
-def parse_filename(filename: str) -> Optional[dict]:
-    """解析檔名取得 id 與 event_type"""
+def infer_event_type(stem: str) -> str:
+    """檔名解析不出 event_type token 時，依關鍵詞歸類。"""
+    for kw in INCIDENT_KEYWORDS:
+        if kw in stem:
+            return "incident"
+    return "unknown"
+
+
+def parse_filename(filename: str) -> dict:
+    """解析檔名取得 id 與 event_type。
+
+    正則匹配成功 → 取既有 (id, event_type, rest)。
+    匹配失敗（如事故批次 `260603_北屯機廠號誌故障_…`：6 位日期開頭、
+    中文事件名）→ **不再回 None 丟棄**，改用 stem 當 id、依關鍵詞推斷
+    event_type（故障/異常→incident，否則 unknown），確保資料不被靜默
+    排除在 manifest（進而訓練集）之外。屬性落在 event_type 欄位、不靠
+    檔名 token，往後純時間命名的檔也能被收錄並自動歸類。
+    """
     stem = Path(filename).stem
     match = FILENAME_PATTERN.match(stem)
-    if not match:
-        return None
+    if match:
+        return {
+            "id": match.group(1),
+            "event_type": match.group(2),
+            "rest": match.group(3),
+            "stem": stem,
+        }
     return {
-        "id": match.group(1),
-        "event_type": match.group(2),
-        "rest": match.group(3),
+        "id": stem,
+        "event_type": infer_event_type(stem),
+        "rest": "",
         "stem": stem,
     }
 
@@ -144,10 +168,9 @@ def scan_dataset(audio_dir: Path, gt_dir: Path, existing_notes: dict[str, str]) 
     )
 
     for audio_path in audio_files:
+        # parse_filename 一律回 dict（解析失敗用 stem 當 id + 關鍵詞推斷
+        # event_type），不再丟棄任何音檔
         parsed = parse_filename(audio_path.name)
-        if not parsed:
-            print(f"⚠️  跳過格式不符的音檔: {audio_path.name}")
-            continue
 
         # 對應的 GT 檔
         gt_path = gt_dir / f"{parsed['stem']}.txt"
