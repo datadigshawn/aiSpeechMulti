@@ -71,7 +71,8 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent))
 
 from scripts.models.model_google_stt import GoogleSTTModel
-from scripts.models.model_scribe import ScribeSTTModel, ScribeRealtimeStream
+from scripts.models.model_scribe import ScribeRealtimeStream
+from scripts.models.factory import create_engine
 from scripts.post_process_runtime import post_process_realtime
 from utils.logger import get_logger
 from utils.vad_filter import has_speech_in_wav_sr
@@ -405,17 +406,25 @@ def create_stt_model(backend: str = "google"):
                  "sensevoice" → SenseVoiceModel (FunASR 本地端)
 
     每條 WebSocket 連線各自持有一個實例，避免跨管道共用狀態。
+
+    2026-06-16 第三波：改委派給 scripts.models.factory.create_engine（單一工廠），
+    參數精確沿用原實例化，行為等價。
     """
     if backend == "scribe":
-        return ScribeSTTModel(
+        return create_engine(
+            "scribe",
             language_code="zh",   # 提示偏中文，可留空讓 Scribe 自動偵測
             diarize=False,
         )
     elif backend == "sensevoice":
-        from scripts.models.model_sensevoice import SenseVoiceModel
-        return SenseVoiceModel(model_name="iic/SenseVoiceSmall", language="zh")
+        return create_engine(
+            "sensevoice",
+            model_name="iic/SenseVoiceSmall",
+            language="zh",
+        )
     else:
-        return GoogleSTTModel(
+        return create_engine(
+            "google",
             project_id=PROJECT_ID,
             location=STT_LOCATION,
             model=STT_MODEL,
