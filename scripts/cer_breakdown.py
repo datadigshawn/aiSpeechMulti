@@ -212,7 +212,8 @@ def main():
 
     cat_err = Counter()          # 類別 → 錯誤字數
     cat_cnt = Counter()          # 類別 → 錯誤 block 數
-    by_event = defaultdict(Counter)
+    by_event = defaultdict(Counter)   # 主類 → 錯誤類型 → 字數
+    by_tag = defaultdict(Counter)     # 多標籤 tag → 錯誤類型 → 字數（一段計入每個 tag）
     rows = []
     n_seg = 0
     seg_cer = []  # (id, n_err, n_ref)
@@ -230,6 +231,8 @@ def main():
         if n_ref == 0:
             continue
         n_seg += 1
+        # tags 多標籤（manifest 有 tags 欄則用，否則退回主類 event_type）
+        seg_tags = [t.strip() for t in (mrow.get("tags") or mrow.get("event_type", "")).split("|") if t.strip()]
         errs = breakdown_segment(gt, hyp, terms)
         seg_err = sum(e["n_err"] for e in errs)
         seg_cer.append((sid, seg_err, n_ref))
@@ -237,7 +240,10 @@ def main():
             cat_err[e["type"]] += e["n_err"]
             cat_cnt[e["type"]] += 1
             by_event[mrow["event_type"]][e["type"]] += e["n_err"]
-            rows.append({"id": sid, "event_type": mrow["event_type"], **e})
+            for tg in seg_tags:
+                by_tag[tg][e["type"]] += e["n_err"]
+            rows.append({"id": sid, "event_type": mrow["event_type"],
+                         "tags": "|".join(seg_tags), **e})
 
     total_err = sum(cat_err.values())
     if total_err == 0:
@@ -259,6 +265,14 @@ def main():
     print(f"  → 需 fine-tune/音訊：{model / total_err * 100:.1f}%（同音+近音+漏字+插入）")
     print(f"  → other_sub：{cat_err.get('other_sub',0) / total_err * 100:.1f}%")
 
+    # 依事件 tags 分組（多標籤，一段計入它帶的每個 tag；總和會 ≥ 全集錯誤字）
+    if by_tag:
+        print(f"\n── 依事件 tags 分組（總錯誤字 / 主錯類）──")
+        for tg in sorted(by_tag, key=lambda t: sum(by_tag[t].values()), reverse=True):
+            tot = sum(by_tag[tg].values())
+            top_s = ", ".join(f"{c}:{n}" for c, n in by_tag[tg].most_common(3))
+            print(f"  {tg:12} {tot:>6} 字   主錯類: {top_s}")
+
     # 最差 5 段
     seg_cer.sort(key=lambda x: x[1] / x[2], reverse=True)
     print(f"\n最差 5 段（CER）：")
@@ -268,7 +282,7 @@ def main():
     # 逐錯誤 CSV
     out_csv = Path(args.out) if args.out else OUT_DIR / f"cer_breakdown_{args.label}.csv"
     with out_csv.open("w", newline="", encoding="utf-8-sig") as f:
-        w = csv.DictWriter(f, fieldnames=["id", "event_type", "type", "wrong", "right", "n_err"])
+        w = csv.DictWriter(f, fieldnames=["id", "event_type", "tags", "type", "wrong", "right", "n_err"])
         w.writeheader()
         w.writerows(sorted(rows, key=lambda r: r["n_err"], reverse=True))
     print(f"\n逐錯誤 CSV：{out_csv}")

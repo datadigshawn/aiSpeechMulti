@@ -12,7 +12,8 @@
 
 輸出 manifest.csv 欄位：
     id              - 順序編號（從檔名解析，例如 "001"）
-    event_type      - 事件類型（從檔名解析，例如 "daily"）
+    event_type      - 主類事件（單值；sidecar event_types.csv 優先，否則檔名解析/fallback）
+    tags            - 多標籤事件（pipe 分隔，如 emergency|control；僅供 CER 診斷加總）
     audio_file      - 音檔相對路徑
     gt_file         - GT 文字檔相對路徑
     duration_sec    - 音檔時長（秒）
@@ -70,6 +71,20 @@ KNOWN_EVENT_TYPES = {"daily", "door", "track", "emergency", "control", "incident
 
 # 事故批次檔名關鍵詞（如 260603_北屯機廠號誌故障_…）→ event_type=incident
 INCIDENT_KEYWORDS = ("故障", "異常", "事故", "停電", "跳電", "搶修")
+
+# 主類優先級：多情境段落取唯一主類（高風險優先），驅動分層切分與 history
+EVENT_PRECEDENCE = ("emergency", "control", "door", "track", "daily")
+
+# event_type 真相來源 sidecar（檔名不再標事件類；id → event_type/tags）
+DEFAULT_EVENT_TYPES_CSV = DEFAULT_DATASET_DIR / "event_types.csv"
+
+
+def derive_primary(tags: list[str]) -> str:
+    """從多標籤依優先級取唯一主類；無命中則取第一個 tag。"""
+    for et in EVENT_PRECEDENCE:
+        if et in tags:
+            return et
+    return tags[0] if tags else ""
 
 
 def infer_event_type(stem: str) -> str:
@@ -156,7 +171,42 @@ def load_existing_notes(manifest_path: Path) -> dict[str, str]:
     return notes
 
 
-def scan_dataset(audio_dir: Path, gt_dir: Path, existing_notes: dict[str, str]) -> list[dict]:
+def load_event_types(path: Path) -> dict[str, dict]:
+    """讀 sidecar event_types.csv（id → {event_type, tags}）。
+
+    sidecar 是 event_type 的真相來源（檔名不再標事件類）。每列：
+        id, event_type, tags
+    - tags：多標籤，pipe 分隔（如 emergency|control），僅供 CER 診斷加總。
+    - event_type（主類，單值）：留空時依 EVENT_PRECEDENCE 從 tags 自動取
+      最高風險者，確保多情境段落歸唯一一格（分層切分要求）。
+    - id 以 `#` 開頭的列視為註解，略過。
+    回傳 {id: {"event_type": str, "tags": [str, ...]}}。
+    """
+    overrides: dict[str, dict] = {}
+    if not path.exists():
+        return overrides
+    try:
+        with open(path, encoding="utf-8-sig") as f:
+            # 先濾掉 `#` 註解列，否則開頭註解會被 DictReader 誤當表頭
+            data_lines = [ln for ln in f if not ln.lstrip().startswith("#")]
+        for row in csv.DictReader(data_lines):
+            fid = (row.get("id") or "").strip()
+            if not fid or fid.startswith("#"):
+                continue
+            tags = [t.strip() for t in (row.get("tags") or "").split("|") if t.strip()]
+            et = (row.get("event_type") or "").strip()
+            if not et:
+                et = derive_primary(tags)
+            if et and et not in tags:
+                tags = [et] + tags   # 確保主類也在 tags（診斷會計入主類）
+            overrides[fid] = {"event_type": et or "unknown", "tags": tags}
+    except Exception as e:
+        print(f"⚠️  讀取 event_types sidecar 失敗（忽略，沿用檔名解析）: {e}")
+    return overrides
+
+
+def scan_dataset(audio_dir: Path, gt_dir: Path, existing_notes: dict[str, str],
+                 event_types: dict[str, dict]) -> list[dict]:
     """掃描音檔與 GT，產出記錄清單"""
     if not audio_dir.exists():
         print(f"❌ audio 目錄不存在: {audio_dir}")
@@ -180,9 +230,19 @@ def scan_dataset(audio_dir: Path, gt_dir: Path, existing_notes: dict[str, str]) 
         # has_gt 需「存在且內容非空」——空白 placeholder 不算已標註（否則空檔會被當成已 GT）
         has_gt = gt_path.exists() and gt_chars > 0
 
+        # event_type / tags：sidecar 優先（真相來源），無則沿用檔名解析/fallback
+        override = event_types.get(parsed["id"])
+        if override:
+            event_type = override["event_type"]
+            tags = override["tags"]
+        else:
+            event_type = parsed["event_type"]
+            tags = [event_type] if event_type != "unknown" else []
+
         row = {
             "id": parsed["id"],
-            "event_type": parsed["event_type"],
+            "event_type": event_type,
+            "tags": "|".join(tags),
             "audio_file": str(audio_path.relative_to(PROJECT_ROOT)),
             "gt_file": str(gt_path.relative_to(PROJECT_ROOT)),
             "duration_sec": duration if duration else "",
@@ -194,8 +254,10 @@ def scan_dataset(audio_dir: Path, gt_dir: Path, existing_notes: dict[str, str]) 
             "notes": existing_notes.get(parsed["id"], ""),
         }
 
-        # 驗證事件類型
-        if parsed["event_type"] not in KNOWN_EVENT_TYPES:
+        # 驗證事件類型：fallback 自動猜的（incident/unknown）且未經 sidecar 確認 → 提醒補 sidecar
+        if not override and event_type in ("incident", "unknown"):
+            row["notes"] = (row["notes"] + " [⚠️ event_type 待 sidecar 確認]").strip()
+        elif event_type not in KNOWN_EVENT_TYPES:
             row["notes"] = (row["notes"] + " [⚠️ unknown event_type]").strip()
 
         rows.append(row)
@@ -210,7 +272,7 @@ def write_manifest(rows: list[dict], output_path: Path) -> None:
         return
 
     fieldnames = [
-        "id", "event_type", "audio_file", "gt_file",
+        "id", "event_type", "tags", "audio_file", "gt_file",
         "duration_sec", "gt_char_count", "gt_speaker_lines",
         "audio_size_kb", "audio_format", "has_gt", "notes",
     ]
@@ -251,10 +313,22 @@ def print_stats(rows: list[dict]) -> None:
     print(f"   總時長:         {total_duration:.1f}s ({total_duration/60:.1f} 分鐘)")
     print(f"   GT 總字數:      {total_gt_chars}")
     print()
-    print("   ── 依事件類型分佈 ──")
+    print("   ── 依事件主類分佈（單值，總和 = 段數）──")
     for et in sorted(by_type.keys()):
         with_gt_count = by_type_with_gt.get(et, 0)
         print(f"   {et:12} {by_type[et]:3} 段  (已標 {with_gt_count:3})")
+
+    # tags 分佈（多標籤，一段可計入多類，總和 > 段數）
+    tag_cnt: dict[str, int] = {}
+    for r in rows:
+        for t in (r.get("tags") or "").split("|"):
+            if t:
+                tag_cnt[t] = tag_cnt.get(t, 0) + 1
+    if tag_cnt:
+        print()
+        print("   ── 依 tags 分佈（多標籤，總和 ≥ 段數）──")
+        for t in sorted(tag_cnt):
+            print(f"   {t:12} {tag_cnt[t]:3}")
 
 
 def list_missing(rows: list[dict]) -> None:
@@ -274,6 +348,8 @@ def main():
     p.add_argument("--audio-dir", default=str(DEFAULT_DATASET_DIR / "audio"))
     p.add_argument("--gt-dir", default=str(DEFAULT_DATASET_DIR / "ground_truth"))
     p.add_argument("--output", default=str(DEFAULT_DATASET_DIR / "manifest.csv"))
+    p.add_argument("--event-types", default=str(DEFAULT_EVENT_TYPES_CSV),
+                   help="event_type/tags sidecar CSV（id,event_type,tags）")
     p.add_argument("--list-missing", action="store_true",
                    help="只列出尚未配對 GT 的音檔，不寫 manifest")
     args = p.parse_args()
@@ -288,7 +364,10 @@ def main():
     print()
 
     existing_notes = load_existing_notes(output)
-    rows = scan_dataset(audio_dir, gt_dir, existing_notes)
+    event_types = load_event_types(Path(args.event_types))
+    if event_types:
+        print(f"   event_types sidecar: {len(event_types)} 筆覆寫（{args.event_types}）")
+    rows = scan_dataset(audio_dir, gt_dir, existing_notes, event_types)
 
     if args.list_missing:
         list_missing(rows)
