@@ -40,9 +40,8 @@
 
 ```
 aiSpeechMulti/
-├── app_api.py             # FastAPI 即時層 (1723 LOC, :8000)
-├── app_dashboard.py       # ⚠️ deprecated 過渡頁
-├── app_lab.py             # Streamlit 研究層 (4476 LOC, :8501, 9 頁)
+├── app_api.py             # FastAPI 即時層 (:8000)
+├── app_lab.py             # Streamlit 研究層 (:8501, 9 頁)
 ├── aispeech/              # python -m aispeech 統一 CLI
 │   ├── __init__.py
 │   └── __main__.py        # thin wrapper → scripts/*.py
