@@ -122,6 +122,20 @@ def parse_filename(filename: str) -> dict:
     }
 
 
+def soundfile_available() -> bool:
+    """偵測 soundfile(libsndfile) 是否可用。
+
+    時長讀取以 soundfile 為主、wave 為退路；但這批 wav 多非標準 PCM、
+    且 mp3 wave 根本讀不了 → 缺 soundfile 時時長會大量留空，連帶
+    finetune jsonl 的 source_len 歸零。故開跑前先測，提早警告。
+    """
+    try:
+        import soundfile  # noqa: F401
+        return True
+    except Exception:
+        return False
+
+
 def get_audio_duration(audio_path: Path) -> Optional[float]:
     """嘗試取得音檔時長（用 soundfile 或 wave）"""
     try:
@@ -331,6 +345,31 @@ def print_stats(rows: list[dict]) -> None:
             print(f"   {t:12} {tag_cnt[t]:3}")
 
 
+def warn_blank_durations(rows: list[dict], threshold: float = 0.05) -> None:
+    """掃描後檢查 duration 空白率，過高就大聲警告（多半是 env 缺 soundfile）。
+
+    duration_sec 空白 → build_finetune_dataset 寫進 jsonl 的 source_len 變 0
+    → 影響 FunASR 長度分桶/排序，是訓練 metadata 錯誤而非單純顯示問題。
+    """
+    blank = [r for r in rows if not str(r["duration_sec"]).strip()]
+    if not rows or not blank:
+        return
+    ratio = len(blank) / len(rows)
+    if ratio <= threshold:
+        print(f"\nℹ️  {len(blank)} 段 duration 空白（{ratio*100:.1f}%）— 個別檔讀取失敗，可單獨檢查")
+        return
+    fmt = {}
+    for r in blank:
+        fmt[r["audio_format"]] = fmt.get(r["audio_format"], 0) + 1
+    print()
+    print("⚠️ " + "─" * 56)
+    print(f"⚠️  {len(blank)}/{len(rows)} 段 duration 空白（{ratio*100:.0f}%）— 多半是 env 缺 soundfile")
+    print(f"    空白格式分布: {fmt}")
+    print(f"    後果: finetune jsonl 的 source_len 會變 0，影響 FunASR 長度分桶。")
+    print(f"    對策: 改用含 soundfile 的 env 重建後再進 build_finetune_dataset。")
+    print("⚠️ " + "─" * 56)
+
+
 def list_missing(rows: list[dict]) -> None:
     """列出尚未配對 GT 的音檔"""
     missing = [r for r in rows if r["has_gt"] == "N"]
@@ -363,6 +402,12 @@ def main():
     print(f"   gt dir:    {gt_dir}")
     print()
 
+    if not soundfile_available():
+        print("⚠️  未偵測到 soundfile —— 多數 wav / 全部 mp3 的時長會留空白，")
+        print("    連帶 finetune jsonl 的 source_len 會變 0（影響 FunASR 長度分桶）。")
+        print("    請改用含 soundfile 的 env 重建（見 requirements.txt）。")
+        print()
+
     existing_notes = load_existing_notes(output)
     event_types = load_event_types(Path(args.event_types))
     if event_types:
@@ -378,6 +423,7 @@ def main():
     print(f"   共 {len(rows)} 筆記錄")
 
     print_stats(rows)
+    warn_blank_durations(rows)
 
     # 列出未標註的
     missing = [r for r in rows if r["has_gt"] == "N"]
