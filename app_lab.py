@@ -2023,10 +2023,22 @@ def render_running_page():
                                 pass
                         st.warning(f"⚠️ 後處理 pipeline 失敗，已退回舊版修正：{_ppe}")
                 elif use_vocabulary and transcript:
-                    # 三層全部關閉但使用者勾選了詞彙修正：保留向後相容
+                    # 三層全部關閉但使用者勾選了詞彙修正：只做詞彙（dict）修正。
+                    # 2026-06-16 第二波：改走 canonical 核心並明確只開 dict 階段，
+                    # 不連帶跑使用者已關掉的 car_norm / station_code / number。
                     try:
-                        from utils.text_cleaner import fix_radio_jargon
-                        transcript = fix_radio_jargon(transcript)
+                        from scripts.post_process import post_process as _post_process
+                        transcript, _pp_report = _post_process(
+                            transcript,
+                            enable_car_norm=False,
+                            enable_dict=True,
+                            enable_llm=False,
+                            enable_number_norm=False,
+                            enable_contextual=False,
+                            enable_station_code=False,
+                            enable_term_filter=False,
+                            engine_hint=_pp_engine_hint,
+                        )
                     except Exception:
                         pass
 

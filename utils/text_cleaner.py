@@ -53,6 +53,12 @@ except ImportError:
 
 # ============================================================================
 # 階段 1: 核心術語修正（必須先執行，優先級最高）
+#
+# ⚠️ DEAD（2026-06-16 第二波）：以下 CRITICAL_TERMS / HOMOPHONE_CORRECTIONS 與
+# fix_station_codes / fix_number_explosion / fix_train_numbers 只被
+# RadioTextCleaner.clean(aggressive=True) 使用，而該路徑在 fix_radio_jargon
+# 改走 canonical 核心（scripts/post_process）後已無生產引用。功能與
+# scripts/post_process.py 各階段重複，保留待專門清理波次移除，勿在新程式碼引用。
 # ============================================================================
 
 CRITICAL_TERMS = {
@@ -390,11 +396,17 @@ class RadioTextCleaner:
     def clean(self, text: str, aggressive: bool = True) -> str:
         """
         完整的清洗流程
-        
+
+        ⚠️ DEAD（2026-06-16 第二波）：fix_radio_jargon 改走 canonical 核心後，
+        本方法已無生產引用（clean_text 走的是 clean_for_evaluation）。
+        其 corrections / fix_station_codes / fix_number_explosion /
+        fix_train_numbers 與 scripts/post_process.py 各階段功能重複，
+        保留待專門清理波次移除，勿在新程式碼引用。
+
         Args:
             text: 待清洗的文字
             aggressive: 是否啟用激進修正（包括數字爆炸、格式化等）
-        
+
         Returns:
             清洗後的文字
         """
@@ -463,12 +475,16 @@ _default_cleaner = RadioTextCleaner(
 )
 
 def fix_radio_jargon(text: str) -> str:
+    """修正無線電術語（向後相容 wrapper）。
+
+    2026-06-16 第二波收斂：本函式不再跑 RadioTextCleaner.clean() 那套
+    與 post_process 重複的 deterministic 規則，改為轉呼叫 canonical 核心
+    scripts.post_process_runtime.post_process_realtime()（deterministic、
+    永不呼叫 LLM），杜絕兩套規則漂移。API 簽名與回傳型別不變。
+    import 放在函式內，避免 import cycle 並保持模組載入成本。
     """
-    修正無線電術語（向後相容函數）
-    
-    這是原有 text_cleaner.py 中的函數名稱
-    """
-    return _default_cleaner.clean(text, aggressive=True)
+    from scripts.post_process_runtime import post_process_realtime
+    return post_process_realtime(text)[0]
 
 def clean_text(text: str, keep_punctuation: bool = False) -> str:
     """清洗文字（向後相容函數）"""
