@@ -55,6 +55,11 @@ MAX_UPLOAD_FILES   = 100
 VOCABULARY_CSV     = PROJECT_ROOT / "vocabulary" / "master_vocabulary.csv"
 DB_PATH            = PROJECT_ROOT / "data" / "aiSpeechMulti.db"   # ← 統一使用 aiSpeechMulti.db
 
+# 純函式已抽往 aispeech.lab（2026-06-16 P3 第一波），行為不變
+from aispeech.lab.transcript_format import format_with_per_sentence_timestamps
+from aispeech.lab.audio_scan import scan_server_audio_files
+from aispeech.lab.plot import lab_plotly_layout
+
 # ============================================================================
 # FastAPI 即時監控常數
 # ============================================================================
@@ -434,24 +439,7 @@ _inject_design_system()
 
 
 # Plotly figure 統一 dark theme（design-system-v1）
-def lab_plotly_layout(title: str | None = None, height: int = 480) -> dict:
-    """回傳統一的 plotly update_layout dict，吃 design tokens 對應 hex。
-
-    Grafana / Lab / static HTML 三處圖表配色來自同一份 token 表，
-    確保跨介面視覺一致。
-    """
-    return dict(
-        title=title,
-        height=height,
-        hovermode="x unified",
-        paper_bgcolor="#11141b",   # var(--neutral-2)
-        plot_bgcolor="#11141b",
-        font=dict(family="Inter, Noto Sans TC, sans-serif", color="#c8cdd6", size=12),  # neutral-11
-        xaxis=dict(gridcolor="#262a33", linecolor="#262a33", tickcolor="#6a7180"),     # neutral-6 / 9
-        yaxis=dict(gridcolor="#262a33", linecolor="#262a33", tickcolor="#6a7180"),
-        margin=dict(l=48, r=24, t=48 if title else 24, b=40),
-        legend=dict(bgcolor="rgba(0,0,0,0)", bordercolor="#262a33"),
-    )
+# lab_plotly_layout 已抽往 aispeech.lab.plot（2026-06-16 P3 第一波）
 
 
 # 6 路 channel 色（與 static / Grafana 對齊）— design tokens hex
@@ -535,113 +523,8 @@ def parse_filename_datetime(stem: str) -> datetime | None:
     return _parse_dt(stem)
 
 
-# ============================================================================
-# 工具：把逐字稿按「。」切句 + 每句加時間戳（用於閱讀友善的輸出）
-# ============================================================================
-def format_with_per_sentence_timestamps(
-    transcript: str,
-    segments: list[dict] | None,
-    start_dt: datetime | None,
-    audio_duration_sec: float | None = None,
-) -> str:
-    """把整段逐字稿轉成「[HH:MM:SS] sentence。」逐句多行格式。
-
-    時間戳優先序：
-    1. segments 內有「真實時間區間」(seg_end > seg_start) → 用 segment 區間 + 字數比例
-    2. 否則用 audio_duration_sec → 整段視為 [0, audio_duration_sec]，按字數比例分散
-    3. 否則第一句用 start_dt、其餘留空白對齊
-    4. start_dt 為 None → 只切句不加時間
-    """
-    from datetime import timedelta as _td
-
-    if not transcript or not transcript.strip():
-        return transcript
-
-    def _split_sentences(text: str) -> list[str]:
-        parts = [p.strip() for p in text.split("。")]
-        out = []
-        for i, p in enumerate(parts):
-            if not p:
-                continue
-            if i < len(parts) - 1:
-                out.append(p + "。")
-            else:
-                out.append(p)
-        return out
-
-    lines: list[str] = []
-
-    if start_dt is None:
-        return "\n".join(_split_sentences(transcript))
-
-    # ── 1. segments 有真實時間區間 ────────────────────────────────────
-    has_real_timing = bool(segments) and any(
-        (float(s.get("end", 0)) - float(s.get("start", 0))) > 0
-        for s in segments
-    )
-    if has_real_timing:
-        for seg in segments:
-            seg_text = (seg.get("text") or "").strip()
-            if not seg_text:
-                continue
-            sents = _split_sentences(seg_text)
-            if not sents:
-                continue
-            seg_start = float(seg.get("start", 0.0))
-            seg_end = float(seg.get("end", seg_start))
-            seg_dur = max(0.0, seg_end - seg_start)
-            total_chars = sum(len(s) for s in sents)
-            cum_chars = 0
-            for sent in sents:
-                offset = seg_dur * (cum_chars / total_chars) if (total_chars and seg_dur) else 0.0
-                sent_dt = start_dt + _td(seconds=seg_start + offset)
-                lines.append(f"[{sent_dt.strftime('%H:%M:%S')}] {sent}")
-                cum_chars += len(sent)
-        return "\n".join(lines)
-
-    # ── 2. 無有效 segment 時間，但有音檔長度 → 整段按字數比例分散 ──────
-    if audio_duration_sec and audio_duration_sec > 0:
-        sents = _split_sentences(transcript)
-        total_chars = sum(len(s) for s in sents)
-        cum_chars = 0
-        for sent in sents:
-            offset = audio_duration_sec * (cum_chars / total_chars) if total_chars else 0.0
-            sent_dt = start_dt + _td(seconds=offset)
-            lines.append(f"[{sent_dt.strftime('%H:%M:%S')}] {sent}")
-            cum_chars += len(sent)
-        return "\n".join(lines)
-
-    # ── 3. 兩者都沒有 → 第一句用 start_dt，其餘留空白對齊 ──────────────
-    blank_ts = " " * 10
-    sents = _split_sentences(transcript)
-    for i, sent in enumerate(sents):
-        if i == 0:
-            lines.append(f"[{start_dt.strftime('%H:%M:%S')}] {sent}")
-        else:
-            lines.append(f"{blank_ts} {sent}")
-    return "\n".join(lines)
-
-
-# ============================================================================
-# 工具：掃描伺服器音檔
-# ============================================================================
-def scan_server_audio_files() -> dict:
-    result = {}
-    if not EXPERIMENTS_DIR.exists():
-        return result
-    for test_case_dir in sorted(EXPERIMENTS_DIR.iterdir()):
-        if not test_case_dir.is_dir() or test_case_dir.name == "temp_upload":
-            continue
-        audio_dir = test_case_dir / "source_audio"
-        if not audio_dir.exists():
-            continue
-        files = []
-        for ext in SUPPORTED_EXTENSIONS:
-            files.extend(audio_dir.glob(f"*{ext}"))
-            files.extend(audio_dir.glob(f"*{ext.upper()}"))
-        if files:
-            result[test_case_dir.name] = sorted(set(files))
-    return result
+# format_with_per_sentence_timestamps 已抽往 aispeech.lab.transcript_format、
+# scan_server_audio_files 已抽往 aispeech.lab.audio_scan（2026-06-16 P3 第一波）
 
 
 
@@ -746,7 +629,7 @@ def render_speech_page():
                 st.write(f"  - `{f.name}`")
 
     with tab_server:
-        server_audio_map = scan_server_audio_files()
+        server_audio_map = scan_server_audio_files(EXPERIMENTS_DIR, SUPPORTED_EXTENSIONS)
         if not server_audio_map:
             st.info(f"在 `experiments/` 目錄下未找到任何音檔。\n\n預設搜尋路徑：`{EXPERIMENTS_DIR}`")
         else:
