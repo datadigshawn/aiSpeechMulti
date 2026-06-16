@@ -72,6 +72,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from scripts.models.model_google_stt import GoogleSTTModel
 from scripts.models.model_scribe import ScribeSTTModel, ScribeRealtimeStream
+from scripts.post_process_runtime import post_process_realtime
 from utils.logger import get_logger
 from utils.vad_filter import has_speech_in_wav_sr
 from utils.noise_filter import denoise_wav_file
@@ -309,6 +310,13 @@ class Database:
                     conn.execute(f"ALTER TABLE transcripts ADD COLUMN {col} INTEGER DEFAULT 0")
                 except Exception:
                     pass  # 欄位已存在，忽略
+            # transcript 欄位語意為 corrected（deterministic 後處理後）；
+            # raw_transcript 留存原始辨識、pp_report 存 post_process 報告 JSON。
+            for col in ("raw_transcript", "pp_report"):
+                try:
+                    conn.execute(f"ALTER TABLE transcripts ADD COLUMN {col} TEXT DEFAULT ''")
+                except Exception:
+                    pass  # 欄位已存在，忽略
             # 修正既有資料庫中 TEXT 型態的 "0"/"1" → INTEGER
             conn.execute("UPDATE transcripts SET use_vad=0     WHERE use_vad     IS NULL OR use_vad     = ''")
             conn.execute("UPDATE transcripts SET use_denoise=0 WHERE use_denoise IS NULL OR use_denoise = ''")
@@ -320,21 +328,25 @@ class Database:
 
     def save(
         self,
-        channel_id:  str,
-        transcript:  str,
-        confidence:  float = 0.0,
-        stt_backend: str   = "google",
-        use_vad:     bool  = False,
-        use_denoise: bool  = False,
+        channel_id:     str,
+        transcript:     str,
+        confidence:     float = 0.0,
+        stt_backend:    str   = "google",
+        use_vad:        bool  = False,
+        use_denoise:    bool  = False,
+        raw_transcript: str   = "",
+        pp_report:      str   = "",
     ):
+        """transcript 為 corrected 文字；raw_transcript 為後處理前原文。"""
         with sqlite3.connect(self.db_path, timeout=10) as conn:
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute(
                 "INSERT INTO transcripts "
-                "(channel_id, transcript, confidence, stt_backend, use_vad, use_denoise) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
+                "(channel_id, transcript, confidence, stt_backend, use_vad, use_denoise, "
+                "raw_transcript, pp_report) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (channel_id, transcript, confidence, stt_backend,
-                 int(use_vad), int(use_denoise)),
+                 int(use_vad), int(use_denoise), raw_transcript, pp_report),
             )
             conn.commit()
 
@@ -347,14 +359,16 @@ class Database:
         with sqlite3.connect(self.db_path) as conn:
             if channel_id:
                 rows = conn.execute(
-                    "SELECT id, channel_id, transcript, confidence, stt_backend, use_vad, use_denoise, created_at "
+                    "SELECT id, channel_id, transcript, confidence, stt_backend, use_vad, use_denoise, "
+                    "raw_transcript, pp_report, created_at "
                     "FROM transcripts WHERE channel_id = ? "
                     "ORDER BY created_at DESC LIMIT ? OFFSET ?",
                     (channel_id, limit, offset),
                 ).fetchall()
             else:
                 rows = conn.execute(
-                    "SELECT id, channel_id, transcript, confidence, stt_backend, use_vad, use_denoise, created_at "
+                    "SELECT id, channel_id, transcript, confidence, stt_backend, use_vad, use_denoise, "
+                    "raw_transcript, pp_report, created_at "
                     "FROM transcripts "
                     "ORDER BY created_at DESC LIMIT ? OFFSET ?",
                     (limit, offset),
@@ -362,14 +376,16 @@ class Database:
 
         return [
             {
-                "id":          r[0],
-                "channel_id":  r[1],
-                "transcript":  r[2],
-                "confidence":  r[3],
-                "stt_backend": r[4] or "google",
-                "use_vad":     bool(int(r[5] or 0)),
-                "use_denoise": bool(int(r[6] or 0)),
-                "created_at":  r[7],
+                "id":             r[0],
+                "channel_id":     r[1],
+                "transcript":     r[2],
+                "confidence":     r[3],
+                "stt_backend":    r[4] or "google",
+                "use_vad":        bool(int(r[5] or 0)),
+                "use_denoise":    bool(int(r[6] or 0)),
+                "raw_transcript": r[7] or "",
+                "pp_report":      r[8] or "",
+                "created_at":     r[9],
             }
             for r in rows
         ]
@@ -508,6 +524,17 @@ async def _send_error(ws: WebSocket, channel_id: str, message: str):
         pass
 
 
+def _postprocess_final(raw: str, engine_hint: str) -> tuple[str, str]:
+    """對 final / committed transcript 跑 deterministic 後處理。
+
+    回傳 (corrected_text, report_json)。report_json 為空字串表示無變更或空輸入。
+    僅供 final 路徑使用，partial 不得呼叫（避免前端文字跳動）。
+    """
+    corrected, report = post_process_realtime(raw, engine_hint=engine_hint)
+    report_json = json.dumps(report, ensure_ascii=False) if report else ""
+    return corrected, report_json
+
+
 def _preprocess_wav(wav_path: str, channel_id: str = "") -> tuple[str, bool]:
     """
     對 WAV 檔案套用降噪與 VAD 前處理。
@@ -580,6 +607,8 @@ async def _handle_batch_mode(
                 confidence = result.get("confidence", 0.0)
 
                 if transcript:
+                    raw_text = transcript
+                    transcript, _pp_json = _postprocess_final(raw_text, state.stt_backend)
                     await ws.send_json({
                         "type":        "transcript",
                         "channel_id":  channel_id,
@@ -590,12 +619,13 @@ async def _handle_batch_mode(
                     })
                     database.save(channel_id, transcript, confidence, state.stt_backend,
                                   use_vad=_audio_settings["use_vad"],
-                                  use_denoise=_audio_settings["use_denoise"])
+                                  use_denoise=_audio_settings["use_denoise"],
+                                  raw_transcript=raw_text, pp_report=_pp_json)
                     state.transcript_count += 1
                     state.last_text         = transcript
                     logger.debug(f"[{channel_id}][batch] {transcript[:60]}")
                     if recorder: recorder.write_transcript(
-                        type="transcript", text=transcript,
+                        type="transcript", text=transcript, raw_text=raw_text,
                         confidence=round(confidence, 4), stt_backend=state.stt_backend)
                     # Phase A 成本 ledger
                     audio_sec = result.get("audio_seconds", 0.0)
@@ -795,6 +825,8 @@ async def _handle_sensevoice_local_mode(
                     transcript = _s2t(transcript)
 
                 if transcript:
+                    raw_text = transcript
+                    transcript, _pp_json = _postprocess_final(raw_text, "sensevoice")
                     await ws.send_json({
                         "type":        "transcript",
                         "channel_id":  channel_id,
@@ -805,12 +837,13 @@ async def _handle_sensevoice_local_mode(
                     })
                     database.save(channel_id, transcript, confidence, "sensevoice",
                                   use_vad=_audio_settings["use_vad"],
-                                  use_denoise=_audio_settings["use_denoise"])
+                                  use_denoise=_audio_settings["use_denoise"],
+                                  raw_transcript=raw_text, pp_report=_pp_json)
                     state.transcript_count += 1
                     state.last_text         = transcript
                     logger.debug(f"[{channel_id}][sensevoice] {transcript[:60]}")
                     if recorder: recorder.write_transcript(
-                        type="transcript", text=transcript,
+                        type="transcript", text=transcript, raw_text=raw_text,
                         confidence=round(confidence, 4), stt_backend="sensevoice")
                     # sensevoice 本地零成本，不入 ledger
                 elif result.get("error"):
@@ -897,7 +930,8 @@ async def _handle_scribe_rt_mode(
                     })
 
                 elif mtype == "committed" and text:
-                    tw = _s2t(text)
+                    raw_text = _s2t(text)
+                    tw, _pp_json = _postprocess_final(raw_text, "scribe_rt")
                     await ws.send_json({
                         "type":        "transcript",
                         "channel_id":  channel_id,
@@ -908,12 +942,14 @@ async def _handle_scribe_rt_mode(
                     })
                     database.save(channel_id, tw, 0.0, "scribe_rt",
                                   use_vad=_audio_settings["use_vad"],
-                                  use_denoise=_audio_settings["use_denoise"])
+                                  use_denoise=_audio_settings["use_denoise"],
+                                  raw_transcript=raw_text, pp_report=_pp_json)
                     state.transcript_count += 1
                     state.last_text         = tw
                     logger.debug(f"[{channel_id}][scribe_rt] committed→DB: {tw[:60]}")
                     if recorder: recorder.write_transcript(
-                        type="transcript", text=tw, confidence=0.0, stt_backend="scribe_rt")
+                        type="transcript", text=tw, raw_text=raw_text,
+                        confidence=0.0, stt_backend="scribe_rt")
                     # Phase A 成本 ledger
                     _raw = msg.get("raw", {})
                     audio_sec = (_raw.get("audio_end_ms", 0) - _raw.get("audio_start_ms", 0)) / 1000.0
@@ -1050,6 +1086,11 @@ async def _handle_google_stream_mode(
                 logger.error(f"[{channel_id}][google_stream] 串流錯誤：{text}")
                 continue
 
+            # final 才跑 deterministic 後處理；partial 維持原文，避免前端跳動
+            raw_text = text
+            if is_final:
+                text, _pp_json = _postprocess_final(raw_text, "google_stream")
+
             # 推播前端
             await ws.send_json({
                 "type":        "transcript" if is_final else "partial",
@@ -1064,12 +1105,13 @@ async def _handle_google_stream_mode(
             if is_final:
                 database.save(channel_id, text, confidence, "google_stream",
                               use_vad=_audio_settings["use_vad"],
-                              use_denoise=_audio_settings["use_denoise"])
+                              use_denoise=_audio_settings["use_denoise"],
+                              raw_transcript=raw_text, pp_report=_pp_json)
                 state.transcript_count += 1
                 state.last_text         = text
                 logger.debug(f"[{channel_id}][google_stream] final: {text[:60]}")
                 if recorder: recorder.write_transcript(
-                    type="transcript", text=text,
+                    type="transcript", text=text, raw_text=raw_text,
                     confidence=round(confidence, 4), stt_backend="google_stream")
 
     try:
@@ -1156,6 +1198,8 @@ async def _handle_dual_mode(
             confidence = result.get("confidence", 0.0)
 
             if transcript:
+                raw_text = transcript
+                transcript, _pp_json = _postprocess_final(raw_text, "google")
                 await ws.send_json({
                     "type":        "confirmed",
                     "channel_id":  channel_id,
@@ -1166,12 +1210,13 @@ async def _handle_dual_mode(
                 })
                 database.save(channel_id, transcript, confidence, "google",
                               use_vad=_audio_settings["use_vad"],
-                              use_denoise=_audio_settings["use_denoise"])
+                              use_denoise=_audio_settings["use_denoise"],
+                              raw_transcript=raw_text, pp_report=_pp_json)
                 state.transcript_count += 1
                 state.last_text         = transcript
                 logger.debug(f"[{channel_id}][dual/google] confirmed: {transcript[:60]}")
                 if recorder: recorder.write_transcript(
-                    type="confirmed", text=transcript,
+                    type="confirmed", text=transcript, raw_text=raw_text,
                     confidence=round(confidence, 4), stt_backend="google")
                 # Phase A 成本 ledger
                 audio_sec = result.get("audio_seconds", 0.0)
@@ -1241,7 +1286,8 @@ async def _handle_dual_mode(
                     })
 
                 elif mtype == "committed" and text:
-                    tw = _s2t(text)
+                    raw_text = _s2t(text)
+                    tw, _pp_json = _postprocess_final(raw_text, "scribe_rt")
                     await ws.send_json({
                         "type":        "transcript",
                         "channel_id":  channel_id,
@@ -1252,12 +1298,14 @@ async def _handle_dual_mode(
                     })
                     database.save(channel_id, tw, 0.0, "scribe_rt",
                                   use_vad=_audio_settings["use_vad"],
-                                  use_denoise=_audio_settings["use_denoise"])
+                                  use_denoise=_audio_settings["use_denoise"],
+                                  raw_transcript=raw_text, pp_report=_pp_json)
                     state.transcript_count += 1
                     state.last_text         = tw
                     logger.debug(f"[{channel_id}][dual/scribe] committed→DB: {tw[:60]}")
                     if recorder: recorder.write_transcript(
-                        type="transcript", text=tw, confidence=0.0, stt_backend="scribe_rt")
+                        type="transcript", text=tw, raw_text=raw_text,
+                        confidence=0.0, stt_backend="scribe_rt")
                     # Phase A 成本 ledger
                     _raw = msg.get("raw", {})
                     audio_sec = (_raw.get("audio_end_ms", 0) - _raw.get("audio_start_ms", 0)) / 1000.0
