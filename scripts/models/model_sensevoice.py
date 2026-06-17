@@ -16,7 +16,6 @@ SenseVoiceSmall 語音辨識模組
 
 import re
 import csv
-import os
 from pathlib import Path
 from typing import Optional
 from collections import Counter

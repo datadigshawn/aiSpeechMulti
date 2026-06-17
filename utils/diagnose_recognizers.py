@@ -6,7 +6,6 @@ Google Cloud Speech-to-Text Recognizer 診斷工具 (區域端點修正版)
 import os
 from pathlib import Path
 from google.cloud.speech_v2 import SpeechClient
-from google.api_core import exceptions
 from google.api_core.client_options import ClientOptions
 
 PROJECT_ID = "dazzling-seat-315406"

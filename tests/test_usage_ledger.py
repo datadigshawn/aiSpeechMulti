@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-import json
 import sqlite3
-import time
 from datetime import datetime
 from pathlib import Path
 
 import pytest
 
-from utils.usage_ledger import UsageLedger, UsageEvent
+from utils.usage_ledger import UsageLedger
 
 
 @pytest.fixture
@@ -108,7 +106,7 @@ class TestAggregations:
         """Regression: 16:00-23:59 local time records were silently dropped due to
         SQLite double-localtime-shift bug. Insert a record at 16:30 today (local) and
         verify it counts toward today_total_twd."""
-        from datetime import datetime, time as _time
+        from datetime import time as _time
         ledger = UsageLedger(db_path=ledger_db, pricing=sample_pricing)
 
         # 今日下午 16:30 local time — the formerly broken zone
@@ -127,7 +125,7 @@ class TestAggregations:
 
     def test_today_total_excludes_yesterday(self, ledger_db, sample_pricing):
         """Records from yesterday must not appear in today_total."""
-        from datetime import datetime, timedelta, time as _time
+        from datetime import timedelta, time as _time
         ledger = UsageLedger(db_path=ledger_db, pricing=sample_pricing)
 
         yesterday = (datetime.now() - timedelta(days=1)).date()

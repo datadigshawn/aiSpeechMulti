@@ -303,7 +303,6 @@ if __name__ == "__main__":
     測試用主程式
     使用方式: python scripts/model_whisper.py
     """
-    import sys
     
     print("="*60)
     print("Whisper 語音辨識測試（動態詞彙表版本）")

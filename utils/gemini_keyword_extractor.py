@@ -26,7 +26,6 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Optional
 
 try:
     from .logger import get_logger

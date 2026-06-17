@@ -43,7 +43,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import sys
 
 # Windows cp950 OEMCP 不能 encode emoji，強制 stdout/stderr 用 UTF-8
@@ -53,7 +52,7 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -244,7 +243,6 @@ def _spec_augment(feat, time_masks: int = 2, time_frac: float = 0.05,
                   freq_masks: int = 2, freq_width: int = 24):
     """特徵層 SpecAugment：時間/頻率遮罩（遮成 0，即 CMVN 後的均值）。feat: (T, F)。"""
     import random
-    import torch
     T, F = feat.shape
     feat = feat.clone()
     for _ in range(time_masks):                       # 時間遮罩
@@ -357,7 +355,6 @@ def make_collate(tokenizer):
 def train_one_epoch(model, loader, optimizer, scheduler, scaler, device, epoch, total_epochs, grad_clip=1.0):
     """跑一個 epoch，回傳平均 loss（含 gradient clipping）"""
     import torch
-    import math
     model.train()
     total_loss = 0.0
     n_batches = 0

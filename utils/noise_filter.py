@@ -240,7 +240,6 @@ def denoise_wav_file(
         return input_wav, False
 
     try:
-        import torch
         import torchaudio
         from df.enhance import enhance
 

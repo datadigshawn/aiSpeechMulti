@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
 import pandas as pd
-from typing import Dict, List
+from typing import Dict
 from utils.logger import get_logger
 from utils.config import get_config
 

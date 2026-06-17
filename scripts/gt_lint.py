@@ -23,7 +23,6 @@ import argparse
 import csv
 import re
 import sys
-import unicodedata
 from pathlib import Path
 from collections import Counter
 

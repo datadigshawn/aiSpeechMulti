@@ -850,7 +850,7 @@ def compare_multiple_texts(
 # CLI 測試入口
 # ============================================================================
 if __name__ == "__main__":
-    import argparse, json
+    import argparse
 
     parser = argparse.ArgumentParser(description="CER 評測引擎 CLI")
     parser.add_argument("--ref", required=True, help="標準文稿 .txt")

@@ -5,7 +5,6 @@
 3. alert_keywords.json (用途3. Elasticsearch告警關鍵字)
 """
 
-import os
 import csv
 import json 
 from pathlib import Path

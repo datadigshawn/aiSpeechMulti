@@ -1565,7 +1565,7 @@ async def test_scribe_rt():
     送 2 秒合成音訊 + 1 秒靜音，回傳 Scribe 的原始回應。
     用於診斷 Scribe 連線與 API Key 是否正常。
     """
-    import base64, math, struct
+    import math, struct
 
     if not ELEVENLABS_API_KEY:
         return {"ok": False, "error": "ELEVENLABS_API_KEY 未設定"}

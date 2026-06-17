@@ -87,7 +87,7 @@ def setup_google_credentials():
             if key_data.get('type') == 'service_account':
                 # 環境變數有效，直接使用
                 return True
-        except:
+        except Exception:
             # 環境變數指向的金鑰無效，繼續搜尋
             pass
     

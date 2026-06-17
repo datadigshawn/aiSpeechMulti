@@ -4,7 +4,6 @@
 """
 
 import logging
-import os
 from datetime import datetime
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
@@ -189,7 +188,7 @@ if __name__ == "__main__":
     # 測試例外記錄
     try:
         1 / 0
-    except Exception as e:
+    except Exception:
         logger.exception("發生除以零的錯誤")
     
     print("\n日誌系統測試完成！請檢查 logs/ 目錄")

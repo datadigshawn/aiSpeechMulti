@@ -12,7 +12,6 @@
 
 from __future__ import annotations
 
-import pytest
 
 from scripts.post_process import (
     normalize_car_numbers,

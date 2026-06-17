@@ -30,11 +30,10 @@ Google Cloud Speech-to-Text V2 模型包裝器
 import os
 import sys
 import wave
-import struct
 import tempfile
 import subprocess
 from pathlib import Path
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Tuple
 
 # 修正 import 路徑
 if __name__ == "__main__":
@@ -136,7 +135,7 @@ class AudioConverter:
         ]
         
         try:
-            result = subprocess.run(
+            subprocess.run(
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -295,7 +294,7 @@ class GoogleSTTModel:
             if converted_path != str(audio_path):
                 try:
                     os.unlink(converted_path)
-                except:
+                except Exception:
                     pass
             
             return audio_content, sample_rate

@@ -12,8 +12,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from pydub import AudioSegment
 from pydub.silence import detect_nonsilent
-from typing import List, Tuple
-import numpy as np
+from typing import List
 
 from utils.logger import get_logger
 from utils.config import get_config

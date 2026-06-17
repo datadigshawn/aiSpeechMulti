@@ -34,7 +34,7 @@
 """
 
 import re
-from typing import Optional, List, Tuple, Dict
+from typing import Optional, Dict
 import json
 from pathlib import Path
 
@@ -335,7 +335,7 @@ def fix_train_numbers(text: str) -> str:
                 num = cn2an.cn2an(cn_num, "smart")
                 if 1 <= num <= 99:
                     text = text.replace(f"{cn_num}車", f"{num:02d}車")
-            except:
+            except Exception:
                 pass
     
     return text

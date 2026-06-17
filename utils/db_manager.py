@@ -17,7 +17,7 @@ aiSpeech 資料庫管理器
 """
 
 import sqlite3
-from datetime import datetime, date
+from datetime import date
 from pathlib import Path
 from typing import Optional
 
@@ -808,7 +808,6 @@ class DBManager:
 
 def _cli_test():
     """本地簡易測試（不依賴 Streamlit）。"""
-    from datetime import date
     import tempfile
 
     with tempfile.TemporaryDirectory() as tmp:

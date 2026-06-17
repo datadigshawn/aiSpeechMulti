@@ -26,7 +26,6 @@ app_lab.py — aiSpeechMulti 研究工作台 (Lab)
     （需同時啟動 FastAPI：python app_api.py）
 """
 
-import re
 import csv
 import io
 import sys

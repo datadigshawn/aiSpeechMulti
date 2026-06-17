@@ -11,7 +11,7 @@ import json
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 import wave
 
 from utils.logger import get_logger

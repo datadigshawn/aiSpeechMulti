@@ -38,7 +38,7 @@ def load_api_key():
         if api_key:
             print("✅ 從 utils/api_keys.py 載入 API key")
             return api_key
-    except:
+    except Exception:
         pass
     
     print("❌ 錯誤：找不到 API key")

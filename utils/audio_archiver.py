@@ -209,7 +209,7 @@ class AudioArchiver:
 
 def _cli_test():
     """本地簡易測試（不依賴 Streamlit）。"""
-    import tempfile, os
+    import tempfile
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
