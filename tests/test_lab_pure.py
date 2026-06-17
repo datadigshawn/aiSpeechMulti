@@ -10,7 +10,6 @@ from datetime import datetime
 
 from aispeech.lab.transcript_format import format_with_per_sentence_timestamps
 from aispeech.lab.audio_scan import scan_server_audio_files
-from aispeech.lab.plot import lab_plotly_layout
 
 
 START = datetime(2026, 6, 16, 9, 0, 0)
@@ -78,15 +77,3 @@ class TestScanServerAudioFiles:
         assert set(out.keys()) == {"case1"}
         names = sorted(p.name for p in out["case1"])
         assert names == ["a.wav", "b.MP3"]
-
-
-class TestLabPlotlyLayout:
-    def test_returns_layout_dict(self):
-        d = lab_plotly_layout(title="圖", height=520)
-        assert d["title"] == "圖"
-        assert d["height"] == 520
-        assert d["paper_bgcolor"] == "#11141b"
-
-    def test_margin_top_depends_on_title(self):
-        assert lab_plotly_layout(title="x")["margin"]["t"] == 48
-        assert lab_plotly_layout(title=None)["margin"]["t"] == 24

@@ -86,7 +86,6 @@ python-Levenshtein                   # 編輯距離計算
 # Web 框架與 API (Web Framework & API)
 # -----------------------------------------------------------------------------
 streamlit                            # 快速開發監控介面
-plotly                               # CER 趨勢看板互動圖表
 fastapi                              # 高效能 Web API 框架
 uvicorn[standard]                    # ASGI 伺服器 (FastAPI 專用)
 websockets                           # WebSocket 協定

@@ -3,7 +3,7 @@
 app_lab.py — aiSpeechMulti 研究工作台 (Lab)
 版本: 3.0 (2026-05-04 介面整併 P0)
 
-由 app_dashboard.py 拆出。Lab 只負責研究 / 評測 / 資料管理 9 頁，
+由 app_dashboard.py 拆出。Lab 只負責研究 / 評測 / 資料管理 8 頁，
 即時多路監控 / 大螢幕投放改由 FastAPI 直供的靜態 HTML 提供。
 
 包含頁面（9 + 1 內部執行階段）:
@@ -11,7 +11,6 @@ app_lab.py — aiSpeechMulti 研究工作台 (Lab)
   └─ running          批次辨識的執行階段（speech 內部 transition）
 - offline_monitor     離線近即時監看（資料夾 watch）
 - evaluation          黃金語料 CER 評測
-- cer_trend           CER 趨勢看板（將遷移 Grafana）
 - correction_history  錯字回饋飛輪
 - management          事件管理
 - search              FTS5 全文搜尋
@@ -57,7 +56,6 @@ DB_PATH            = PROJECT_ROOT / "data" / "aiSpeechMulti.db"   # ← 統一�
 # 純函式已抽往 aispeech.lab（2026-06-16 P3 第一波），行為不變
 from aispeech.lab.transcript_format import format_with_per_sentence_timestamps
 from aispeech.lab.audio_scan import scan_server_audio_files
-from aispeech.lab.plot import lab_plotly_layout
 
 # ============================================================================
 # FastAPI 即時監控常數
@@ -436,9 +434,6 @@ def _inject_design_system():
 
 _inject_design_system()
 
-
-# Plotly figure 統一 dark theme（design-system-v1）
-# lab_plotly_layout 已抽往 aispeech.lab.plot（2026-06-16 P3 第一波）
 
 
 # 6 路 channel 色（與 static / Grafana 對齊）— design tokens hex
@@ -4125,262 +4120,6 @@ def render_offline_monitor_page():
 
 
 # ============================================================================
-# 頁面：CER 趨勢看板
-# ============================================================================
-def render_cer_trend_page():
-    if st.button("← 回首頁", key="cer_trend_back"):
-        st.session_state["page"] = "speech"
-        st.rerun()
-
-    st.title("📈 CER 趨勢看板")
-    st.caption("歷次 batch_eval 跑分結果聚合 — 看每引擎 final CER 隨時間變化")
-
-    # 介面整併 P2：本頁將遷移到 Grafana
-    st.warning(
-        "🔄 **本頁已於 2026-05-04 規劃遷移到 Grafana**（介面整併 P2）。\n\n"
-        "Grafana 看板已加入 3 個新 panel（時間序列 + 各引擎最佳 CER + 事件類型 × 引擎）。\n"
-        "資料來自 `cer_history` / `cer_event_type_history` SQLite 表，"
-        "請定期跑 `python -m aispeech data sync-cer` 同步。\n\n"
-        f"Grafana：[localhost:3000](http://localhost:3000) → 「aiSpeechMulti 語音辨識監控」→ 最末尾 CER 趨勢區。"
-    )
-    st.caption("本頁保留 30 天作為過渡，期間若 Grafana 數字異常請以本頁為準。")
-
-    history_csv = PROJECT_ROOT / "experiments" / "llm_correction_poc" / "cer_history.csv"
-    if not history_csv.exists():
-        st.warning(
-            "尚無 cer_history.csv。請先跑 `python3 scripts/build_cer_index.py --rebuild` "
-            "從現有 batch_eval JSON 報告建索引。"
-        )
-        return
-
-    import pandas as pd
-    try:
-        df = pd.read_csv(history_csv)
-    except Exception as e:
-        st.error(f"讀取失敗：{e}")
-        return
-
-    if df.empty:
-        st.info("索引為空")
-        return
-
-    # ── Regression detection（防靜默退步）────────────────────────────────
-    # 對每個 (engine, post_process) 組合：取「最新一筆」與「歷史最佳」對照
-    # 若最新 final CER 比歷史最佳高 > 5 個百分點，視為 regression 警告
-    REGRESSION_THRESHOLD_PCT = 5.0  # 5 個百分點絕對差
-    df_sorted = df.sort_values("timestamp")
-    regressions: list[dict] = []
-    for (eng, pp), grp in df_sorted.groupby(["engine_label", "post_process"]):
-        if len(grp) < 2:
-            continue
-        latest = grp.iloc[-1]
-        best = grp.loc[grp["avg_cer_final"].idxmin()]
-        latest_pct = float(latest["avg_cer_final"]) * 100
-        best_pct = float(best["avg_cer_final"]) * 100
-        delta = latest_pct - best_pct
-        if delta > REGRESSION_THRESHOLD_PCT:
-            regressions.append({
-                "engine": eng,
-                "post_process": pp,
-                "latest_pct": latest_pct,
-                "best_pct": best_pct,
-                "delta_pct": delta,
-                "latest_ts": latest["timestamp"],
-                "best_ts": best["timestamp"],
-                "latest_source": latest["source_json"],
-            })
-
-    if regressions:
-        st.error(
-            f"🚨 偵測到 **{len(regressions)}** 個組合疑似退步（最新 final CER 高於歷史最佳 > "
-            f"{REGRESSION_THRESHOLD_PCT}%）"
-        )
-        with st.expander("查看 regression 明細", expanded=True):
-            for r in regressions:
-                st.warning(
-                    f"**{r['engine']} / {r['post_process']}**："
-                    f"最新 {r['latest_pct']:.2f}% (`{r['latest_ts']}`) vs "
-                    f"歷史最佳 {r['best_pct']:.2f}% (`{r['best_ts']}`) "
-                    f"→ **+{r['delta_pct']:.2f}%**"
-                )
-                st.caption(f"     對應 JSON: `{r['latest_source']}`")
-    else:
-        st.success("✅ 無 regression：所有組合最新跑分皆在歷史最佳 + 5% 以內")
-
-    # 統計摘要
-    col_s1, col_s2, col_s3, col_s4 = st.columns(4)
-    col_s1.metric("總跑分數", len(df))
-    col_s2.metric("引擎數", df["engine_label"].nunique())
-    col_s3.metric("最新時間", df["timestamp_iso"].max()[:19] if not df["timestamp_iso"].isna().all() else "—")
-    best_row = df.loc[df["avg_cer_final"].idxmin()]
-    col_s4.metric(
-        "歷史最佳",
-        f"{float(best_row['avg_cer_final']) * 100:.2f}%",
-        f"{best_row['engine_label']} / {best_row['post_process']}",
-    )
-
-    st.divider()
-
-    # 篩選器
-    col_f1, col_f2 = st.columns([2, 2])
-    engines_all = sorted(df["engine_label"].unique().tolist())
-    with col_f1:
-        sel_engines = st.multiselect(
-            "引擎",
-            engines_all,
-            default=engines_all,
-            key="cer_trend_engines",
-        )
-    with col_f2:
-        pp_all = sorted(df["post_process"].unique().tolist())
-        sel_pp = st.multiselect(
-            "後處理組合",
-            pp_all,
-            default=pp_all,
-            key="cer_trend_pp",
-        )
-
-    df_f = df[df["engine_label"].isin(sel_engines) & df["post_process"].isin(sel_pp)].copy()
-    if df_f.empty:
-        st.info("篩選後無資料")
-        return
-
-    # 折線圖
-    df_f["dt"] = pd.to_datetime(df_f["timestamp_iso"], errors="coerce")
-    df_f = df_f.sort_values("dt")
-    df_f["cer_final_pct"] = df_f["avg_cer_final"].astype(float) * 100
-    df_f["cer_raw_pct"] = df_f["avg_cer_raw"].astype(float) * 100
-    df_f["label"] = df_f["engine_label"] + " / " + df_f["post_process"]
-
-    try:
-        import plotly.express as px
-        fig = px.line(
-            df_f,
-            x="dt",
-            y="cer_final_pct",
-            color="label",
-            markers=True,
-            title="各引擎 + 後處理組合 final CER 隨時間趨勢",
-            labels={"dt": "時間", "cer_final_pct": "final CER (%)", "label": "engine / post_process"},
-            color_discrete_sequence=LAB_CHANNEL_COLORS + [LAB_BRAND_PRIMARY],
-        )
-        fig.update_layout(**lab_plotly_layout(title="各引擎 + 後處理組合 final CER 隨時間趨勢", height=520))
-        st.plotly_chart(fig, use_container_width=True)
-    except ImportError:
-        st.warning("⚠️ plotly 未安裝，改用內建折線圖（pip install plotly 可看完整版）")
-        st.line_chart(
-            df_f.pivot_table(index="dt", columns="label", values="cer_final_pct"),
-        )
-
-    st.divider()
-
-    # 各引擎最佳表
-    st.subheader("📊 各引擎歷史最佳（final CER 最低）")
-    best_by_engine = (
-        df_f.sort_values("avg_cer_final")
-        .groupby("engine_label")
-        .first()
-        .reset_index()[
-            ["engine_label", "post_process", "avg_cer_raw", "avg_cer_final",
-             "avg_improvement", "timestamp"]
-        ]
-    )
-    best_by_engine["raw %"] = (best_by_engine["avg_cer_raw"].astype(float) * 100).round(2)
-    best_by_engine["final %"] = (best_by_engine["avg_cer_final"].astype(float) * 100).round(2)
-    best_by_engine["improve %"] = (best_by_engine["avg_improvement"].astype(float) * 100).round(2)
-    st.dataframe(
-        best_by_engine[["engine_label", "post_process", "raw %", "final %", "improve %", "timestamp"]],
-        use_container_width=True,
-        hide_index=True,
-    )
-
-    st.divider()
-
-    # 完整明細
-    with st.expander(f"📋 完整明細（{len(df_f)} 筆）", expanded=False):
-        df_show = df_f[[
-            "timestamp", "engine_label", "post_process",
-            "avg_cer_raw", "avg_cer_final", "avg_improvement",
-            "sample_count", "source_json",
-        ]].copy()
-        df_show["raw %"] = (df_show["avg_cer_raw"].astype(float) * 100).round(2)
-        df_show["final %"] = (df_show["avg_cer_final"].astype(float) * 100).round(2)
-        df_show["improve %"] = (df_show["avg_improvement"].astype(float) * 100).round(2)
-        st.dataframe(
-            df_show[["timestamp", "engine_label", "post_process",
-                     "raw %", "final %", "improve %", "sample_count", "source_json"]],
-            use_container_width=True,
-            hide_index=True,
-        )
-
-    # 事件類型分組（細粒度）
-    et_csv = PROJECT_ROOT / "experiments" / "llm_correction_poc" / "cer_event_type_history.csv"
-    if et_csv.exists():
-        st.divider()
-        st.subheader("🗂️ 依事件類型分組")
-        st.caption("細粒度看 daily / track / door / emergency / control / train 各自走勢")
-        try:
-            df_et = pd.read_csv(et_csv)
-            df_et = df_et[df_et["engine_label"].isin(sel_engines) & df_et["post_process"].isin(sel_pp)].copy()
-            if not df_et.empty:
-                df_et["dt"] = pd.to_datetime(df_et["timestamp_iso"], errors="coerce")
-                df_et = df_et.sort_values("dt")
-                df_et["cer_final_pct"] = df_et["avg_cer_final"].astype(float) * 100
-
-                event_types_all = sorted(df_et["event_type"].unique().tolist())
-                sel_et = st.multiselect(
-                    "事件類型",
-                    event_types_all,
-                    default=event_types_all,
-                    key="cer_trend_et",
-                )
-                df_et_f = df_et[df_et["event_type"].isin(sel_et)]
-
-                # 每引擎一張小圖（依事件類型上色）
-                try:
-                    import plotly.express as px
-                    eng_options = sorted(df_et_f["engine_label"].unique().tolist())
-                    sel_eng_for_et = st.selectbox(
-                        "看哪個引擎的事件類型走勢", eng_options, key="cer_trend_et_eng",
-                    )
-                    df_eng_et = df_et_f[df_et_f["engine_label"] == sel_eng_for_et].copy()
-                    df_eng_et["label"] = df_eng_et["event_type"] + " / " + df_eng_et["post_process"]
-                    fig_et = px.line(
-                        df_eng_et, x="dt", y="cer_final_pct",
-                        color="label", markers=True,
-                        title=f"{sel_eng_for_et} 各事件類型 final CER 趨勢",
-                        labels={"dt": "時間", "cer_final_pct": "final CER (%)", "label": "event_type / pp"},
-                        color_discrete_sequence=LAB_CHANNEL_COLORS + [LAB_BRAND_PRIMARY],
-                    )
-                    fig_et.update_layout(**lab_plotly_layout(
-                        title=f"{sel_eng_for_et} 各事件類型 final CER 趨勢", height=440))
-                    st.plotly_chart(fig_et, use_container_width=True)
-                except ImportError:
-                    st.warning("⚠️ plotly 未安裝，事件類型走勢圖暫時無法顯示")
-
-                # 各引擎 × 各事件類型最佳值表
-                st.caption("**各引擎 × 各事件類型歷史最佳 final CER**")
-                pivot = (
-                    df_et_f.sort_values("avg_cer_final")
-                    .groupby(["engine_label", "event_type"])
-                    .first()
-                    .reset_index()
-                )
-                pivot["final %"] = (pivot["avg_cer_final"].astype(float) * 100).round(2)
-                pivot_table = pivot.pivot_table(
-                    index="engine_label", columns="event_type", values="final %", aggfunc="min",
-                )
-                st.dataframe(pivot_table, use_container_width=True)
-        except Exception as e:
-            st.caption(f"⚠️ 事件類型分組載入失敗：{e}")
-
-    st.caption(
-        "💡 索引由 `scripts/build_cer_index.py` 維護；"
-        "每次 `batch_eval.py` 跑完會自動 append 新的一筆。"
-    )
-
-
-# ============================================================================
 # 頁面：修正歷程查詢（#15 飛輪可視化）
 # ============================================================================
 def render_correction_history_page():
@@ -4483,7 +4222,6 @@ PAGES = [
     ("speech",             "🎙️ 批次辨識"),
     ("offline_monitor",    "🔒 離線監看"),
     ("evaluation",         "📊 準確率評測"),
-    ("cer_trend",          "📈 CER 趨勢（將遷移 Grafana）"),
     ("correction_history", "✏️ 修正歷程"),
     ("management",         "🗂️ 事件管理"),
     ("search",             "🔍 全文搜尋"),
@@ -4496,7 +4234,6 @@ PAGE_RENDERERS = {
     "running":            lambda: render_running_page(),  # speech 流程的執行階段
     "offline_monitor":    lambda: render_offline_monitor_page(),
     "evaluation":         lambda: render_evaluation_page(),
-    "cer_trend":          lambda: render_cer_trend_page(),
     "correction_history": lambda: render_correction_history_page(),
     "management":         lambda: render_management_page(),
     "search":             lambda: render_search_page(),
@@ -4535,7 +4272,7 @@ def _inject_theme(theme: str) -> None:
 
 
 def render_lab_sidebar():
-    """研究工作台統一側邊欄：9 頁導航 + 跨介面連結 + Backend + 主題切換。"""
+    """研究工作台統一側邊欄：8 頁導航 + 跨介面連結 + Backend + 主題切換。"""
     with st.sidebar:
         st.markdown("### 🔬 研究工作台")
         st.caption("aiSpeechMulti Lab")
