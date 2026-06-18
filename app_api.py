@@ -275,9 +275,16 @@ class AudioBuffer:
 
 class Database:
     """
-    SQLite 資料庫，儲存辨識結果。
+    SQLite 即時層資料庫，儲存即時辨識結果到 `transcripts` 表。
+
+    ⚠️ 兩個 DB 存取層的邊界（詳見 docs/db-architecture.md）：
+      - 即時辨識走「我」(此 Database 類) → `transcripts` 表（channel-based、扁平）。
+      - 研究／批次辨識走 utils.db_manager.DBManager → `transcriptions` 表（event 連結 + 修正飛輪）。
+      兩者用**不同表、不互通**；`transcripts` 與 `transcriptions` 一字之差但 schema／用途不同，勿混。
+
     transcripts 表含 stt_backend 欄位，記錄每筆辨識使用的引擎。
     相容舊版資料庫：ALTER TABLE 自動補欄位。
+    已知 quirk：use_vad/use_denoise 為 TEXT（歷史包袱，SQLite affinity 下功能正常，見文件）。
     """
 
     def __init__(self, db_path: Path):

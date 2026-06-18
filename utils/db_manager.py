@@ -108,7 +108,13 @@ _DDL_STATEMENTS = [
 
 class DBManager:
     """
-    SQLite 資料庫管理器
+    SQLite 資料庫管理器（研究／批次層）。
+
+    ⚠️ 兩個 DB 存取層的邊界（詳見 docs/db-architecture.md）：
+      - 研究／批次辨識走「我」(DBManager) → events / audio_files / `transcriptions` 表
+        （event/audio 連結 + 修正飛輪 + 後處理 audit）。
+      - 即時辨識走 app_api.py 的 `Database` 類 → `transcripts` 表（channel-based、扁平）。
+      兩者用**不同表、不互通**；`transcripts` 與 `transcriptions` 一字之差但 schema／用途不同，勿混。
 
     使用方式：
         db = DBManager()
