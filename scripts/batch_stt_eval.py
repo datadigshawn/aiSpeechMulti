@@ -67,9 +67,13 @@ STT_OUTPUTS_DIR = PROJECT_ROOT / "experiments" / "golden_dataset" / "stt_outputs
 # 引擎工廠
 # ══════════════════════════════════════════════════════════════════════
 def make_engine(label: str):
+    """label → 引擎實例。2026-06-18 收斂：委派單一工廠 create_engine（同 class、同
+    kwargs，行為等價）；gemini 變體以 model 參數區分。"""
+    from scripts.models.factory import create_engine
+
     if label == "chirp3":
-        from scripts.models.model_google_stt import GoogleSTTModel
-        return GoogleSTTModel(
+        return create_engine(
+            "chirp3",
             project_id=os.getenv("GOOGLE_CLOUD_PROJECT", "dazzling-seat-315406"),
             location="asia-northeast1",
             model="chirp_3",
@@ -78,20 +82,16 @@ def make_engine(label: str):
             use_config_manager=True,
         )
     if label == "gemini":
-        from scripts.models.model_gemini import GeminiModel
-        return GeminiModel(api_key=_load_gemini_key(), model="gemini-2.5-flash", temperature=0.0)
+        return create_engine("gemini", api_key=_load_gemini_key(), model="gemini-2.5-flash", temperature=0.0)
     if label == "gemini25pro":
-        from scripts.models.model_gemini import GeminiModel
-        return GeminiModel(api_key=_load_gemini_key(), model="gemini-2.5-pro", temperature=0.0)
+        return create_engine("gemini", api_key=_load_gemini_key(), model="gemini-2.5-pro", temperature=0.0)
     if label == "gemini31pro":
-        from scripts.models.model_gemini import GeminiModel
-        return GeminiModel(api_key=_load_gemini_key(), model="gemini-3.1-pro-preview", temperature=0.0)
+        return create_engine("gemini", api_key=_load_gemini_key(), model="gemini-3.1-pro-preview", temperature=0.0)
     if label == "scribe":
-        from scripts.models.model_scribe import ScribeSTTModel
-        return ScribeSTTModel(language_code="zh", diarize=False, timeout=120.0)
+        return create_engine("scribe", language_code="zh", diarize=False, timeout=120.0)
     if label == "sensevoice":
-        from scripts.models.model_sensevoice import SenseVoiceModel
-        return SenseVoiceModel(
+        return create_engine(
+            "sensevoice",
             model_name="iic/SenseVoiceSmall",
             language="zh",
             device="cpu",
