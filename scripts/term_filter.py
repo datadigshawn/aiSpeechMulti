@@ -55,6 +55,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from utils.logger import get_logger
+
+logger = get_logger("term_filter")
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG = PROJECT_ROOT / "vocabulary" / "term_filter.json"
 ENGINES_DIR = PROJECT_ROOT / "vocabulary" / "engines"
@@ -189,7 +193,7 @@ class TermFilter:
         """先載基底，再依 engine_hint 套 overlay"""
         # ── 基底 ─────────────────────────────────────────────
         if not self.config_path.exists():
-            print(f"⚠️ term_filter 設定檔不存在: {self.config_path}")
+            logger.warning(f"term_filter 設定檔不存在: {self.config_path}")
             return
         try:
             data = json.loads(self.config_path.read_text(encoding="utf-8"))
@@ -198,7 +202,7 @@ class TermFilter:
             patterns = data.get("protected_patterns", [])
             self.protected_patterns = [re.compile(p) for p in patterns]
         except Exception as e:
-            print(f"⚠️ 載入 term_filter 基底設定失敗: {e}")
+            logger.warning(f"載入 term_filter 基底設定失敗: {e}")
             return
 
         # ── Overlay（依 engine_hint）───────────────────────────
@@ -208,7 +212,7 @@ class TermFilter:
         try:
             overlay = json.loads(self.engine_overlay_path.read_text(encoding="utf-8"))
         except Exception as e:
-            print(f"⚠️ 載入 engine overlay 失敗 ({self.engine_overlay_path.name}): {e}")
+            logger.warning(f"載入 engine overlay 失敗 ({self.engine_overlay_path.name}): {e}")
             return
 
         bl_add = overlay.get("blacklist_add", {}) or {}
@@ -231,7 +235,7 @@ class TermFilter:
             try:
                 self.protected_patterns.append(re.compile(p))
             except re.error as e:
-                print(f"⚠️ overlay protected_patterns 編譯失敗: {p} ({e})")
+                logger.warning(f"overlay protected_patterns 編譯失敗: {p} ({e})")
 
         self.overlay_summary = {
             "applied":           True,

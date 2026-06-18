@@ -66,6 +66,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from utils.logger import get_logger
+
+logger = get_logger("contextual_corrector")
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG = PROJECT_ROOT / "vocabulary" / "contextual_corrections.json"
 
@@ -170,7 +174,7 @@ class ContextualCorrector:
     def _load_rules(self) -> None:
         # ── 基底 ─────────────────────────────────────────────
         if not self.config_path.exists():
-            print(f"⚠️ 規則檔不存在: {self.config_path}")
+            logger.warning(f"規則檔不存在: {self.config_path}")
             return
         try:
             data = json.loads(self.config_path.read_text(encoding="utf-8"))
@@ -179,7 +183,7 @@ class ContextualCorrector:
                 if rule:
                     self.rules.append(rule)
         except Exception as e:
-            print(f"⚠️ 載入基底規則失敗: {e}")
+            logger.warning(f"載入基底規則失敗: {e}")
             return
 
         # ── Overlay（依 engine_hint）───────────────────────────
@@ -189,7 +193,7 @@ class ContextualCorrector:
         try:
             overlay = json.loads(self.engine_overlay_path.read_text(encoding="utf-8"))
         except Exception as e:
-            print(f"⚠️ 載入 contextual overlay 失敗 ({self.engine_overlay_path.name}): {e}")
+            logger.warning(f"載入 contextual overlay 失敗 ({self.engine_overlay_path.name}): {e}")
             return
 
         rules_add = overlay.get("contextual_rules_add", []) or []
@@ -266,7 +270,7 @@ class ContextualCorrector:
                     "suffix": rule.suffix,
                 })
             except re.error as e:
-                print(f"⚠️ 規則編譯失敗 ({rule.wrong}): {e}")
+                logger.warning(f"規則編譯失敗 ({rule.wrong}): {e}")
                 continue
 
         return result, changes

@@ -50,6 +50,10 @@ try:
 except ImportError:
     OPENCC_AVAILABLE = False
 
+from utils.logger import get_logger
+
+logger = get_logger("text_cleaner")
+
 
 # ============================================================================
 # 階段 1: 核心術語修正（必須先執行，優先級最高）
@@ -381,17 +385,17 @@ class RadioTextCleaner:
 
                 if loaded:
                     self.corrections.update(loaded)
-                    print(f"✅ 載入外部修正字典: {len(loaded)} 條規則")
+                    logger.info(f"載入外部修正字典: {len(loaded)} 條規則")
             
             # 嘗試載入 JSON
             elif dict_path.endswith('.json'):
                 with open(dict_path, 'r', encoding='utf-8') as f:
                     external_corrections = json.load(f)
                     self.corrections.update(external_corrections)
-                    print(f"✅ 載入外部修正字典: {len(external_corrections)} 條規則")
+                    logger.info(f"載入外部修正字典: {len(external_corrections)} 條規則")
         
         except Exception as e:
-            print(f"⚠️  載入外部修正字典失敗: {e}")
+            logger.warning(f"載入外部修正字典失敗: {e}")
     
     def clean(self, text: str, aggressive: bool = True) -> str:
         """
