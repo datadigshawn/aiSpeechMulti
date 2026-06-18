@@ -8,7 +8,7 @@ from pathlib import Path
 from google.cloud.speech_v2 import SpeechClient
 from google.api_core.client_options import ClientOptions
 
-PROJECT_ID = "dazzling-seat-315406"
+PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "dazzling-seat-315406")
 base_path = Path(__file__).parent.parent
 default_key_path = base_path / "utils" / "google-speech-key.json"
 

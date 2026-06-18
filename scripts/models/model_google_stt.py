@@ -1002,7 +1002,7 @@ def test_google_stt():
     print("=" * 80)
     
     # 測試參數
-    project_id = "dazzling-seat-315406"
+    project_id = os.getenv("GOOGLE_CLOUD_PROJECT", "dazzling-seat-315406")
     
     # 測試配置
     test_configs = [

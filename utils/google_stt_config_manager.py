@@ -19,6 +19,7 @@ Google STT 配置管理器
 """
 
 import json
+import os
 from pathlib import Path
 from typing import Tuple, Optional
 
@@ -353,7 +354,7 @@ def main():
     print("測試 Google STT 配置管理器")
     
     # 建立配置管理器
-    manager = GoogleSTTConfigManager("dazzling-seat-315406")
+    manager = GoogleSTTConfigManager(os.getenv("GOOGLE_CLOUD_PROJECT", "dazzling-seat-315406"))
     
     # 列印摘要
     manager.print_summary()
