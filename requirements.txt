@@ -81,6 +81,7 @@ cn2an                                # 中文數字轉換 (洞溝→09)
 opencc-python-reimplemented          # 簡繁轉換
 jiwer                                # CER/WER 計算
 python-Levenshtein                   # 編輯距離計算
+pypinyin                             # 拼音（同音選字 LM 校正候選展開用）
 
 # -----------------------------------------------------------------------------
 # Web 框架與 API (Web Framework & API)

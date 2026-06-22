@@ -15,14 +15,36 @@ app_api / app_lab / batch eval 共用同一套 deterministic rules。
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Optional
 
 from scripts.post_process import post_process
+
+# 同音選字校正器（語言層，char n-gram rescoring）。
+# 預設 OFF：需 ① 擴 LM 語料（會議記錄/席位逐字稿）② 在真實資料量過誤改率後才開啟。
+# 見 _decisions/2026-06-12 選字問題策略 — 辭典 vs 語言模型。
+_LM_PKL = Path(__file__).resolve().parent.parent / "experiments" / "ngram_lm" / "char_4gram.pkl"
+_HOMOPHONE_CORRECTOR = None
+_HOMOPHONE_LOADED = False
+
+
+def _get_homophone_corrector():
+    """惰性載入校正器（缺 pypinyin / .pkl 時回 None，不影響主流程）。"""
+    global _HOMOPHONE_CORRECTOR, _HOMOPHONE_LOADED
+    if not _HOMOPHONE_LOADED:
+        _HOMOPHONE_LOADED = True
+        try:
+            from scripts.homophone_corrector import HomophoneCorrector
+            _HOMOPHONE_CORRECTOR = HomophoneCorrector.from_pickle(_LM_PKL)
+        except Exception:
+            _HOMOPHONE_CORRECTOR = None
+    return _HOMOPHONE_CORRECTOR
 
 
 def post_process_realtime(
     text: str,
     engine_hint: Optional[str] = None,
+    enable_homophone_lm: bool = False,
 ) -> tuple[str, dict]:
     """對 final transcript 跑 deterministic 後處理（永不呼叫 LLM）。
 
@@ -30,6 +52,8 @@ def post_process_realtime(
         text: STT final / committed 辨識文字。
         engine_hint: 上游引擎類型（如 "google_stream" / "sensevoice"），
             傳給 post_process 供規則判斷使用。
+        enable_homophone_lm: 是否在 deterministic 規則後再跑同音選字 LM 校正。
+            預設 False（即時路徑安全閘，待擴語料 + 量誤改率後才開啟）。
 
     Returns:
         (corrected_text, report_dict)。空輸入時 report 為空 dict。
@@ -37,8 +61,18 @@ def post_process_realtime(
     if not text or not text.strip():
         return text or "", {}
 
-    return post_process(
+    corrected, report = post_process(
         text,
         enable_llm=False,
         engine_hint=engine_hint,
     )
+
+    if enable_homophone_lm:
+        hc = _get_homophone_corrector()
+        if hc is not None:
+            new_text, changes = hc.correct(corrected)
+            if changes:
+                corrected = new_text
+                report = {**report, "homophone_lm": changes}
+
+    return corrected, report
