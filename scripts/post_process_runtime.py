@@ -23,19 +23,26 @@ from scripts.post_process import post_process
 # 同音選字校正器（語言層，char n-gram rescoring）。
 # 預設 OFF：需 ① 擴 LM 語料（會議記錄/席位逐字稿）② 在真實資料量過誤改率後才開啟。
 # 見 _decisions/2026-06-12 選字問題策略 — 辭典 vs 語言模型。
-_LM_PKL = Path(__file__).resolve().parent.parent / "experiments" / "ngram_lm" / "char_4gram.pkl"
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_LM_PKL = _PROJECT_ROOT / "experiments" / "ngram_lm" / "char_4gram.pkl"
+_TERMS_TXT = _PROJECT_ROOT / "experiments" / "lm_corpus" / "glossary" / "domain_terms_zh.txt"
 _HOMOPHONE_CORRECTOR = None
 _HOMOPHONE_LOADED = False
 
 
 def _get_homophone_corrector():
-    """惰性載入校正器（缺 pypinyin / .pkl 時回 None，不影響主流程）。"""
+    """惰性載入校正器（缺 pypinyin / .pkl 時回 None，不影響主流程）。
+
+    一併載入域術語表（運務處專有名詞彙編）供「保護＋偏好」。
+    """
     global _HOMOPHONE_CORRECTOR, _HOMOPHONE_LOADED
     if not _HOMOPHONE_LOADED:
         _HOMOPHONE_LOADED = True
         try:
             from scripts.homophone_corrector import HomophoneCorrector
-            _HOMOPHONE_CORRECTOR = HomophoneCorrector.from_pickle(_LM_PKL)
+            _HOMOPHONE_CORRECTOR = HomophoneCorrector.from_pickle(
+                _LM_PKL, terms_path=_TERMS_TXT
+            )
         except Exception:
             _HOMOPHONE_CORRECTOR = None
     return _HOMOPHONE_CORRECTOR

@@ -25,7 +25,12 @@ CORPUS = [
     "邏輯",
     "OCC通告全線因電力異常",
     "請G15九德站長回報巡檢狀況",
+    "請確認授權碼",
+    "授權碼一零一七",
+    "行控中心通告全線",
 ]
+
+TERMS = ["授權碼", "行控中心", "正線", "通告"]
 
 
 @pytest.fixture(scope="module")
@@ -33,6 +38,13 @@ def corrector() -> HomophoneCorrector:
     lm = CharNgramLM(order=4, alpha=0.4)
     lm.train([clean_for_lm(s) for s in CORPUS])
     return HomophoneCorrector(lm, max_pinyin_dist=1, margin=2.0)
+
+
+@pytest.fixture(scope="module")
+def corrector_terms() -> HomophoneCorrector:
+    lm = CharNgramLM(order=4, alpha=0.4)
+    lm.train([clean_for_lm(s) for s in CORPUS])
+    return HomophoneCorrector(lm, max_pinyin_dist=1, margin=2.0, terms=TERMS)
 
 
 def test_fixes_exact_homophone(corrector):
@@ -74,3 +86,30 @@ def test_unattested_change_reverts(corrector):
     s = "邏輯"  # 在語料內，應保持
     out, _ = corrector.correct(s)
     assert out == "邏輯"
+
+
+# ---- 域術語：保護 + 偏好 ----
+
+def test_term_prefer_forms_term(corrector_terms):
+    # 受權碼 → 授權碼（受/授 同音），靠術語偏好拉回
+    out, changes = corrector_terms.correct("受權碼")
+    assert out == "授權碼"
+    assert changes and changes[0].get("via") == "term"
+
+
+def test_term_protect_keeps_correct_term(corrector_terms):
+    # 已正確的術語位置鎖定，不被動到（即使鄰接可校正的錯字）
+    out, _ = corrector_terms.correct("行控中心通告全線")
+    assert out.startswith("行控中心")
+
+
+def test_terms_none_backward_compatible(corrector, corrector_terms):
+    # 無術語表時行為不變；一般同音字兩者都該修
+    assert corrector.correct("對化")[0] == "對話"
+    assert corrector_terms.correct("對化")[0] == "對話"
+
+
+def test_protects_chinese_numerals(corrector_terms):
+    # 中文數字不可被當同音字改爛；術語拉回但數字原樣
+    out, _ = corrector_terms.correct("受權碼一零一七")
+    assert out == "授權碼一零一七"

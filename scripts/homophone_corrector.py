@@ -30,6 +30,11 @@ def _is_cjk(ch: str) -> bool:
     return "一" <= ch <= "鿿"
 
 
+# 中文數字等保護字：不可被當同音字校正（避免把數字/量詞改爛）。
+# 即時路徑通常已把數字正規化成阿拉伯數字，此為離線/防呆雙保險。
+_PROTECTED_CHARS = frozenset("零一二三四五六七八九十百千萬億兩○〇壹貳參肆伍陸柒捌玖拾佰仟")
+
+
 def _lev(a: str, b: str) -> int:
     """字串 Levenshtein 距離（給拼音字串用）。"""
     if a == b:
@@ -57,12 +62,22 @@ class HomophoneCorrector:
         margin: float = 2.0,
         beam: int = 15,
         min_len: int = 2,
+        terms: "list[str] | None" = None,
+        term_bonus: float = 6.0,
+        term_margin: float = 0.0,
     ) -> None:
         self.lm = lm
         self.max_pinyin_dist = max_pinyin_dist
         self.margin = margin
         self.beam = beam
         self.min_len = min_len
+        # 域術語表（保護＋偏好）。≥2 字才有意義。
+        self._terms = frozenset(t for t in (terms or ()) if t and len(t) >= 2)
+        self._max_term_len = max((len(t) for t in self._terms), default=0)
+        # rescoring 對「形成術語」的每字加分；須大於 LM 對 OOV 字的 floor 懲罰
+        # （≈5/字）才能蓋過稀有術語字的低分。
+        self.term_bonus = term_bonus
+        self.term_margin = term_margin     # 形成術語時可接受的最小 LM 增益
         # 候選池 = LM vocab 內的 CJK 字（確保候選都打得出分）
         self._pool = [c for c in self._lm_vocab() if _is_cjk(c)]
         self._pinyin_of: dict[str, str] = {c: _toneless(c) for c in self._pool}
@@ -75,8 +90,17 @@ class HomophoneCorrector:
 
     # ---- 載入 ----
     @classmethod
-    def from_pickle(cls, pkl_path: Path | str, **kw) -> Optional["HomophoneCorrector"]:
-        """從 build_ngram_lm 產生的 .pkl 載入；缺套件/缺檔回 None。"""
+    def from_pickle(
+        cls,
+        pkl_path: Path | str,
+        *,
+        terms_path: Path | str | None = None,
+        **kw,
+    ) -> Optional["HomophoneCorrector"]:
+        """從 build_ngram_lm 產生的 .pkl 載入；缺套件/缺檔回 None。
+
+        terms_path：域術語清單（一行一詞，純中文）；缺檔則不啟用術語保護/偏好。
+        """
         if not _PYPINYIN_OK:
             return None
         pkl_path = Path(pkl_path)
@@ -95,7 +119,13 @@ class HomophoneCorrector:
 
         with open(pkl_path, "rb") as f:
             lm = _Unpickler(f).load()
-        return cls(lm, **kw)
+
+        terms = kw.pop("terms", None)
+        if terms_path:
+            tp = Path(terms_path)
+            if tp.exists():
+                terms = [ln.strip() for ln in tp.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        return cls(lm, terms=terms, **kw)
 
     # ---- 內部 ----
     def _lm_vocab(self) -> list[str]:
@@ -114,10 +144,31 @@ class HomophoneCorrector:
         for py in self._uniq_pinyins:
             if _lev(py, target) <= self.max_pinyin_dist:
                 out.update(self._by_pinyin[py])
+        # 不把保護字（中文數字等）當成替換候選
+        out = {c for c in out if c == ch or c not in _PROTECTED_CHARS}
         return tuple(out)
 
     def _bigram_attested(self, a: str, b: str) -> bool:
         return (a, b) in self.lm.ngrams.get(2, {})
+
+    def _term_cover(self, s: str) -> set[int]:
+        """回傳 s 中被任一域術語覆蓋的字元位置（由左greedy取最長匹配）。"""
+        if not self._terms:
+            return set()
+        cover: set[int] = set()
+        i, n = 0, len(s)
+        while i < n:
+            matched = 0
+            for length in range(min(self._max_term_len, n - i), 1, -1):
+                if s[i:i + length] in self._terms:
+                    matched = length
+                    break
+            if matched:
+                cover.update(range(i, i + matched))
+                i += matched
+            else:
+                i += 1
+        return cover
 
     def correct(self, text: str) -> tuple[str, list[dict]]:
         """回傳 (corrected_text, changes)。changes 為空表示未改。"""
@@ -126,9 +177,21 @@ class HomophoneCorrector:
         if not any(_is_cjk(c) for c in text):
             return text, []
 
-        # beam rescoring：非 CJK 位置鎖定，CJK 位置展開同音候選
+        # 保護：輸入中已正確出現的域術語，其位置鎖定不動
+        locked = self._term_cover(text)
+
+        # 偏好：rescoring 目標 = LM + 形成術語的加分
+        def _objective(s: str) -> float:
+            v = self.lm.log10_prob(s)
+            if self._terms and self.term_bonus:
+                v += self.term_bonus * len(self._term_cover(s))
+            return v
+
+        # beam rescoring：非 CJK / 保護字（數字）/ 受保護術語位置鎖定，其餘展開同音候選
         beams = [text]
         for i, ch in enumerate(text):
+            if i in locked or ch in _PROTECTED_CHARS:
+                continue
             cands = self._candidates(ch)
             if len(cands) == 1:
                 continue
@@ -136,22 +199,30 @@ class HomophoneCorrector:
             for b in beams:
                 for c in cands:
                     nxt.append(b[:i] + c + b[i + 1:])
-            nxt = sorted(set(nxt), key=self.lm.log10_prob, reverse=True)[: self.beam]
+            nxt = sorted(set(nxt), key=_objective, reverse=True)[: self.beam]
             beams = nxt
 
-        best = max(beams, key=self.lm.log10_prob)
+        best = max(beams, key=_objective)
         if best == text:
             return text, []
 
-        # margin 護欄
-        if self.lm.log10_prob(best) - self.lm.log10_prob(text) < self.margin:
-            return text, []
+        changed = [i for i, (o, n) in enumerate(zip(text, best)) if o != n]
+        lm_gain = self.lm.log10_prob(best) - self.lm.log10_prob(text)
 
-        # attestation 護欄：每個被改的字都要與鄰字組成語料出現過的 bigram
+        # 接受路徑 B（偏好）：所有變更都落在 best 的某個域術語內，且 LM 未更差
+        if self._terms:
+            best_cover = self._term_cover(best)
+            if changed and all(i in best_cover for i in changed) and lm_gain >= self.term_margin:
+                return best, [
+                    {"pos": i, "from": text[i], "to": best[i], "via": "term"} for i in changed
+                ]
+
+        # 接受路徑 A（標準）：margin 護欄 + attestation 護欄
+        if lm_gain < self.margin:
+            return text, []
         changes = []
-        for i, (o, n) in enumerate(zip(text, best)):
-            if o == n:
-                continue
+        for i in changed:
+            o, n = text[i], best[i]
             left_ok = i > 0 and self._bigram_attested(best[i - 1], n)
             right_ok = i < len(best) - 1 and self._bigram_attested(n, best[i + 1])
             if not (left_ok or right_ok):
