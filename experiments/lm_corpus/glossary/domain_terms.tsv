@@ -1,0 +1,490 @@
+編號	中文	英文	縮寫
+A0001	列車運行計畫	Train Operation Plan
+A0002	行車運轉通告	Traffic Note
+A0003	事故	Accident
+A0004	事故調查報告	Accident Report
+A0005	正線	Main Line
+A0006	機廠	Depot
+A0007	時刻表	Timetable
+A0008	緊急狀況	Emergency Case
+A0009	尖峰時段	Peak Hour
+A0010	離峰時段	Non-peak Hour
+A0011	停站時間	Dwell Time
+A0012	營運時間帶	Revenue Operation Time	ROT
+A0013	巡軌作業	Sweeping Operation
+A0014	巡檢作業	Patrol
+A0015	維修時間帶	Maintenance Working Time	MWT
+A0016	行車人員	Operation Staff
+A0017	列車駕駛	Train Driver
+A0018	行控中心	Operation Control Center	OCC
+A0019	中央控制室	Central Control Room	CCR
+A0020	備援行控中心	Backup Operation Control Center	BOCC
+A0021	控制長	Chief Controller	CC
+A0022	正線控制工程師	Mainline Traffic Controller	MTC
+A0023	機廠控制工程師	Depot Traffic Controller	DTC
+A0024	電力控制工程師	Power Controller	PC
+A0025	工程控制工程師	Engineering Controller	EC
+A0026	行控資訊員	Information Assistant	IA
+A0027	定位	Localization
+A0028	路徑	Route
+A0029	服務速度	Service Speed
+A0030	工作現場	Work Site
+A0031	工作現場負責人	Work Site Supervisor	WSS
+A0032	重大事故	Major Accident
+A0033	一般事故	General Accident
+A0034	緊急應變中心	Emergency Operation Center	EOC
+A0035	緊急應變中心召集人	Chief Emergency Coordinator	CEC
+A0036	現場指揮所	Incident Command Post	ICP
+A0037	現場指揮官	Site Commander
+A0038	回送車	Deadhead Train
+A0039	營運車	Revenue Train
+A0040	首班車	First Revenue Train
+A0041	末班車	Last Revenue Train
+A0042	巡軌車	Sweeping Train
+A0043	圖形化使用者介面	Graphical User Interface	GUI
+A0044	準點率	Punctuality Rate
+A0045	標準作業程序	Standard Operation Procedure	SOP
+A0046	步巡	Walking Patrol
+A0047	緊急呼叫	Emergency Call
+A0048	旁路	Bypass
+A0049	頻道	Channel
+A0050	通訊	Communication
+A0051	單呼	Private Call
+A0052	適應訓練	On Job Training	OJT
+A0053	停車轉乘	Park and Ride	P&R
+A0054	接送轉乘	Kiss and Ride	K&R
+A0055	營運通車日	Revenue Service Date
+A0056	乘車品質	Ride Quality
+A0057	初勘	Initial Inspection
+A0058	履勘	Final Inspection
+A0059	模擬演練	Drill
+A0060	意外停滯	Unscheduled Stop
+A0061	系統整合測試	System Integrated Test	SIT
+A0062	試運轉	Trial Running
+A0063	終點站	Destination Station
+A0064	端點站	Terminal Station
+A0065	複置裝置	Redundancy
+A0066	直通模式	Direct Mode Operation	DMO
+A0067	告警	Alarm
+A0068	維生	Vital
+A0069	非維生	Non-Vital
+A0070	預防檢修	Preventive Maintenance	PM
+A0071	故障檢修	Corrective Maintenance	CM
+A0072	平均故障間隔時間	Mean Time Between Failures	MTBF
+A0073	故障間平均行駛百萬公里數	Million Kilometer Between Failure	MKBF
+A0074	平均復原時間	Mean Time To Restore	MTTR
+A0075	特別技術規範	Particular Technical Specification	PTS
+A0076	高速乙太網路	Fast Ethernet	FE
+A0077	超高速乙太網路	Gigabit Ethernet	GbE
+A0078	區域網路	Local Area Network	LAN
+A0079	同步數位階層	Synchronous Digital Hierarchy	SDH
+A0080	列車使用率	Trainset Availability
+A0081	系統運能	Carrying Capacity
+A0082	運行時間	Travel Time
+A0083	隨車巡檢	On-board Patrol
+A0084	接駁公車	Shuttle Bus
+A0085	運轉整理	Operation Reformation
+A0086	報修作業	Fault Reporting
+A0087	工單	Work Request
+A0088	營運中斷接駁	Rail Replacement Bus Service
+A0089	數位中繼式無線電	Terrestrial Trunked Radio	TETRA
+B0001	行車方向	Direction Of Travel
+B0002	下行	Down Direction
+B0003	上行	Up Direction
+B0004	越位	Overrun
+B0005	過站不停	Skip
+B0006	閉塞區間	Block
+B0007	正常運轉模式	Normal Operating Mode
+B0008	降級運轉模式	Degraded Operating Mode
+B0009	緊急運轉模式	Emergency Operating Mode
+B0010	通訊式列車控制系統	Communication Based Train Control System	CBTC
+B0011	電腦化聯鎖	Computer based Interlocking	CBI
+B0012	中央邏輯控制器	Central Logical Controller	CLC
+B0013	智慧型輸入輸出	SMART I/O	SMIO
+B0014	列車操作路徑釋放	Train Operated Route Release	TORR
+B0015	服務停止點	Service Stopping Point	SSP
+B0016	地理自動模式授權區域	Geographical Automatic Mode Authorization Zone	GAMA Zone
+B0017	工作區	Work Zone	WZ
+B0018	臨時速度限制	Temporary Speed Restriction	TSR
+B0019	區間速度限制	Block Speed Restriction	BSR
+B0020	疏散區	Evacuation Zone
+B0021	接近鎖定	Approach Locking
+B0022	接近鎖定區段	Approach Locking Section	ALS
+B0023	緊急停車區域	Emergency Stop Area	ESA
+B0024	牽引電力	Traction Power
+B0025	自動保護	Automatic Protection	AP
+B0026	授權終點	End Of Authority	EOA
+B0027	班距	Headway
+B0028	固定班距調節	Constant Headway Regulation
+B0029	資料通訊系統	Data Communication System	DCS
+B0030	行車監控系統	Operation Control System	OCS
+B0031	自動列車控制	Automatic Train Control	ATC
+B0032	自動列車保護	Automatic Train Protection	ATP
+B0033	自動列車監視	Automatic Train Supervision	ATS
+B0034	自動列車操作	Automatic Train Operation	ATO
+B0035	維護支援系統	Maintenance Support System	MSS
+B0036	列車管理系統	Train Management System	TMS
+B0037	人機介面	Human Machine Interface	HMI
+B0038	遠端終端單元	Remote Terminal Unit	RTU
+B0039	電子聯鎖	Electronic Interlocking
+B0040	號誌聯鎖	Signal Interlocking
+B0041	局部運轉	Partial Operation
+B0042	行車管制區	Restricted Area
+B0043	通訊式列車控制系統軌道區	CBTC Track Area
+B0044	重要機房	Core Building
+B0045	終端變更	Change Of End
+B0046	列車出軌	Derailment
+B0047	綠色燈號	Green Traffic Light
+B0048	紅色燈號	Red Traffic Light
+B0049	旅客疏散	Passenger Evacuation
+B0050	緊急疏散	Emergency Evacuation
+B0051	自行疏散	Spontaneous Evacuation
+B0052	監控疏散	Supervised Evacuation
+B0053	故障自趨安全	Fail-Safe
+B0054	手作號誌	Hand Signal
+B0055	救援列車	Rescue Train
+B0056	故障列車	Disabled Train
+B0057	支援列車	Assisting Train
+B0058	救援作業	Rescue Operation
+B0059	支援作業	Assistant Operation
+B0060	冒進	Signal Passed At Danger	SPAD
+B0061	跟隨路徑	Fleet route
+B0062	上游	Upstream
+B0063	上游車站	Upstream Station
+B0064	下游	Downstream
+B0065	下游車站	Downstream Station
+B0066	正常運轉	Normal Operation
+B0067	反向運轉	Bi-directional Movement
+B0068	逆向運轉	Wrong Direction Movement
+B0069	緩衝區	Buffer Zone
+B0070	單線雙向	Single Track Operation
+B0071	折返區	Turn-Back Area
+B0072	進場管制人員	Access Management Staff	AMS
+B0073	進場管制小組	Access Management Team	AMT
+B0074	授權碼	Authorization Code	AC
+B0075	門禁管制	Access Control
+B0076	離線圖形時刻表	Off-Line Graphical Timetable	OGT
+B0077	救援路徑	Call on Route
+B0078	列車識別	Train Identification
+B0079	運輸車輛編號	Rolling Stock Number
+B0080	趟次	Trip Number
+B0081	列車代碼	Train Code
+B0082	車廂編號	Vehicle Number
+B0083	車組編號	Train Set Number
+B0084	軌道電路	Track Circuit	TC
+B0085	道旁號誌設備	Wayside Signaling Equipment	WSE
+B0086	站間閉塞運轉	Stations Block Operation
+B0087	無閉塞運轉	Creeping Movement
+B0088	前端牽引	Hauling
+B0089	後端推進	Pushing
+B0090	區域防護措施	Protection Method
+B0091	目標速度	Target Speed
+C0001	橫渡線	Crossover
+C0002	道岔	Turnout
+C0003	岔心	Frog
+C0004	護軌	Guard Rail
+C0005	導軌	Lead Rail
+C0006	基本軌	Stock Rail
+C0007	尖軌	Switch Rail
+C0008	翼軌	Wing Rail
+C0009	軌尖	Switch Point
+C0010	正位	Normal
+C0011	道岔號數	Turnout Number
+C0012	反位	Reverse
+C0013	轉換軌	Transfer Track
+C0014	袋型軌	Pocket Track
+C0015	尾軌	Tail Track
+C0016	中央控制設備室	Central Control Equipment Room	CCER
+C0017	通訊號誌設備室	Communication Signaling Equipment Room	CSER
+C0018	機房	Equipment Room
+C0019	鋼軌	Rail
+C0020	第三軌	Third Rail
+C0021	島式月台	Island Platform
+C0022	側式月台	Side Platform
+C0023	月台下待避空間	Under Platform Clearance
+C0024	隔音牆	Acoustical Barrier
+C0025	檢修門	Access Door
+C0026	防空避難設施	Air Raid Shelter
+C0027	建築界限	Structure Gauge
+C0028	共構	Integrated Structure
+C0029	平交道	Level Crossing
+C0030	轉乘站	Transfer Station
+C0031	中央走道	Central Walkway
+C0032	永久速限	Permanent Speed Restriction	PSR
+C0033	道碴	Ballast
+C0034	駐車軌	Stabling Track
+C0035	止衝檔	Buffer Stop
+C0036	警衝標	Fouling Point
+C0037	里程標	Distance Post
+C0038	魚尾鈑	Fish Plate/Splice Plate
+C0039	阻輪器	Wheel Stop
+C0040	熱劑焊接	Thermit Welding
+C0041	鋼軌伸縮接頭	Rail Expension Joint
+C0042	鋼軌扣件	Fastening
+C0043	錨座	Anchorage
+D0001	緊急斷電箱	Emergency Trip Station	ETS
+D0002	緊急斷電按鈕	Emergency Trip Button	ETB
+D0003	路線控制器	Line Controller	LC
+D0004	區域控制器	Zone Controller	ZC
+D0005	機電系統	Electrical and Mechanical Systems	E&M
+D0006	號誌	Signal
+D0007	趨近信標	Approach Beacons	AB
+D0008	移動列車初始化信標	Moving Train Initialisation Beacons	MTIB
+D0009	重新定位信標	Relocalization Beacon	RB
+D0010	位置記憶信標	Location Memorisation Beacons	LMB
+D0011	列車停靠前定位	Location Reduction Before Stop beacon	Loc Red Bef Stop
+D0012	月台門系統	Platform Screen Door System	PSD
+D0013	自動滑門	Automatic Sliding Door	ASD
+D0014	月台端牆門	Platform End Doors	PED
+D0015	緊急逃生門	Emergency Escape Doors	EED
+D0016	月台門控制盤	PSD Manual Control Panel	MCP
+D0017	月台門狀態指示燈	PSD Status Indicator Light	PSIL
+D0018	月台門監視盤	PSD Monitor Panel	PMP
+D0019	月台門中央控制盤	PSD Central Control Cabinet	PSC
+D0020	門扇控制單元	Door Control Unit	DCU
+D0021	開門指示燈	Door Open Indicator	DOI
+D0022	緊急門開門指示燈	EED Open Indicator	EOI
+D0023	月台端牆門開門指示燈	PED Open Indicator
+D0024	公共廣播系統	Public Address System	PA
+D0025	通訊系統	Communication System	COM
+D0026	通訊系統多功能操作台	Communication Multi-Function Terminal	CMFT
+D0027	視覺控制面板	Visual Control Panel	VCP
+D0028	轉轍器	Point Machine
+D0029	轉轍器就地控制	Local Control of Point Machine
+D0030	轉轍器就地控制盤	Point Machine Local Control Panel	PMLCP
+D0031	道旁轉轍器控制箱	Wayside Point machine Control Box	WPCB
+D0032	轉轍器方位指示燈	Direction Indicator
+D0033	次要列車偵測設備	Secondary Train Detection Equipment	STDE
+D0034	次要偵測裝置	Secondary Detection Device	SDD
+D0035	監控及資料擷取系統	Supervisory Control And Data Acquisition	SCADA
+D0036	第三軌短路夾	Short Circuit Device	SCD
+D0037	第三軌護蓋	Cover Board
+D0038	導電軌警示標誌	Warning Sign
+D0039	閉路電視	Closed Circuit Television	CCTV
+D0040	TETRA手持無線電	TETRA Radio Handset
+D0041	詢問處廣播控制盤	PAO Public Address Control Panel
+D0042	時鐘系統	Clock System
+D0043	直線電話	Direct Line Telephones	DLT
+D0044	骨幹傳輸網路	Backbone Transmission Network	BTN
+D0045	無線存取點	Access Point
+D0046	鋼軌焊接	Rail Welding
+E0001	電聯車	Electric Multiple Unit	EMU
+E0002	電力煞車	Electro Dynamic Brake
+E0003	列車無線電系統	Train Radio System
+E0004	轉向架	Bogie
+E0005	集電靴	Current Collecting Shoe
+E0006	緊急煞車重置開關	Emergency Brake Reset Push Button
+E0007	車門旁通開關	Door Bypass Switch
+E0008	車門鎖定裝置	Lock Out Device
+E0009	緊急按鈕	Emergency Switch
+E0010	打滑	Slide
+E0011	空轉	Slip
+E0012	滑行	Coasting
+E0013	車載控制器	Carbone Controller	CC
+E0014	列車駐留	Train Hold
+E0015	自動駕駛模式	Automatic Mode	AM
+E0016	手動控制監視模式	Manual Controlled Supervision	MCS
+E0017	限制手動前進	Restrictive Manual Forward	RMF
+E0018	限制手動後退	Restrictive Manual Reverse	RMR
+E0019	OCS旁路	OCS Bypass
+E0020	聯結模式	Coupling Mode
+E0021	休眠模式	Sleep Mode
+E0022	深度休眠模式	Deep Sleep Mode
+E0023	列車喚醒單元	Train Wake-up Unit	TWU
+E0024	緊急煞車測試	Emergency Brake Test
+E0025	旅客對講機	Passenger Intercom Unit	PICU
+E0026	未識別自動保護	Non-Identified Automatic Protection	NIAP
+E0027	無通訊自動保護	Non-Talkative Automatic Protection	NTAP
+E0028	無確認自動保護	Non-Confirmed Automatic Protection	NCAP
+E0029	車內車門釋放把手	Interior Door Release Handle	IDRH
+E0030	車外車門釋放把手	External Door Release Handle	EDRH
+E0031	偵煙器	Smoke detection
+E0032	列車自動調節	Automatic Train Regulation	ATR
+E0033	目標速度	Target Speed
+E0034	ATC天線	ATC Antenna
+E0035	聯結	Couple
+E0036	解聯	Uncouple
+E0037	緊急煞車	Emergency Brake	EB
+E0038	旅客資訊顯示器	Passenger Information Display	PID
+E0039	營運煞車	Service Brake	SB
+E0040	全營運煞車	Full Service Brake	FSB
+E0041	變壓變頻換流器	Variable Voltage Variable Frequency	VVVF
+E0042	靜態換流器	Static Inverter	SIV
+E0043	整合電氣繼電器閥	Integrated Electric Relay Valve	IERV
+E0044	障礙物偵測器	Obstacle Detection Sensor
+E0045	駕駛失能裝置	Dead Man Safety Device
+E0046	主控制器把手	Master Controller Handle	MCH
+E0047	車門致能	Train Door Enable Area
+E0048	牽引馬達	Traction Motor
+E0049	主懸吊	Primary Suspension
+E0050	次懸吊	Secondary Suspension
+E0051	主儲氣筒	Main Reservoir
+E0052	自動聯結器	Automatic Coupler
+E0053	半永久聯結器	Semi-permanent Coupler
+E0054	動態包絡線	Dynamic Envelope
+E0055	緊急照明	Emergency Lighting
+E0056	服務對講機	Service Intercom
+E0057	列車通訊控制單元	Train Communication Control Unit	TCCU
+E0058	空壓系統	Air Compressor System
+E0059	空調系統	Air Conditioning System
+E0060	車間走道	Gangway
+E0061	主控鑰匙	Master Control Key
+E0062	牽引電力選擇開關	Traction Supply Selector Switch	TSSS
+E0063	輔助電力系統	Auxiliary Power Supply System	APS
+E0064	電池充電器	Battery Changer	BCG
+E0065	駕駛動力馬達車一	Driver Motor 1	DM1
+E0066	駕駛動力馬達車二	Driver Motor 2	DM2
+E0067	網路型數位錄影機	Network Digital Video Recorder	NVR
+E0068	廣播控制單元	Public Address Control Unit
+E0069	安全偵測電路斷路器	Safety Detection Circuit Breaker	SDCB
+E0070	供氣儲氣筒	Supply Reservoir	SR
+E0071	車輪打滑保護	Wheel Slide Protection Control	WSP
+E0072	手動駕駛台	Driver Desk
+F0001	自動收費系統	Automatic Fare Collection System	AFC
+F0002	自動閘門	Automatic Gate	AG
+F0003	加值售票機	Add Value and Ticket Issuing Machine	AVTIM
+F0004	站務員售票機	Passenger Agent Machine	PAM
+F0005	查詢機	Enquiry Machine	EQM
+F0006	錢幣點數裝袋設備	Coin Counting and Bagging Equipment	CCBE
+F0007	可攜式資料存取處理機	Personal Portable Unit	PPU
+F0008	車站處理機系統	Station Processor System	SPS
+F0009	票證處理機	Ticket Processor Machine	TPM
+F0010	中央資料處理機系統	Central Database Processing System	CDPS
+F0011	工作站	Work Station	WS
+F0012	工業電腦	Industrial PC	IPC
+F0013	電子票證	IC Card
+F0014	逾時費用	Overtime Fee
+F0015	無票乘車	Without Ticket
+F0016	失效車票	Invalid Ticket
+F0017	問題車票	Abnormal Ticket
+F0018	人為毀損	Man-caused Damage
+F0019	旅遊卡	Travel Pass
+F0020	單程票	Single Journey Ticket	SJT
+F0021	團體票	Group Ticket
+F0022	黑名單	Black List	BL
+F0023	灰名單	Gray List	GL
+F0024	服務模式	Service Mode
+F0025	緊急模式	Emergency Mode
+F0026	時間模式之強制性操作	Time/Mode Override Operation	TMO
+G0001	車站	Station
+G0002	站長室	Station Master Room
+G0003	段辦公室	Station Group Office
+G0004	點矩陣顯示器	Dot Matrix Display	DMD
+G0005	詢問處	Passenger Agent Office	PAO
+G0006	清潔人員室	Cleaner Room
+G0007	駐警室	Police Room
+G0008	現金室	Cash Room
+G0009	簡易詢問處	Simple Passenger Agent Office	SPAO
+G0010	遺失物中心	Lost and Found
+G0011	公務門	Official Door
+G0012	販賣店	Shop
+G0013	安心候車區	Safe Waiting Zone
+G0014	親子廁所	Parental Care & H/C Toilet
+G0015	地面層	Ground Level
+G0016	穿堂層	Concourse Level
+G0017	轉換層	Transfer Level
+G0018	月台層	Platform Level
+G0019	出入口	Entrance/Exit
+G0020	維修站	Call Point
+G0021	付費區	Paid Area
+G0022	非付費區	Unpaid Area
+G0023	列車進站警示燈	Train Arrival Warning Light
+G0024	防洪擋板	Flood Board
+G0025	萬能鑰匙	Master Key
+G0026	自動體外心臟電擊去顫器	Automated External Defibrillator	AED
+G0027	電扶梯	Escalator
+G0028	電梯	Elevator
+G0029	到站離站語音	Arrival/Departure Tone
+G0030	人潮管制	Crowd Control
+G0031	緊急逃生門	Emergency Exit
+G0032	閘門緊急釋放按鈕	Gate Free
+G0033	旅客導遊資訊系統	Tour Guide Information System	TGIS
+G0034	對講機	Intercom
+G0035	無線對講機	Walkie Talkie
+G0036	偵煙器	Smoke Detection
+G0037	緊急求救按鈕	Emergency Button
+H0001	機廠	Depot
+H0002	機廠維修設備	Depot Equipment	DEQ
+H0003	滑動式供電系統	Stinger System
+H0004	供電插頭	Stinger Plug
+H0005	洗車廠	Washing Plant
+H0006	自動洗車機	Automatic Train Washing System
+H0007	駐車區	Stabling Area
+H0008	測試軌	Test Track
+H0009	主維修廠	Main Workshop
+H0010	軌道維修工廠	Track and Civil Workshop
+H0011	工程列車	Work Train
+H0012	路軌兩用車	Rail-Road Vehicle
+H0013	救援車	Train Rescue Vehicle
+H0014	吸泥車	Vacuum Vehicle
+H0015	軌道清洗車	Track Cleaning Vehicle
+H0016	軌道檢查車	Track Inspection Vehicle
+H0017	軌道研磨車	Rail Grinding Vehicle
+H0018	維修平台	Motor Car With Crane
+I0001	主變電站	Bulk Supply Substation	BSS
+I0002	牽引動力變電站	Propulsion Power Substation	PPSS
+I0003	設備變電站	Facility Power Substation	FPSS
+I0004	間隙變電站	Gap Breaker Substation	GBSS
+I0005	台電電驛盤	TPC Relaying Panel	TRP
+I0006	比流器	Current Transformer	CT
+I0007	比壓器	Potential Transformer	PT
+I0008	氣體絕緣開關	Gas Insulated Switchgear	GIS
+I0009	箱體式氣體絕緣開關	Cubicle Gas Insulated Switchgear	CGIS
+I0010	自動切換開關	Automatic Transfer Switch	ATS
+I0011	接地開關	Earthed Switch	ES
+I0012	負載啟斷開關	Load Beaker Switch	LBS
+I0013	正線隔離開關	Main Line Disconnect Switch	MDS
+I0014	有載開關	On-Load Switch
+I0015	無載開關	Off-load Switch
+I0016	變壓器	Transformer
+I0017	有載分接頭切換器	On Load Tap Changer	OLTC
+I0018	整流變壓器	Rectifier Transformer	RT
+I0019	真空斷路器	Vacuum Circuit Breaker	VCB
+I0020	斷路器	Circuit Breaker	CB
+I0021	隔離開關	Disconnecting Switch	DS
+I0022	過電壓保護裝置	Over Voltage Protection Device	OVPD
+I0023	不斷電系統	Uninterruptible Power Supply	UPS
+I0024	負迴流開關	Negative Return	NR
+I0025	諧波濾波器	Harmonic Filter	HF
+I0026	六氟化硫氣體	Sulphur Hexafluoride	SF6-GAS
+I0027	環路開關	Ring Main Unit	RMU
+I0028	電池充電機	Battery Charger	BC
+I0029	電池組	Battery
+I0030	高速斷路器	High Speed Circuit Breaker	HSCB
+I0031	雜散電流	Stray Current
+I0032	發電機	Generator
+I0033	避雷器	Lightning Arrestor	LA
+I0034	跨電	Bridge
+I0035	常閉	Normal Close	N.C.
+I0036	常開	Normal Open	N.O.
+I0037	轉供作業	Switching Operation
+I0038	驗電棒	Electroscope Stick
+I0039	活電作業	Live Working
+J0001	建築物管理系統	Building Management System	BMS
+J0002	環控系統	Environmental Control System	ECS
+J0003	環境噪音監測器	Ambient Noise Monitor	ANM
+J0004	現場控制器	Local Controller	LCR
+J0005	可攜式操作站	Movable Operation Station	MOS
+J0006	馬達控制中心	Motor Control Center	MCC
+J0007	軌道照明系統	Track Lighting System
+J0008	火警受信總機	Local Fire Alarm Panel	LFAP
+J0009	消防系統	Fire Fighting System
+J0010	自動滅火系統控制盤	Automatic Fire Extinguishing System Control Panel	FCP
+J0011	排水系統	Drainage system
+J0012	給水系統	Water Supply System
+J0013	消防泵浦	Fire Pump
+J0014	汙水泵浦	Sewage Pump
+J0015	排水泵浦	Drain Pump
+J0016	供水泵浦	Water Pump
+J0017	排氣風扇	Exhaust Air Fan	EAF
+J0018	排煙風扇	Smoke Exhaust Fan	SEF
+J0019	新鮮空氣風扇	Fresh Air Fan	FAF
+J0020	通風豎井	Ventilation Shaft
+J0021	排煙閘門	Motorized Smoke Damper	MSD
+J0022	電動控制風門	Motorized Control Damper	MCD
+J0023	緊急求助警報系統	Emergency Alert System
+J0024	門禁系統	Access Control System
+J0025	冷卻水塔	Cooling Tower
+J0026	冰水主機	Chiller Unit	CHU
+J0027	冰水泵	Chilled Water Pump	CHP
+J0028	可程式化邏輯控制器	Programmable Logic Controller	PLC
