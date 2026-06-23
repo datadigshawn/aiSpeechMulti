@@ -114,6 +114,10 @@ experiments/ngram_lm/*.pkl
 # 衍生的 LM 已由 ngram_lm/*.pkl 忽略；glossary/ 與 README 為非敏感詞表，保留追蹤
 experiments/lm_corpus/meeting_records/
 experiments/lm_corpus/seat_transcripts/
+# 同音候選挖掘產物：含真實 transcript 對話片段（敏感），且為投棄式調查產物，不入版控
+experiments/lm_corpus/glossary/homophone_candidates.tsv
+# 念稿 GT 對齊產物：含會議記錄 GT 文字片段（敏感），不入版控
+experiments/lm_corpus/align_out/
 
 # Phase 5 fine-tune 訓練 checkpoint + metrics（含 LoRA weights、可重訓）
 # 只 ignore 子目錄（各個 run 的 .pt / metrics.json），根目錄的 eval_*.md 保留入 git
