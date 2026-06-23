@@ -35,9 +35,10 @@ TERMS = ["授權碼", "行控中心", "正線", "通告"]
 
 @pytest.fixture(scope="module")
 def corrector() -> HomophoneCorrector:
+    # general_correction=True：測試「自由同音改寫」演算法本身（生產預設為 OFF）。
     lm = CharNgramLM(order=4, alpha=0.4)
     lm.train([clean_for_lm(s) for s in CORPUS])
-    return HomophoneCorrector(lm, max_pinyin_dist=1, margin=2.0)
+    return HomophoneCorrector(lm, max_pinyin_dist=1, margin=2.0, general_correction=True)
 
 
 @pytest.fixture(scope="module")
@@ -103,10 +104,15 @@ def test_term_protect_keeps_correct_term(corrector_terms):
     assert out.startswith("行控中心")
 
 
-def test_terms_none_backward_compatible(corrector, corrector_terms):
-    # 無術語表時行為不變；一般同音字兩者都該修
+def test_general_correction_default_off(corrector_terms):
+    # 預設（general_correction=False, term-only）：一般詞同音錯字「不」自由改寫，
+    # 避免稠密 LM 上的高誤改率。對話不是術語 → 維持原樣。
+    assert corrector_terms.correct("對化")[0] == "對化"
+
+
+def test_general_correction_opt_in(corrector):
+    # 顯式開 general_correction=True 才會修一般同音字。
     assert corrector.correct("對化")[0] == "對話"
-    assert corrector_terms.correct("對化")[0] == "對話"
 
 
 def test_protects_chinese_numerals(corrector_terms):

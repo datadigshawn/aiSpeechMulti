@@ -1,10 +1,10 @@
 {
   "order": 4,
   "alpha": 0.4,
-  "vocab_size": 350,
-  "total_tokens": 9167,
-  "ngram_1_unique": 352,
-  "ngram_2_unique": 1522,
-  "ngram_3_unique": 2708,
-  "ngram_4_unique": 3711
+  "vocab_size": 1835,
+  "total_tokens": 130101,
+  "ngram_1_unique": 1837,
+  "ngram_2_unique": 33078,
+  "ngram_3_unique": 65634,
+  "ngram_4_unique": 85400
 }

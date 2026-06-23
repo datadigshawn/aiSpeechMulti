@@ -44,6 +44,7 @@ MANIFEST_PATH = PROJECT_ROOT / "experiments" / "golden_dataset" / "manifest.csv"
 DB_PATH = PROJECT_ROOT / "data" / "aiSpeechMulti.db"
 STT_DIR = PROJECT_ROOT / "experiments" / "golden_dataset" / "stt_outputs"
 LM_DIR = PROJECT_ROOT / "experiments" / "ngram_lm"
+LM_CORPUS_DIR = PROJECT_ROOT / "experiments" / "lm_corpus"  # 會議記錄/席位逐字稿（純文字）
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -183,6 +184,24 @@ def load_training_sentences() -> list[str]:
             cleaned = clean_for_lm(txt or "")
             if cleaned:
                 sents.append(cleaned)
+    # 3. lm_corpus 純文字語料（會議記錄/席位逐字稿）：依句號切句後逐句加入，
+    #    讓 n-gram 取得正確的句界（BOS/EOS）。
+    for sub in ("meeting_records", "seat_transcripts"):
+        sub_dir = LM_CORPUS_DIR / sub
+        if not sub_dir.exists():
+            continue
+        for f in sorted(sub_dir.iterdir()):
+            if not f.is_file() or f.name.startswith("."):
+                continue
+            try:
+                text = f.read_text(encoding="utf-8", errors="ignore")
+            except Exception:
+                continue
+            for line in text.splitlines():
+                for sent in re.split(r"[。！？!?]", line):
+                    cleaned = clean_for_lm(sent)
+                    if cleaned:
+                        sents.append(cleaned)
     return sents
 
 

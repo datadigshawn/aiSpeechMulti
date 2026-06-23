@@ -65,6 +65,7 @@ class HomophoneCorrector:
         terms: "list[str] | None" = None,
         term_bonus: float = 6.0,
         term_margin: float = 0.0,
+        general_correction: bool = False,
     ) -> None:
         self.lm = lm
         self.max_pinyin_dist = max_pinyin_dist
@@ -78,6 +79,10 @@ class HomophoneCorrector:
         # （≈5/字）才能蓋過稀有術語字的低分。
         self.term_bonus = term_bonus
         self.term_margin = term_margin     # 形成術語時可接受的最小 LM 增益
+        # general_correction：是否允許「自由同音改寫」(非術語)。
+        # 實測（稠密域內 LM）此路徑誤改率 28~63%、且 recall 不穩 → 預設 OFF，
+        # 只保留「只修成已知術語」的安全子集（held-out 誤改率 0%）。
+        self.general_correction = general_correction
         # 候選池 = LM vocab 內的 CJK 字（確保候選都打得出分）
         self._pool = [c for c in self._lm_vocab() if _is_cjk(c)]
         self._pinyin_of: dict[str, str] = {c: _toneless(c) for c in self._pool}
@@ -217,7 +222,10 @@ class HomophoneCorrector:
                     {"pos": i, "from": text[i], "to": best[i], "via": "term"} for i in changed
                 ]
 
-        # 接受路徑 A（標準）：margin 護欄 + attestation 護欄
+        # 接受路徑 A（自由同音改寫）：margin 護欄 + attestation 護欄。
+        # 預設停用（誤改率過高）；僅實驗用 general_correction=True 才啟用。
+        if not self.general_correction:
+            return text, []
         if lm_gain < self.margin:
             return text, []
         changes = []
