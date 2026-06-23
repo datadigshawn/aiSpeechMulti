@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>aiSpeechMulti — 即時辨識查詢 Search</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.ico">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background:#0e1116; color:#e6edf3; font-family:-apple-system,"Noto Sans TC","PingFang TC",sans-serif; }
+  .wrap { max-width:1180px; margin:0 auto; padding:22px 28px; }
+  .head { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
+  .crumb { color:#7d8794; font-size:12px; letter-spacing:.5px; }
+  .title { font-size:24px; font-weight:700; margin-top:2px; }
+  .head-r { display:flex; align-items:center; gap:10px; }
+  .api { background:#161b22; border:1px solid #2d333b; border-radius:7px; color:#9aa4af; font-size:12px; padding:7px 10px; width:200px; }
+  .dot { width:9px;height:9px;border-radius:50%;background:#3fb950;display:inline-block; }
+  .dot.bad { background:#f85149; }
+  .card { background:#12171f; border:1px solid #232b36; border-radius:12px; padding:18px 20px; margin-bottom:16px; }
+  .row { display:flex; align-items:flex-start; gap:24px; margin-bottom:15px; }
+  .row:last-child { margin-bottom:0; }
+  .lbl { width:74px; flex:none; color:#8b949e; font-size:13px; padding-top:8px; font-weight:600; }
+  .field { flex:1; }
+  .mode { display:flex; align-items:center; gap:9px; margin-bottom:9px; flex-wrap:wrap; }
+  .mode.dim { opacity:.45; }
+  .chip, .kwc, .pgbtn, .btn { cursor:pointer; user-select:none; }
+  .chip { background:#1b2230; border:1px solid #2f3a4a; border-radius:16px; color:#b9c4d0; font-size:12px; padding:5px 12px; }
+  .chip.sel { background:#163055; border-color:#4b94f0; color:#cfe2ff; }
+  .mode-name { font-size:13px; color:#cdd6e0; width:96px; }
+  .num { background:#0d1117; border:1px solid #30363d; border-radius:6px; color:#e6edf3; font-size:13px; padding:6px 9px; width:64px; text-align:center; }
+  .dtl { background:#0d1117; border:1px solid #30363d; border-radius:6px; color:#e6edf3; font-size:13px; padding:6px 10px; }
+  .muted { color:#6e7681; font-size:12px; }
+  .kw { background:#0d1117; border:1px solid #30363d; border-radius:7px; color:#e6edf3; font-size:14px; padding:9px 12px; width:300px; }
+  .kwchips { display:flex; gap:8px; flex-wrap:wrap; margin-top:9px; align-items:center; }
+  .kwc { background:#231a14; border:1px solid #5a3a1f; border-radius:14px; color:#f0b878; font-size:12px; padding:4px 11px; }
+  .sel-box { background:#0d1117; border:1px solid #30363d; border-radius:7px; color:#cdd6e0; font-size:13px; padding:8px 12px; }
+  .go { background:#2563eb; border:none; border-radius:8px; color:#fff; font-size:15px; font-weight:700; padding:10px 28px; cursor:pointer; }
+  .go:disabled { opacity:.5; cursor:default; }
+  .rhead { display:flex; align-items:center; justify-content:space-between; margin:4px 2px 10px; gap:12px; }
+  .rcount { font-size:13px; color:#9aa4af; }
+  .rcount b { color:#e6edf3; }
+  .exp { display:flex; align-items:center; gap:8px; }
+  .btn { background:#161b22; border:1px solid #2d333b; border-radius:7px; color:#c9d1d9; font-size:12px; padding:7px 11px; }
+  table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  thead td { color:#8b949e; font-size:12px; font-weight:700; padding:8px 12px; border-bottom:1px solid #2a313c; background:#141a22; }
+  tbody td { padding:9px 12px; border-bottom:1px solid #1c232d; vertical-align:top; }
+  tbody tr:nth-child(even) { background:#11161d; }
+  .t-time { font-family:"SF Mono",ui-monospace,monospace; color:#8fb3e0; white-space:nowrap; }
+  .t-seat { color:#b9c4d0; white-space:nowrap; }
+  .seat-tag { display:inline-block; background:#1b2230; border:1px solid #313c4c; border-radius:5px; padding:1px 7px; font-size:11px; color:#9fb1c4; margin-right:6px; }
+  .eng { color:#6e7681; font-size:11px; font-family:ui-monospace,monospace; white-space:nowrap; }
+  mark { background:#fde047; color:#1a1a1a; border-radius:3px; padding:0 2px; font-weight:600; }
+  .empty { text-align:center; color:#6e7681; padding:38px; font-size:14px; }
+  .pg { display:flex; align-items:center; justify-content:space-between; margin-top:14px; }
+  .pg-l { color:#8b949e; font-size:12px; }
+  .pg-r { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .pgbtn { background:#161b22; border:1px solid #2d333b; border-radius:6px; color:#c9d1d9; font-size:12px; padding:6px 11px; }
+  .pgbtn.now { background:#2563eb; border-color:#2563eb; color:#fff; font-weight:700; }
+  .pgbtn.dis { opacity:.4; pointer-events:none; }
+  .per { background:#0d1117; border:1px solid #30363d; border-radius:6px; color:#cdd6e0; font-size:12px; padding:6px 9px; }
+  a.navlink { color:#8fb3e0; font-size:12px; text-decoration:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <div>
+      <div class="crumb">主控台 / 即時辨識查詢　·　<a class="navlink" href="/monitor">監控</a>　<a class="navlink" href="/display">投放</a></div>
+      <div class="title">即時辨識查詢　Search</div>
+    </div>
+    <div class="head-r">
+      <span class="muted">API</span>
+      <input id="apiBase" class="api" value="">
+      <span id="apiDot" class="dot"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <!-- 時間 -->
+    <div class="row">
+      <div class="lbl">時間</div>
+      <div class="field">
+        <div class="mode" id="modeRel">
+          <input type="radio" name="tmode" value="rel" checked>
+          <span class="mode-name">過去 N 分鐘</span>
+          <span class="chip sel" data-min="10">過去 10 分</span>
+          <span class="chip" data-min="30">30 分</span>
+          <span class="chip" data-min="60">1 小時</span>
+          <span class="chip" data-today="1">今日</span>
+          <span class="muted" style="margin-left:6px">自訂</span>
+          <input id="minNum" class="num" type="number" min="1" value="10"><span class="muted">分鐘</span>
+        </div>
+        <div class="mode dim" id="modeAbs">
+          <input type="radio" name="tmode" value="abs">
+          <span class="mode-name">從指定時刻起</span>
+          <span class="muted">起</span>
+          <input id="fromTs" class="dtl" type="datetime-local">
+          <span class="muted">到</span>
+          <input id="toTs" class="dtl" type="datetime-local">
+          <span class="muted">（到留空＝至現在）</span>
+        </div>
+      </div>
+    </div>
+    <!-- 關鍵字 -->
+    <div class="row">
+      <div class="lbl">關鍵字</div>
+      <div class="field">
+        <input id="kw" class="kw" placeholder="例：斷電（空白＝純時間查詢）">
+        <div class="kwchips" id="kwchips"><span class="muted">告警字：</span><span class="muted" id="kwLoading">載入中…</span></div>
+      </div>
+    </div>
+    <!-- 管道 + 查詢 -->
+    <div class="row" style="align-items:center">
+      <div class="lbl">管道</div>
+      <div class="field" style="display:flex; align-items:center; gap:18px">
+        <select id="channel" class="sel-box"></select>
+        <span class="muted">CC / MTC / DTC / PC / EC / IA</span>
+        <div style="flex:1"></div>
+        <button id="btnGo" class="go">🔍 查詢</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="rhead">
+    <div class="rcount" id="rcount">輸入條件後按「查詢」</div>
+    <div class="exp">
+      <select id="expFmt" class="per"><option value="docx">Word</option><option value="pdf">PDF</option><option value="txt">txt</option></select>
+      <button id="btnExport" class="btn">⬇️ 匯出此結果（行控中心）</button>
+    </div>
+  </div>
+
+  <table>
+    <thead><tr>
+      <td style="width:120px">時間</td>
+      <td style="width:210px">席位</td>
+      <td>辨識文字</td>
+      <td style="width:90px">引擎</td>
+    </tr></thead>
+    <tbody id="rows"><tr><td colspan="4" class="empty">尚無查詢結果</td></tr></tbody>
+  </table>
+
+  <div class="pg">
+    <div class="pg-l" id="pgInfo"></div>
+    <div class="pg-r" id="pgCtrl">
+      <span class="muted">每頁</span>
+      <select id="perPage" class="per"><option>20</option><option>50</option><option>100</option></select>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const SEAT_FULL = {
+  ch1:'控制長 (CC)', ch2:'正線控制工程師 (MTC)', ch3:'機廠控制工程師 (DTC)',
+  ch4:'電力工程師 (PC)', ch5:'設備工程師 (EC)', ch6:'資訊員 (IA)',
+};
+const SEAT_SHORT = { ch1:'CC', ch2:'MTC', ch3:'DTC', ch4:'PC', ch5:'EC', ch6:'IA' };
+
+const $ = id => document.getElementById(id);
+const base = () => ($('apiBase').value || '').replace(/\/$/, '');
+let state = { offset: 0, lastQuery: null };
+
+// 預設 API base = 同源
+$('apiBase').value = window.location.origin;
+
+// 管道下拉
+$('channel').innerHTML = '<option value="">全部管道彙整</option>' +
+  Object.keys(SEAT_FULL).map(id => `<option value="${id}">${SEAT_FULL[id]}</option>`).join('');
+
+// 健康燈
+(async () => {
+  try { const r = await fetch(`${base()}/api/health`); $('apiDot').className = r.ok ? 'dot' : 'dot bad'; }
+  catch { $('apiDot').className = 'dot bad'; }
+})();
+
+// 告警字 chips
+(async () => {
+  try {
+    const r = await fetch(`${base()}/api/keywords`);
+    const d = await r.json();
+    const box = $('kwchips');
+    box.innerHTML = '<span class="muted">告警字：</span>';
+    const seen = new Set();
+    (d.keywords || []).forEach(k => {
+      const w = (k.keyword || '').trim();
+      if (!w || seen.has(w)) return; seen.add(w);
+      const el = document.createElement('span');
+      el.className = 'kwc'; el.textContent = w;
+      el.onclick = () => { $('kw').value = w; doSearch(0); };
+      box.appendChild(el);
+    });
+    if (seen.size === 0) box.innerHTML += '<span class="muted">（無）</span>';
+  } catch { $('kwchips').innerHTML = '<span class="muted">告警字載入失敗</span>'; }
+})();
+
+// 時間模式切換
+function currentMode() { return document.querySelector('input[name=tmode]:checked').value; }
+function syncModeUI() {
+  const m = currentMode();
+  $('modeRel').classList.toggle('dim', m !== 'rel');
+  $('modeAbs').classList.toggle('dim', m !== 'abs');
+}
+document.querySelectorAll('input[name=tmode]').forEach(r => r.addEventListener('change', syncModeUI));
+
+// 相對時間快捷 chips
+document.querySelectorAll('#modeRel .chip').forEach(c => c.addEventListener('click', () => {
+  document.querySelectorAll('#modeRel .chip').forEach(x => x.classList.remove('sel'));
+  c.classList.add('sel');
+  document.querySelector('input[name=tmode][value=rel]').checked = true;
+  if (c.dataset.today) {
+    // 今日：切絕對模式，起＝今日 00:00（本地），到留空
+    const n = new Date(); const pad = x => String(x).padStart(2,'0');
+    $('fromTs').value = `${n.getFullYear()}-${pad(n.getMonth()+1)}-${pad(n.getDate())}T00:00`;
+    $('toTs').value = '';
+    document.querySelector('input[name=tmode][value=abs]').checked = true;
+  } else {
+    $('minNum').value = c.dataset.min;
+  }
+  syncModeUI();
+});
+
+// 組查詢參數（search 與 export 共用時間/關鍵字/管道）
+function buildParams() {
+  const p = new URLSearchParams();
+  const kw = $('kw').value.trim();
+  if (kw) p.set('q', kw);
+  const ch = $('channel').value;
+  if (ch) p.set('channel_id', ch);
+  if (currentMode() === 'abs' && $('fromTs').value) {
+    p.set('from_ts', $('fromTs').value);
+    if ($('toTs').value) p.set('to_ts', $('toTs').value);
+  } else {
+    p.set('minutes', Math.max(1, parseInt($('minNum').value || '10', 10)));
+  }
+  return p;
+}
+
+function esc(s) { return (s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function highlight(text, kw) {
+  const safe = esc(text);
+  if (!kw) return safe;
+  const re = new RegExp(kw.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'gi');
+  return safe.replace(re, m => `<mark>${m}</mark>`);
+}
+
+async function doSearch(offset) {
+  state.offset = offset || 0;
+  const perPage = parseInt($('perPage').value, 10);
+  const p = buildParams();
+  p.set('limit', perPage); p.set('offset', state.offset);
+  state.lastQuery = p.toString();
+  $('btnGo').disabled = true; $('rcount').textContent = '查詢中…';
+  try {
+    const r = await fetch(`${base()}/api/search?` + p.toString());
+    const d = await r.json();
+    renderResults(d, perPage);
+  } catch (e) {
+    $('rcount').textContent = '查詢失敗：' + e;
+    $('rows').innerHTML = `<tr><td colspan="4" class="empty">查詢失敗</td></tr>`;
+  } finally { $('btnGo').disabled = false; }
+}
+
+function renderResults(d, perPage) {
+  const kw = $('kw').value.trim();
+  const win = d.window_utc ? '' : '';
+  $('rcount').innerHTML = `命中 <b>${d.total}</b> 筆`
+    + (kw ? ` · 關鍵字「<b>${esc(kw)}</b>」` : '')
+    + ` · 顯示第 ${d.total ? d.offset+1 : 0}–${d.offset + d.count} 筆`;
+  const rows = d.results || [];
+  if (!rows.length) {
+    $('rows').innerHTML = `<tr><td colspan="4" class="empty">此條件查無辨識結果</td></tr>`;
+  } else {
+    $('rows').innerHTML = rows.map(r => {
+      const t = (r.time_local || '').slice(11);  // HH:MM:SS
+      const date = (r.time_local || '').slice(0,10);
+      const seat = SEAT_SHORT[r.channel_id] || r.channel_id;
+      const full = SEAT_FULL[r.channel_id] || '';
+      return `<tr>
+        <td class="t-time" title="${date}">${t}</td>
+        <td class="t-seat"><span class="seat-tag">${seat}</span>${full.replace(/\s*\(.*\)/,'')}</td>
+        <td>${highlight(r.transcript, kw)}</td>
+        <td class="eng">${esc(r.stt_backend)}</td>
+      </tr>`;
+    }).join('');
+  }
+  renderPager(d, perPage);
+}
+
+function renderPager(d, perPage) {
+  const total = d.total || 0, totalPages = Math.max(1, Math.ceil(total / perPage));
+  const cur = Math.floor(d.offset / perPage) + 1;
+  $('pgInfo').textContent = total ? `第 ${cur} / ${totalPages} 頁，共 ${total} 筆` : '';
+  const ctrl = $('pgCtrl');
+  const parts = [];
+  parts.push(`<span class="pgbtn ${cur<=1?'dis':''}" data-go="${(cur-2)*perPage}">‹ 上一頁</span>`);
+  const win = 5, from = Math.max(1, cur-2), to = Math.min(totalPages, from+win-1);
+  for (let i=from; i<=to; i++) parts.push(`<span class="pgbtn ${i===cur?'now':''}" data-go="${(i-1)*perPage}">${i}</span>`);
+  parts.push(`<span class="pgbtn ${cur>=totalPages?'dis':''}" data-go="${cur*perPage}">下一頁 ›</span>`);
+  parts.push(`<span style="width:10px"></span><span class="muted">每頁</span>`);
+  ctrl.innerHTML = parts.join('') ;
+  // 每頁下拉（重建，保留選值）
+  const sel = document.createElement('select'); sel.className='per'; sel.id='perPage';
+  [20,50,100].forEach(n => { const o=document.createElement('option'); o.text=n; o.value=n; if(n===perPage)o.selected=true; sel.appendChild(o); });
+  sel.addEventListener('change', () => doSearch(0));
+  ctrl.appendChild(sel);
+  ctrl.querySelectorAll('.pgbtn:not(.dis)').forEach(b => b.addEventListener('click', () => doSearch(parseInt(b.dataset.go,10))));
+}
+
+// 匯出（沿用相同條件，匯出全部命中，非僅當頁）
+$('btnExport').addEventListener('click', () => {
+  const p = buildParams();
+  p.set('fmt', $('expFmt').value);
+  p.set('limit', '5000');
+  window.open(`${base()}/api/export/control_center?` + p.toString(), '_blank');
+});
+
+$('btnGo').addEventListener('click', () => doSearch(0));
+$('kw').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(0); });
+$('perPage').addEventListener('change', () => doSearch(0));
+syncModeUI();
+</script>
+</body>
+</html>

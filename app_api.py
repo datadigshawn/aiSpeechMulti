@@ -78,6 +78,7 @@ from utils.logger import get_logger
 from utils.vad_filter import has_speech_in_wav_sr
 from utils.noise_filter import denoise_wav_file
 from utils.control_center_export import export_control_center_from_records
+from utils.time_window import resolve_utc_window, utc_to_local_str
 
 # ─── 成本 ledger（Phase A 2026-05-08）─────────────────────────────────
 from utils.pricing import load_pricing
@@ -398,6 +399,53 @@ class Database:
             for r in rows
         ]
 
+    def search(
+        self,
+        *,
+        start_utc:  str,
+        end_utc:    str,
+        q:          str           = "",
+        channel_id: Optional[str] = None,
+        limit:      int           = 20,
+        offset:     int           = 0,
+    ) -> tuple[int, List[dict]]:
+        """時間區間 + 關鍵字搜尋 transcripts。
+
+        start_utc/end_utc 為 UTC 字串（created_at 為 UTC）。q 用 LIKE 子字串
+        （參數化，避免注入）。回傳 (total, rows)；rows 依時間新到舊、含分頁。
+        """
+        where = ["created_at BETWEEN ? AND ?"]
+        params: list = [start_utc, end_utc]
+        if channel_id:
+            where.append("channel_id = ?")
+            params.append(channel_id)
+        if q:
+            where.append("transcript LIKE '%' || ? || '%'")
+            params.append(q)
+        wsql = " AND ".join(where)
+
+        with sqlite3.connect(self.db_path) as conn:
+            total = conn.execute(
+                f"SELECT COUNT(*) FROM transcripts WHERE {wsql}", params
+            ).fetchone()[0]
+            rows = conn.execute(
+                f"SELECT id, channel_id, transcript, stt_backend, created_at "
+                f"FROM transcripts WHERE {wsql} "
+                f"ORDER BY created_at DESC LIMIT ? OFFSET ?",
+                params + [limit, offset],
+            ).fetchall()
+
+        return total, [
+            {
+                "id":          r[0],
+                "channel_id":  r[1],
+                "transcript":  r[2],
+                "stt_backend": r[3] or "google",
+                "created_at":  r[4],
+            }
+            for r in rows
+        ]
+
 
 # ==============================================================================
 # ⑤ STT 工廠函式
@@ -516,6 +564,12 @@ async def capture():
 @app.get("/monitor", include_in_schema=False)
 async def monitor():
     return FileResponse("static/monitor.html", headers=_NO_CACHE)
+
+
+@app.get("/search", include_in_schema=False)
+async def search_page():
+    """即時辨識文字查詢頁（時間區間 + 關鍵字）。"""
+    return FileResponse("static/search.html", headers=_NO_CACHE)
 
 
 @app.get("/favicon.ico", include_in_schema=False)
@@ -1515,6 +1569,41 @@ async def get_transcripts(
     }
 
 
+@app.get("/api/search", summary="即時辨識文字查詢（時間區間 + 關鍵字）")
+async def search_transcripts(
+    q:          str           = Query(""),
+    minutes:    int           = Query(10, ge=1, le=10080),
+    from_ts:    Optional[str] = Query(None),
+    to_ts:      Optional[str] = Query(None),
+    channel_id: Optional[str] = Query(None),
+    limit:      int           = Query(20, ge=1, le=100),
+    offset:     int           = Query(0, ge=0),
+):
+    """查歷史辨識文字：時間區間（相對 minutes 或 絕對 from_ts/to_ts 擇一）+ 關鍵字 LIKE。
+
+    時間欄位採兩種擇一：給 from_ts 則用絕對區間（to_ts 留空＝至現在），否則用「過去
+    minutes 分鐘」。created_at 為 UTC，視窗在 UTC 計算、time_local 轉伺服器本地。
+    """
+    start_utc, end_utc = resolve_utc_window(minutes, from_ts, to_ts)
+    total, rows = database.search(
+        start_utc=start_utc, end_utc=end_utc, q=q.strip(),
+        channel_id=channel_id, limit=limit, offset=offset,
+    )
+    for r in rows:
+        r["time_local"] = utc_to_local_str(r["created_at"])
+    return {
+        "ok":         True,
+        "total":      total,
+        "count":      len(rows),
+        "limit":      limit,
+        "offset":     offset,
+        "query":      {"q": q, "minutes": minutes, "from_ts": from_ts,
+                       "to_ts": to_ts, "channel_id": channel_id},
+        "window_utc": {"start": start_utc, "end": end_utc},
+        "results":    rows,
+    }
+
+
 _OCC_MEDIA_TYPES = {
     "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "pdf":  "application/pdf",
@@ -1528,6 +1617,10 @@ async def export_control_center_endpoint(
     limit:      int           = Query(1000, ge=1, le=5000),
     event_name: str           = Query(""),
     fmt:        str           = Query("docx"),
+    q:          str           = Query(""),
+    minutes:    Optional[int] = Query(None),
+    from_ts:    Optional[str] = Query(None),
+    to_ts:      Optional[str] = Query(None),
 ):
     """將即時辨識結果（DB transcripts）依時間匯出為行控中心格式。
 
@@ -1535,13 +1628,24 @@ async def export_control_center_endpoint(
     發話者／備註欄留空，比照行控中心通聯紀錄表。
     - ``channel_id`` 省略＝全部管道彙整成一張表；指定則只匯出該管道。
     - ``fmt``＝ ``docx``（預設）/ ``pdf``（經 LibreOffice 轉檔）/ ``txt``。
+    - 給 ``q``/``minutes``/``from_ts``/``to_ts`` 任一＝匯出「查詢結果」（與 /api/search
+      同條件）；皆未給＝沿用舊行為（最近 ``limit`` 筆，供監控頁鈕）。
     """
     fmt = (fmt or "docx").lower()
     if fmt not in _OCC_MEDIA_TYPES:
         return JSONResponse(
             {"ok": False, "error": f"不支援的格式：{fmt}（限 docx/pdf/txt）"}, status_code=400,
         )
-    records = database.query(limit=limit, channel_id=channel_id)
+    if q.strip() or from_ts or to_ts or minutes is not None:
+        start_utc, end_utc = resolve_utc_window(
+            minutes if minutes is not None else 10, from_ts, to_ts
+        )
+        _total, records = database.search(
+            start_utc=start_utc, end_utc=end_utc, q=q.strip(),
+            channel_id=channel_id, limit=limit, offset=0,
+        )
+    else:
+        records = database.query(limit=limit, channel_id=channel_id)
     if not records:
         return JSONResponse(
             {"ok": False, "error": "查無辨識結果可匯出"}, status_code=404,
