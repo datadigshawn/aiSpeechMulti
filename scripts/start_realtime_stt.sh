@@ -11,13 +11,29 @@
 #       而非 venv，請勿改為 source venv/bin/activate。
 # =============================================================================
 
-PROJECT_DIR="/Users/apple/Projects/projectArea/aiSpeechMulti"
-CONDA_SH="$HOME/miniforge3/etc/profile.d/conda.sh"
-CONDA_ENV="aiSpeech_project_nightly"
+# ── 自動定位（搬機免改路徑）──────────────────────────────────────────────────
+# PROJECT_DIR = 本腳本(scripts/)的上層目錄；conda env 名可用 AISPEECH_CONDA_ENV 覆蓋。
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+CONDA_ENV="${AISPEECH_CONDA_ENV:-aiSpeech_project_nightly}"
+
+# 自動尋找 conda.sh（miniforge / miniconda / anaconda / mambaforge 常見位置）
+CONDA_SH=""
+for _c in "$HOME/miniforge3" "$HOME/miniconda3" "$HOME/anaconda3" "$HOME/mambaforge" \
+          "/opt/homebrew/Caskroom/miniforge/base" "/opt/miniconda3" "/opt/anaconda3"; do
+    if [ -f "$_c/etc/profile.d/conda.sh" ]; then CONDA_SH="$_c/etc/profile.d/conda.sh"; break; fi
+done
+
 LOG_FILE="/tmp/aiSpeechMulti_app_api.log"
 HEALTH_URL="http://localhost:8000/api/health"
 
 cd "$PROJECT_DIR"
+
+if [ -z "$CONDA_SH" ]; then
+    echo "$(date '+%H:%M:%S') [launcher] ❌ 找不到 conda（miniforge/miniconda…）" >> "$LOG_FILE"
+    echo "❌ 找不到 conda，請確認已安裝且 env=$CONDA_ENV 存在" >&2
+    exit 1
+fi
 
 # ── 若伺服器尚未就緒，啟動它 ─────────────────────────────────────────────────
 if ! curl -s -m 1 "$HEALTH_URL" >/dev/null 2>&1; then
