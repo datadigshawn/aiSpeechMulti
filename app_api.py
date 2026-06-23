@@ -162,6 +162,12 @@ VAD_THRESHOLD = _audio_settings["vad_threshold"]
 
 DB_PATH = Path(__file__).parent / "data" / "aiSpeechMulti.db"
 
+# ── transcripts 保留策略 ────────────────────────────────────────────────────
+# 預設保留 30 天，每 30 天清理一次（啟動時也會先清一次）。可用 .env 覆蓋。
+# 設 0（天）可關閉自動清理。
+TRANSCRIPT_RETENTION_DAYS        = int(os.getenv("TRANSCRIPT_RETENTION_DAYS", "30"))
+TRANSCRIPT_CLEANUP_INTERVAL_DAYS = int(os.getenv("TRANSCRIPT_CLEANUP_INTERVAL_DAYS", "30"))
+
 
 # ==============================================================================
 # ① 資料結構
@@ -446,6 +452,24 @@ class Database:
             for r in rows
         ]
 
+    def purge_old(self, retention_days: int) -> int:
+        """刪除超過保留天數的 transcripts。
+
+        created_at 為 UTC，SQLite ``datetime('now')`` 同為 UTC，比較正確。
+        retention_days <= 0 視為關閉清理。回傳刪除筆數。
+        """
+        if retention_days <= 0:
+            return 0
+        with sqlite3.connect(self.db_path, timeout=10) as conn:
+            conn.execute("PRAGMA journal_mode=WAL")
+            cur = conn.execute(
+                "DELETE FROM transcripts WHERE created_at < datetime('now', ?)",
+                (f"-{retention_days} days",),
+            )
+            deleted = cur.rowcount
+            conn.commit()
+        return deleted
+
 
 # ==============================================================================
 # ⑤ STT 工廠函式
@@ -498,6 +522,20 @@ database       = Database(DB_PATH)
 logger         = get_logger("app_api")
 
 
+async def _transcript_cleanup_loop():
+    """啟動時清一次，之後每 INTERVAL 天清一次（保留 RETENTION 天）。"""
+    while True:
+        try:
+            deleted = await asyncio.to_thread(database.purge_old, TRANSCRIPT_RETENTION_DAYS)
+            logger.info(
+                f"[cleanup] transcripts 清理完成：刪除 {deleted} 筆"
+                f"（保留 {TRANSCRIPT_RETENTION_DAYS} 天）"
+            )
+        except Exception as exc:
+            logger.warning(f"[cleanup] 清理失敗（非致命）：{exc}")
+        await asyncio.sleep(max(1, TRANSCRIPT_CLEANUP_INTERVAL_DAYS) * 86400)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("=" * 60)
@@ -508,6 +546,11 @@ async def lifespan(app: FastAPI):
     logger.info(f"   Google STT 模型 : {STT_MODEL} / {STT_LOCATION}")
     logger.info(f"   每段批次長度    : {CHUNK_SECONDS} 秒")
     logger.info(f"   資料庫          : {DB_PATH}")
+    logger.info(
+        f"   保留策略        : transcripts 保留 {TRANSCRIPT_RETENTION_DAYS} 天，"
+        f"每 {TRANSCRIPT_CLEANUP_INTERVAL_DAYS} 天清理一次"
+        + ("（已停用）" if TRANSCRIPT_RETENTION_DAYS <= 0 else "")
+    )
     logger.info(f"   ElevenLabs Key  : {'已設定 ✅（dual / scribe_rt 可用）' if ELEVENLABS_API_KEY else '未設定 ❌（dual 降級 batch，scribe_rt 不可用）'}")
     logger.info("=" * 60)
     logger.info("串流模式:")
@@ -523,7 +566,16 @@ async def lifespan(app: FastAPI):
     logger.info("   DOC http://0.0.0.0:8000/docs")
     logger.info("=" * 60)
 
+    # 背景定期清理 transcripts（啟動先清一次，再每 INTERVAL 天清）
+    cleanup_task = asyncio.create_task(_transcript_cleanup_loop())
+
     yield
+
+    cleanup_task.cancel()
+    try:
+        await cleanup_task
+    except asyncio.CancelledError:
+        pass
 
     logger.info("🛑 aiSpeechMulti API 關閉  v2.0.0")
 
