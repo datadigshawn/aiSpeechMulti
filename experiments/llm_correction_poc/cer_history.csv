@@ -64,4 +64,10 @@ timestamp,timestamp_iso,engine_label,post_process,sample_count,success_count,avg
 20260705_153924,2026-07-05T15:39:24,sensevoice_ft_v2_157gt,car_norm+dict,21,18,0.2645,0.2621,0.0024,0.4547,batch_eval_20260705_153924_sensevoice_ft_v2_157gt_car_norm+dict.json
 20260705_154407,2026-07-05T15:44:07,sensevoice_ft_v2_157gt_Aseries,car_norm+dict,13,13,0.4525,0.4539,-0.0014,0.5834,batch_eval_20260705_154407_sensevoice_ft_v2_157gt_Aseries_car_norm+dict.json
 20260705_160101,2026-07-05T16:01:01,sensevoice_ft_v2_157gt,car_norm+dict,19,19,0.262,0.2598,0.0023,0.4517,batch_eval_20260705_160101_sensevoice_ft_v2_157gt_car_norm+dict.json
+20260705_172107,2026-07-05T17:21:07,sensevoice_ft_v3_chunk_aug,car_norm+dict,19,19,0.4859,0.4818,0.0041,0.708,batch_eval_20260705_172107_sensevoice_ft_v3_chunk_aug_car_norm+dict.json
+20260705_172959,2026-07-05T17:29:59,sensevoice_ft_v3a_chunk_only,car_norm+dict,19,19,0.2878,0.2809,0.0069,0.523,batch_eval_20260705_172959_sensevoice_ft_v3a_chunk_only_car_norm+dict.json
+20260705_174925,2026-07-05T17:49:25,sensevoice_ft_v3c_chunk_filtered,car_norm+dict,19,19,0.2703,0.2652,0.0051,0.4783,batch_eval_20260705_174925_sensevoice_ft_v3c_chunk_filtered_car_norm+dict.json
+20260705_175102,2026-07-05T17:51:02,sensevoice_ft_v3c_chunk_filtered_Aseries,car_norm+dict,13,13,0.4592,0.4597,-0.0005,0.5851,batch_eval_20260705_175102_sensevoice_ft_v3c_chunk_filtered_Aseries_car_norm+dict.json
+20260705_182006,2026-07-05T18:20:06,sensevoice_ft_v3c_seed43,car_norm+dict,19,19,0.316,0.3131,0.0029,0.5619,batch_eval_20260705_182006_sensevoice_ft_v3c_seed43_car_norm+dict.json
+20260705_182030,2026-07-05T18:20:30,sensevoice_ft_v3c_seed44,car_norm+dict,19,19,0.2956,0.2926,0.003,0.5004,batch_eval_20260705_182030_sensevoice_ft_v3c_seed44_car_norm+dict.json
 ct.json,,,,,,,,,,
