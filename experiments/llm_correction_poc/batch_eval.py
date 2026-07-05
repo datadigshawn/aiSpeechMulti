@@ -137,6 +137,7 @@ class SampleResult:
     pp_changes: dict        # 各階段修正項目數
     elapsed_sec: float
     error: Optional[str] = None
+    guard: Optional[dict] = None  # regression guard 逐段指標（kw/station/car）
 
 
 @dataclass
@@ -151,6 +152,7 @@ class BatchReport:
     avg_improvement: float
     avg_wer_final: float
     by_event_type: dict        # event_type → {count, avg_cer, ...}
+    guard: Optional[dict] = None  # regression guard 彙總（occurrence-weighted recall）
     samples: list[dict] = field(default_factory=list)
 
 
@@ -186,6 +188,11 @@ def run_batch(args):
     if not manifest:
         print("❌ Manifest 為空或不存在")
         return
+    if args.ids_file:
+        ids_data = json.loads(Path(args.ids_file).read_text(encoding="utf-8"))
+        ids = {str(i) for i in (ids_data["ids"] if isinstance(ids_data, dict) else ids_data)}
+        manifest = [r for r in manifest if str(r["id"]) in ids]
+        print(f"📋 ids-file 過濾：{len(ids)} ids → 命中 {len(manifest)} 筆")
     print(f"📋 共 {len(manifest)} 筆已標註 GT 的樣本")
     print()
 
@@ -265,6 +272,12 @@ def run_batch(args):
             for s in report["stages"] if s.get("change_count", 0) > 0
         }
 
+        try:
+            from scripts.regression_guard import guard_metrics
+            guard = guard_metrics(gt, final)
+        except Exception:
+            guard = None
+
         result = SampleResult(
             id=sid,
             event_type=event_type,
@@ -278,6 +291,7 @@ def run_batch(args):
             wer_final=round(wer_final, 4),
             pp_changes=pp_changes,
             elapsed_sec=report["elapsed_sec"],
+            guard=guard,
         )
         results.append(result)
         delta = cer_raw - cer_final
@@ -327,6 +341,22 @@ def run_batch(args):
         d = by_type[et]
         print(f"   {et:12} (n={d['count']:2})  CER {d['avg_cer_raw']*100:5.2f}% → {d['avg_cer_final']*100:5.2f}%  ({d['avg_improve']*100:+.2f}%)")
 
+    # ── Regression guard 彙總 ──
+    guard_agg = None
+    guard_samples = [r.guard for r in success if r.guard]
+    if guard_samples:
+        try:
+            from scripts.regression_guard import aggregate_guard, GUARD_LABELS
+            guard_agg = aggregate_guard(guard_samples)
+            print()
+            print(f"   ── Regression guard（occurrence-weighted）──")
+            for kind, label in GUARD_LABELS.items():
+                g = guard_agg[kind]
+                rec = f"{g['recall']*100:5.1f}%" if g["recall"] is not None else "  n/a"
+                print(f"   {label:　<4} recall {rec}  (hit {g['hit']}/{g['ref']}, 幻覺 {g['halluc']})")
+        except Exception as _ge:
+            print(f"⚠️ regression guard 彙總失敗: {_ge}")
+
     # ── 寫出 JSON + Markdown ──────────────────────────────────────
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -346,6 +376,7 @@ def run_batch(args):
         avg_improvement=round(avg_improve, 4),
         avg_wer_final=round(avg_wer, 4),
         by_event_type=by_type,
+        guard=guard_agg,
         samples=[asdict(r) for r in results],
     )
 
@@ -369,6 +400,21 @@ def run_batch(args):
         f"| 平均改善         | **{avg_improve*100:+.2f}%** |",
         f"| 平均 WER (final) | {avg_wer*100:.2f}% |",
         f"",
+    ]
+    if guard_agg:
+        from scripts.regression_guard import GUARD_LABELS
+        md += [
+            f"## 🛡️ Regression guard（occurrence-weighted）",
+            f"",
+            f"| 指標 | recall | hit/ref | 幻覺 |",
+            f"|---|---|---|---|",
+        ]
+        for kind, label in GUARD_LABELS.items():
+            g = guard_agg[kind]
+            rec = f"{g['recall']*100:.1f}%" if g["recall"] is not None else "n/a"
+            md.append(f"| {label} | **{rec}** | {g['hit']}/{g['ref']} | {g['halluc']} |")
+        md.append("")
+    md += [
         f"## 📂 依事件類型分組",
         f"",
         f"| 事件類型 | 段數 | CER raw | CER final | 改善 |",
@@ -457,6 +503,8 @@ def main():
                    choices=["strict", "conservative", "balanced"])
     p.add_argument("--no-number-norm", action="store_true",
                    help="關閉 number_norm（A1 量測用；預設仍開以維持既有行為）")
+    p.add_argument("--ids-file", default="",
+                   help="只評測指定 ids（JSON，格式同 eval_set.json；A3 分離報告用）")
     args = p.parse_args()
     run_batch(args)
 
