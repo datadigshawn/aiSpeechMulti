@@ -7,10 +7,12 @@
     0.1
   ],
   "seed": 42,
+  "exclude_ids_file": "experiments/golden_dataset/a_series_set.json",
+  "test_ids_file": "experiments/golden_dataset/heldout_19.json",
   "manifest_source": "experiments/golden_dataset/manifest.csv",
   "counts": {
-    "train": 123,
-    "val": 13,
-    "test": 21
+    "train": 113,
+    "val": 12,
+    "test": 19
   }
 }

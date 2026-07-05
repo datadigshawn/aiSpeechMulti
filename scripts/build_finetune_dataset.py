@@ -215,6 +215,11 @@ def main():
                     metavar=("TRAIN", "VAL", "TEST"),
                     help="train/val/test 比例（預設 0.8 0.1 0.1）")
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--exclude-ids-file", default="",
+                    help="排除清單 JSON（格式同 eval_set.json；如 a_series_set.json 保 test-only）")
+    ap.add_argument("--test-ids-file", default="",
+                    help="釘住 test split 的 ids JSON（如 heldout_19.json 保跨模型可比）；"
+                         "其餘樣本依 --split 前兩項比例分 train/val")
     args = ap.parse_args()
 
     out_dir = Path(args.out)
@@ -270,12 +275,39 @@ def main():
     print(f"📋 可訓練樣本: {len(samples)} 段（略過 {skipped} 段）")
     print()
 
+    def _load_ids(path_str: str) -> set:
+        data = json.loads(Path(path_str).read_text(encoding="utf-8"))
+        return {str(i) for i in (data["ids"] if isinstance(data, dict) else data)}
+
+    if args.exclude_ids_file:
+        exclude_ids = _load_ids(args.exclude_ids_file)
+        before = len(samples)
+        samples = [s for s in samples if str(s["id"]) not in exclude_ids]
+        print(f"🚫 排除清單 {len(exclude_ids)} ids → 剔除 {before - len(samples)} 段")
+
     # ── Stratified split ─────────────────────────────────
-    train, val, test = stratified_split(
-        samples,
-        ratios=tuple(args.split),
-        seed=args.seed,
-    )
+    if args.test_ids_file:
+        test_ids = _load_ids(args.test_ids_file)
+        test = [s for s in samples if str(s["id"]) in test_ids]
+        rest = [s for s in samples if str(s["id"]) not in test_ids]
+        missing = test_ids - {str(s["id"]) for s in test}
+        if missing:
+            print(f"⚠️ test-ids-file 中 {len(missing)} ids 無可訓練樣本: {sorted(missing)}")
+        tr_ratio, val_ratio = args.split[0], args.split[1]
+        denom = tr_ratio + val_ratio
+        train, val, _empty = stratified_split(
+            rest,
+            ratios=(tr_ratio / denom, val_ratio / denom, 0.0),
+            seed=args.seed,
+        )
+        train += _empty  # ratio 0 仍可能因 rounding 掉 1 段，歸回 train
+        print(f"📌 test split 釘住: {len(test)} 段（來自 {args.test_ids_file}）")
+    else:
+        train, val, test = stratified_split(
+            samples,
+            ratios=tuple(args.split),
+            seed=args.seed,
+        )
 
     # ── 轉格式 + 寫檔 ─────────────────────────────────────
     builder = to_hf_record if args.format == "hf" else to_funasr_record
@@ -304,6 +336,8 @@ def main():
         "include_corrections": args.include_corrections,
         "split_ratios":    args.split,
         "seed":            args.seed,
+        "exclude_ids_file": args.exclude_ids_file or None,
+        "test_ids_file":   args.test_ids_file or None,
         "manifest_source": str(MANIFEST_PATH.relative_to(PROJECT_ROOT)),
         "counts": {
             "train": len(train_records),
