@@ -484,6 +484,8 @@ def main():
                     help="訓練資料增強：speed perturb（0.9/1.1×）+ SpecAugment（僅 train，不動 val）")
     ap.add_argument("--device", choices=["auto", "cuda", "mps", "cpu"], default="auto")
     ap.add_argument("--mixed-precision", choices=["auto", "fp16", "bf16", "fp32"], default="auto")
+    ap.add_argument("--seed", type=int, default=None,
+                    help="訓練隨機種子（random/torch/numpy；預設不固定，多 seed 驗證用）")
     ap.add_argument("--check-env-only", action="store_true", help="只檢查環境不訓練")
     ap.add_argument("--dry-run", action="store_true", help="載入模型 + 印參數統計後結束（不訓練）")
     args = ap.parse_args()
@@ -512,6 +514,18 @@ def main():
     else:
         device = args.device
     print(f"\n🖥️  使用 device: {device}")
+
+    if args.seed is not None:
+        import random as _random
+        import torch as _torch
+        _random.seed(args.seed)
+        _torch.manual_seed(args.seed)
+        try:
+            import numpy as _np
+            _np.random.seed(args.seed)
+        except ImportError:
+            pass
+        print(f"🎲 seed: {args.seed}")
 
     # ── 載入資料 ──────────────────────────────────────────
     data_dir = Path(args.data_dir)
