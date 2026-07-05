@@ -39,6 +39,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 VAD_DIR = os.path.expanduser(
     "~/.cache/modelscope/hub/models/iic/speech_fsmn_vad_zh-cn-16k-common-pytorch"
 )
+if not Path(VAD_DIR).is_dir():
+    VAD_DIR = "fsmn-vad"  # 本機 cache 不在（如 3090 桌機首跑）→ modelscope 名稱自動下載
 SV_HF = "FunAudioLLM/SenseVoiceSmall"
 
 # 對齊用正規化（去標點/空白，留中文+英數，小寫）——與 cer 對齊空間一致
