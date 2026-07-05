@@ -1,0 +1,479 @@
+{
+  "timestamp": "20260705_154407",
+  "engine_label": "sensevoice_ft_v2_157gt_Aseries",
+  "post_process_stages": [
+    "car_norm",
+    "dict"
+  ],
+  "sample_count": 13,
+  "success_count": 13,
+  "avg_cer_raw": 0.4525,
+  "avg_cer_final": 0.4539,
+  "avg_improvement": -0.0014,
+  "avg_wer_final": 0.5834,
+  "by_event_type": {
+    "emergency": {
+      "count": 13,
+      "cer_raw": 5.882500000000001,
+      "cer_final": 5.900400000000001,
+      "improve": -0.0179,
+      "avg_cer_raw": 0.4525,
+      "avg_cer_final": 0.4539,
+      "avg_improve": -0.0014
+    }
+  },
+  "guard": {
+    "kw": {
+      "ref": 4,
+      "hit": 2,
+      "halluc": 0,
+      "recall": 0.5
+    },
+    "station": {
+      "ref": 2,
+      "hit": 2,
+      "halluc": 5,
+      "recall": 1.0
+    },
+    "car": {
+      "ref": 0,
+      "hit": 0,
+      "halluc": 0,
+      "recall": null
+    }
+  },
+  "samples": [
+    {
+      "id": "A001",
+      "event_type": "emergency",
+      "audio_file": "experiments/golden_dataset/audio/A001_emergency_號誌3股_值班_20260215_045105.wav",
+      "gt_chars": 741,
+      "stt_chars": 718,
+      "final_chars": 718,
+      "cer_raw": 0.3968,
+      "cer_final": 0.3968,
+      "cer_improvement": 0.0,
+      "wer_final": 0.478,
+      "pp_changes": {
+        "number_norm": 2
+      },
+      "elapsed_sec": 0.022,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 1,
+          "hit": 1,
+          "halluc": 1
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "A002",
+      "event_type": "emergency",
+      "audio_file": "experiments/golden_dataset/audio/A002_emergency_號誌3股_值班_20260215_045504.wav",
+      "gt_chars": 225,
+      "stt_chars": 237,
+      "final_chars": 238,
+      "cer_raw": 0.2356,
+      "cer_final": 0.2356,
+      "cer_improvement": 0.0,
+      "wer_final": 0.3151,
+      "pp_changes": {
+        "number_norm": 1,
+        "dict": 1
+      },
+      "elapsed_sec": 0.001,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 1,
+          "hit": 1,
+          "halluc": 0
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "A003",
+      "event_type": "emergency",
+      "audio_file": "experiments/golden_dataset/audio/A003_emergency_號誌3股_值班_20260215_045803.wav",
+      "gt_chars": 134,
+      "stt_chars": 89,
+      "final_chars": 89,
+      "cer_raw": 0.5448,
+      "cer_final": 0.5448,
+      "cer_improvement": 0.0,
+      "wer_final": 0.6707,
+      "pp_changes": {},
+      "elapsed_sec": 0.0,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "A004",
+      "event_type": "emergency",
+      "audio_file": "experiments/golden_dataset/audio/A004_emergency_號誌3股_值班_20260215_045903.wav",
+      "gt_chars": 168,
+      "stt_chars": 187,
+      "final_chars": 187,
+      "cer_raw": 0.5476,
+      "cer_final": 0.5476,
+      "cer_improvement": 0.0,
+      "wer_final": 0.6635,
+      "pp_changes": {
+        "number_norm": 1
+      },
+      "elapsed_sec": 0.0,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 1,
+          "hit": 1,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "A005",
+      "event_type": "emergency",
+      "audio_file": "experiments/golden_dataset/audio/A005_emergency_號誌3股_值班_20260215_050204.wav",
+      "gt_chars": 60,
+      "stt_chars": 64,
+      "final_chars": 65,
+      "cer_raw": 0.8333,
+      "cer_final": 0.85,
+      "cer_improvement": -0.0167,
+      "wer_final": 0.8824,
+      "pp_changes": {
+        "number_norm": 1,
+        "dict": 1
+      },
+      "elapsed_sec": 0.0,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 2
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "A007",
+      "event_type": "emergency",
+      "audio_file": "experiments/golden_dataset/audio/A007_emergency_號誌3股_值班_20260215_053503.wav",
+      "gt_chars": 149,
+      "stt_chars": 117,
+      "final_chars": 117,
+      "cer_raw": 0.4497,
+      "cer_final": 0.4497,
+      "cer_improvement": 0.0,
+      "wer_final": 0.5579,
+      "pp_changes": {},
+      "elapsed_sec": 0.0,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "A008",
+      "event_type": "emergency",
+      "audio_file": "experiments/golden_dataset/audio/A008_emergency_號誌3股_值班_20260215_054401.wav",
+      "gt_chars": 178,
+      "stt_chars": 190,
+      "final_chars": 190,
+      "cer_raw": 0.4775,
+      "cer_final": 0.4775,
+      "cer_improvement": 0.0,
+      "wer_final": 0.5929,
+      "pp_changes": {},
+      "elapsed_sec": 0.0,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "A009",
+      "event_type": "emergency",
+      "audio_file": "experiments/golden_dataset/audio/A009_emergency_號誌3股_值班_20260215_054502.wav",
+      "gt_chars": 54,
+      "stt_chars": 52,
+      "final_chars": 52,
+      "cer_raw": 0.4259,
+      "cer_final": 0.4259,
+      "cer_improvement": 0.0,
+      "wer_final": 0.6364,
+      "pp_changes": {},
+      "elapsed_sec": 0.0,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "A010",
+      "event_type": "emergency",
+      "audio_file": "experiments/golden_dataset/audio/A010_emergency_號誌3股_值班_20260215_055405.wav",
+      "gt_chars": 253,
+      "stt_chars": 288,
+      "final_chars": 288,
+      "cer_raw": 0.4862,
+      "cer_final": 0.4862,
+      "cer_improvement": 0.0,
+      "wer_final": 0.6061,
+      "pp_changes": {
+        "dict": 1
+      },
+      "elapsed_sec": 0.001,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 1
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "A011",
+      "event_type": "emergency",
+      "audio_file": "experiments/golden_dataset/audio/A011_emergency_號誌3股_值班_20260215_060501.wav",
+      "gt_chars": 30,
+      "stt_chars": 29,
+      "final_chars": 29,
+      "cer_raw": 0.3333,
+      "cer_final": 0.3333,
+      "cer_improvement": 0.0,
+      "wer_final": 0.7059,
+      "pp_changes": {},
+      "elapsed_sec": 0.0,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "A012",
+      "event_type": "emergency",
+      "audio_file": "experiments/golden_dataset/audio/A012_emergency_組長_楊耀賓_20260215_054004.wav",
+      "gt_chars": 826,
+      "stt_chars": 884,
+      "final_chars": 885,
+      "cer_raw": 0.4782,
+      "cer_final": 0.4794,
+      "cer_improvement": -0.0012,
+      "wer_final": 0.5899,
+      "pp_changes": {
+        "car_norm": 1,
+        "number_norm": 1,
+        "dict": 1
+      },
+      "elapsed_sec": 0.001,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 2,
+          "hit": 1,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 1
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "A013",
+      "event_type": "emergency",
+      "audio_file": "experiments/golden_dataset/audio/A013_emergency_組長_楊耀賓_20260215_055302.wav",
+      "gt_chars": 57,
+      "stt_chars": 53,
+      "final_chars": 53,
+      "cer_raw": 0.3509,
+      "cer_final": 0.3509,
+      "cer_improvement": 0.0,
+      "wer_final": 0.4286,
+      "pp_changes": {},
+      "elapsed_sec": 0.0,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "A014",
+      "event_type": "emergency",
+      "audio_file": "experiments/golden_dataset/audio/A014_emergency_組長_楊耀賓_20260215_061300.wav",
+      "gt_chars": 375,
+      "stt_chars": 365,
+      "final_chars": 365,
+      "cer_raw": 0.3227,
+      "cer_final": 0.3227,
+      "cer_improvement": 0.0,
+      "wer_final": 0.4573,
+      "pp_changes": {},
+      "elapsed_sec": 0.001,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 1,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    }
+  ]
+}
