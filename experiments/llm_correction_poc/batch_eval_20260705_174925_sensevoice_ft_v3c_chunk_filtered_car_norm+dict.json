@@ -1,0 +1,742 @@
+{
+  "timestamp": "20260705_174925",
+  "engine_label": "sensevoice_ft_v3c_chunk_filtered",
+  "post_process_stages": [
+    "car_norm",
+    "dict"
+  ],
+  "sample_count": 19,
+  "success_count": 19,
+  "avg_cer_raw": 0.2703,
+  "avg_cer_final": 0.2652,
+  "avg_improvement": 0.0051,
+  "avg_wer_final": 0.4783,
+  "by_event_type": {
+    "daily": {
+      "count": 8,
+      "cer_raw": 2.4039,
+      "cer_final": 2.3982,
+      "improve": 0.0057,
+      "avg_cer_raw": 0.3005,
+      "avg_cer_final": 0.2998,
+      "avg_improve": 0.0007
+    },
+    "control": {
+      "count": 5,
+      "cer_raw": 1.4451999999999998,
+      "cer_final": 1.3944999999999999,
+      "improve": 0.0507,
+      "avg_cer_raw": 0.289,
+      "avg_cer_final": 0.2789,
+      "avg_improve": 0.0101
+    },
+    "emergency": {
+      "count": 1,
+      "cer_raw": 0.2857,
+      "cer_final": 0.2857,
+      "improve": 0.0,
+      "avg_cer_raw": 0.2857,
+      "avg_cer_final": 0.2857,
+      "avg_improve": 0.0
+    },
+    "door": {
+      "count": 3,
+      "cer_raw": 0.6880999999999999,
+      "cer_final": 0.6479,
+      "improve": 0.04020000000000001,
+      "avg_cer_raw": 0.2294,
+      "avg_cer_final": 0.216,
+      "avg_improve": 0.0134
+    },
+    "track": {
+      "count": 2,
+      "cer_raw": 0.3133,
+      "cer_final": 0.3133,
+      "improve": 0.0,
+      "avg_cer_raw": 0.1567,
+      "avg_cer_final": 0.1567,
+      "avg_improve": 0.0
+    }
+  },
+  "guard": {
+    "kw": {
+      "ref": 60,
+      "hit": 37,
+      "halluc": 1,
+      "recall": 0.6167
+    },
+    "station": {
+      "ref": 66,
+      "hit": 40,
+      "halluc": 13,
+      "recall": 0.6061
+    },
+    "car": {
+      "ref": 38,
+      "hit": 8,
+      "halluc": 23,
+      "recall": 0.2105
+    }
+  },
+  "samples": [
+    {
+      "id": "002",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/002_daily_UltraLog060_20260321_154456.wav",
+      "gt_chars": 19,
+      "stt_chars": 24,
+      "final_chars": 24,
+      "cer_raw": 0.4211,
+      "cer_final": 0.4211,
+      "cer_improvement": 0.0,
+      "wer_final": 0.6,
+      "pp_changes": {
+        "number_norm": 1,
+        "dict": 1
+      },
+      "elapsed_sec": 0.025,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 1,
+          "hit": 0,
+          "halluc": 1
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "007",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/007_daily_UltraLog060_20260321_155302.wav",
+      "gt_chars": 20,
+      "stt_chars": 21,
+      "final_chars": 22,
+      "cer_raw": 0.3,
+      "cer_final": 0.35,
+      "cer_improvement": -0.05,
+      "wer_final": 0.6667,
+      "pp_changes": {
+        "number_norm": 1
+      },
+      "elapsed_sec": 0.0,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 2,
+          "hit": 0,
+          "halluc": 1
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "018",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/018_daily_UltraLog060_20260321_161315.wav",
+      "gt_chars": 84,
+      "stt_chars": 77,
+      "final_chars": 80,
+      "cer_raw": 0.2024,
+      "cer_final": 0.1667,
+      "cer_improvement": 0.0357,
+      "wer_final": 0.3415,
+      "pp_changes": {
+        "number_norm": 6
+      },
+      "elapsed_sec": 0.0,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 3,
+          "hit": 3,
+          "halluc": 0
+        },
+        "car": {
+          "ref": 2,
+          "hit": 2,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "033",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/033_control_UltraLog060_20260321_163124.wav",
+      "gt_chars": 580,
+      "stt_chars": 521,
+      "final_chars": 530,
+      "cer_raw": 0.2672,
+      "cer_final": 0.2517,
+      "cer_improvement": 0.0155,
+      "wer_final": 0.4265,
+      "pp_changes": {
+        "car_norm": 3,
+        "number_norm": 16,
+        "dict": 1,
+        "station_code": 2
+      },
+      "elapsed_sec": 0.001,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 9,
+          "hit": 6,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 15,
+          "hit": 8,
+          "halluc": 4
+        },
+        "car": {
+          "ref": 6,
+          "hit": 1,
+          "halluc": 4
+        }
+      }
+    },
+    {
+      "id": "043",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/043_daily_UltraLog060_20260321_164736.wav",
+      "gt_chars": 68,
+      "stt_chars": 66,
+      "final_chars": 66,
+      "cer_raw": 0.2647,
+      "cer_final": 0.2647,
+      "cer_improvement": 0.0,
+      "wer_final": 0.5484,
+      "pp_changes": {
+        "car_norm": 1,
+        "number_norm": 1
+      },
+      "elapsed_sec": 0.0,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 1,
+          "hit": 0,
+          "halluc": 1
+        },
+        "car": {
+          "ref": 2,
+          "hit": 0,
+          "halluc": 3
+        }
+      }
+    },
+    {
+      "id": "044",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/044_control_UltraLog060_20260321_164802.wav",
+      "gt_chars": 210,
+      "stt_chars": 195,
+      "final_chars": 201,
+      "cer_raw": 0.3,
+      "cer_final": 0.2667,
+      "cer_improvement": 0.0333,
+      "wer_final": 0.4653,
+      "pp_changes": {
+        "car_norm": 2,
+        "number_norm": 6,
+        "dict": 2,
+        "station_code": 1
+      },
+      "elapsed_sec": 0.0,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 6,
+          "hit": 5,
+          "halluc": 0
+        },
+        "car": {
+          "ref": 4,
+          "hit": 2,
+          "halluc": 1
+        }
+      }
+    },
+    {
+      "id": "048",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/048_daily_UltraLog060_20260321_165453.wav",
+      "gt_chars": 50,
+      "stt_chars": 54,
+      "final_chars": 54,
+      "cer_raw": 0.44,
+      "cer_final": 0.42,
+      "cer_improvement": 0.02,
+      "wer_final": 0.5833,
+      "pp_changes": {
+        "car_norm": 1,
+        "dict": 1,
+        "station_code": 1
+      },
+      "elapsed_sec": 0.001,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 4,
+          "hit": 2,
+          "halluc": 0
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 1
+        }
+      }
+    },
+    {
+      "id": "051",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/051_daily_UltraLog060_20260321_165823.wav",
+      "gt_chars": 36,
+      "stt_chars": 32,
+      "final_chars": 32,
+      "cer_raw": 0.1389,
+      "cer_final": 0.1389,
+      "cer_improvement": 0.0,
+      "wer_final": 0.1765,
+      "pp_changes": {
+        "car_norm": 1,
+        "dict": 1
+      },
+      "elapsed_sec": 0.0,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 1,
+          "hit": 1,
+          "halluc": 0
+        },
+        "car": {
+          "ref": 1,
+          "hit": 0,
+          "halluc": 1
+        }
+      }
+    },
+    {
+      "id": "G0001",
+      "event_type": "emergency",
+      "audio_file": "experiments/golden_dataset/audio/G0001_emergency_席位1_2025122_192236.wav",
+      "gt_chars": 161,
+      "stt_chars": 162,
+      "final_chars": 162,
+      "cer_raw": 0.2857,
+      "cer_final": 0.2857,
+      "cer_improvement": 0.0,
+      "wer_final": 0.4578,
+      "pp_changes": {
+        "number_norm": 1
+      },
+      "elapsed_sec": 0.001,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 26,
+          "hit": 12,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 1,
+          "hit": 0,
+          "halluc": 0
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "G0011",
+      "event_type": "door",
+      "audio_file": "experiments/golden_dataset/audio/G0011_door_席位1_2025122_193307.wav",
+      "gt_chars": 30,
+      "stt_chars": 27,
+      "final_chars": 28,
+      "cer_raw": 0.3,
+      "cer_final": 0.2667,
+      "cer_improvement": 0.0333,
+      "wer_final": 0.4706,
+      "pp_changes": {
+        "car_norm": 1
+      },
+      "elapsed_sec": 0.0,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 1,
+          "hit": 0,
+          "halluc": 0
+        },
+        "car": {
+          "ref": 1,
+          "hit": 0,
+          "halluc": 1
+        }
+      }
+    },
+    {
+      "id": "G0029",
+      "event_type": "track",
+      "audio_file": "experiments/golden_dataset/audio/G0029_track_席位1_2025122_200521.wav",
+      "gt_chars": 64,
+      "stt_chars": 65,
+      "final_chars": 65,
+      "cer_raw": 0.1562,
+      "cer_final": 0.1562,
+      "cer_improvement": 0.0,
+      "wer_final": 0.3214,
+      "pp_changes": {
+        "dict": 2
+      },
+      "elapsed_sec": 0.0,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 8,
+          "hit": 8,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 4,
+          "hit": 4,
+          "halluc": 0
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "G0033",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/G0033_daily_席位1_2025122_200841.wav",
+      "gt_chars": 45,
+      "stt_chars": 38,
+      "final_chars": 38,
+      "cer_raw": 0.3556,
+      "cer_final": 0.3556,
+      "cer_improvement": 0.0,
+      "wer_final": 0.8,
+      "pp_changes": {},
+      "elapsed_sec": 0.0,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "car": {
+          "ref": 1,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "G0034",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/G0034_control_席位1_2025122_201004.wav",
+      "gt_chars": 27,
+      "stt_chars": 28,
+      "final_chars": 28,
+      "cer_raw": 0.2963,
+      "cer_final": 0.2963,
+      "cer_improvement": 0.0,
+      "wer_final": 0.6154,
+      "pp_changes": {},
+      "elapsed_sec": 0.0,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 2,
+          "hit": 2,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "car": {
+          "ref": 1,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "G0042",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/G0042_control_席位1_2025122_201713.wav",
+      "gt_chars": 534,
+      "stt_chars": 466,
+      "final_chars": 473,
+      "cer_raw": 0.3652,
+      "cer_final": 0.3633,
+      "cer_improvement": 0.0019,
+      "wer_final": 0.588,
+      "pp_changes": {
+        "car_norm": 3,
+        "number_norm": 8,
+        "dict": 2,
+        "station_code": 1
+      },
+      "elapsed_sec": 0.001,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 7,
+          "hit": 5,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 8,
+          "hit": 3,
+          "halluc": 2
+        },
+        "car": {
+          "ref": 10,
+          "hit": 1,
+          "halluc": 7
+        }
+      }
+    },
+    {
+      "id": "G0052",
+      "event_type": "daily",
+      "audio_file": "experiments/golden_dataset/audio/G0052_daily_席位1_2025122_202855.wav",
+      "gt_chars": 32,
+      "stt_chars": 30,
+      "final_chars": 31,
+      "cer_raw": 0.2812,
+      "cer_final": 0.2812,
+      "cer_improvement": 0.0,
+      "wer_final": 0.8,
+      "pp_changes": {
+        "number_norm": 1
+      },
+      "elapsed_sec": 0.0,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 1,
+          "hit": 0,
+          "halluc": 1
+        },
+        "car": {
+          "ref": 1,
+          "hit": 0,
+          "halluc": 1
+        }
+      }
+    },
+    {
+      "id": "G0063",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/G0063_control_席位1_2025122_203824.wav",
+      "gt_chars": 97,
+      "stt_chars": 101,
+      "final_chars": 101,
+      "cer_raw": 0.2165,
+      "cer_final": 0.2165,
+      "cer_improvement": 0.0,
+      "wer_final": 0.4468,
+      "pp_changes": {
+        "number_norm": 1,
+        "dict": 1
+      },
+      "elapsed_sec": 0.0,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 2,
+          "hit": 2,
+          "halluc": 0
+        },
+        "car": {
+          "ref": 1,
+          "hit": 0,
+          "halluc": 1
+        }
+      }
+    },
+    {
+      "id": "G0066",
+      "event_type": "door",
+      "audio_file": "experiments/golden_dataset/audio/G0066_door_席位1_2025122_205002.wav",
+      "gt_chars": 95,
+      "stt_chars": 93,
+      "final_chars": 93,
+      "cer_raw": 0.1579,
+      "cer_final": 0.1474,
+      "cer_improvement": 0.0105,
+      "wer_final": 0.2381,
+      "pp_changes": {
+        "dict": 3
+      },
+      "elapsed_sec": 0.0,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 2,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 2,
+          "hit": 2,
+          "halluc": 1
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "G0068",
+      "event_type": "door",
+      "audio_file": "experiments/golden_dataset/audio/G0068_door_席位1_2025122_205153.wav",
+      "gt_chars": 278,
+      "stt_chars": 249,
+      "final_chars": 250,
+      "cer_raw": 0.2302,
+      "cer_final": 0.2338,
+      "cer_improvement": -0.0036,
+      "wer_final": 0.3358,
+      "pp_changes": {
+        "car_norm": 1,
+        "number_norm": 4,
+        "dict": 3
+      },
+      "elapsed_sec": 0.001,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 10,
+          "hit": 6,
+          "halluc": 2
+        },
+        "car": {
+          "ref": 8,
+          "hit": 2,
+          "halluc": 3
+        }
+      }
+    },
+    {
+      "id": "G0069",
+      "event_type": "track",
+      "audio_file": "experiments/golden_dataset/audio/G0069_track_席位1_2025122_205309.wav",
+      "gt_chars": 70,
+      "stt_chars": 76,
+      "final_chars": 76,
+      "cer_raw": 0.1571,
+      "cer_final": 0.1571,
+      "cer_improvement": 0.0,
+      "wer_final": 0.2059,
+      "pp_changes": {
+        "dict": 2
+      },
+      "elapsed_sec": 0.001,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 6,
+          "hit": 4,
+          "halluc": 1
+        },
+        "station": {
+          "ref": 4,
+          "hit": 4,
+          "halluc": 0
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    }
+  ]
+}
