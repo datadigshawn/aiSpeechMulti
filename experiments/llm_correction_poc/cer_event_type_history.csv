@@ -457,4 +457,7 @@ timestamp,timestamp_iso,engine_label,post_process,event_type,count,avg_cer_raw,a
 20260705_182030,2026-07-05T18:20:30,sensevoice_ft_v3c_seed44,car_norm+dict,door,3,0.25,0.2366,0.0134,batch_eval_20260705_182030_sensevoice_ft_v3c_seed44_car_norm+dict.json
 20260705_182030,2026-07-05T18:20:30,sensevoice_ft_v3c_seed44,car_norm+dict,emergency,1,0.2547,0.2547,0.0,batch_eval_20260705_182030_sensevoice_ft_v3c_seed44_car_norm+dict.json
 20260705_182030,2026-07-05T18:20:30,sensevoice_ft_v3c_seed44,car_norm+dict,track,2,0.2152,0.2152,0.0,batch_eval_20260705_182030_sensevoice_ft_v3c_seed44_car_norm+dict.json
+20260707_131933,2026-07-07T13:19:33,sensevoice_ft_v2_157gt_batch01,car_norm+dict,control,5,0.3239,0.3223,0.0016,batch_eval_20260707_131933_sensevoice_ft_v2_157gt_batch01_car_norm+dict.json
+20260707_131933,2026-07-07T13:19:33,sensevoice_ft_v2_157gt_batch01,car_norm+dict,door,10,0.2564,0.2652,-0.0088,batch_eval_20260707_131933_sensevoice_ft_v2_157gt_batch01_car_norm+dict.json
+20260707_131933,2026-07-07T13:19:33,sensevoice_ft_v2_157gt_batch01,car_norm+dict,emergency,5,0.2624,0.2646,-0.0022,batch_eval_20260707_131933_sensevoice_ft_v2_157gt_batch01_car_norm+dict.json
 al_20260501_224108_sensevoice_ft_r32_full_car_norm+dict.json,,,,,,,,,

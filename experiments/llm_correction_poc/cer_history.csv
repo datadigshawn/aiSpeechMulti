@@ -70,4 +70,5 @@ timestamp,timestamp_iso,engine_label,post_process,sample_count,success_count,avg
 20260705_175102,2026-07-05T17:51:02,sensevoice_ft_v3c_chunk_filtered_Aseries,car_norm+dict,13,13,0.4592,0.4597,-0.0005,0.5851,batch_eval_20260705_175102_sensevoice_ft_v3c_chunk_filtered_Aseries_car_norm+dict.json
 20260705_182006,2026-07-05T18:20:06,sensevoice_ft_v3c_seed43,car_norm+dict,19,19,0.316,0.3131,0.0029,0.5619,batch_eval_20260705_182006_sensevoice_ft_v3c_seed43_car_norm+dict.json
 20260705_182030,2026-07-05T18:20:30,sensevoice_ft_v3c_seed44,car_norm+dict,19,19,0.2956,0.2926,0.003,0.5004,batch_eval_20260705_182030_sensevoice_ft_v3c_seed44_car_norm+dict.json
+20260707_131933,2026-07-07T13:19:33,sensevoice_ft_v2_157gt_batch01,car_norm+dict,20,20,0.2748,0.2793,-0.0045,0.4794,batch_eval_20260707_131933_sensevoice_ft_v2_157gt_batch01_car_norm+dict.json
 ct.json,,,,,,,,,,

@@ -1,0 +1,769 @@
+{
+  "timestamp": "20260707_131933",
+  "engine_label": "sensevoice_ft_v2_157gt_batch01",
+  "post_process_stages": [
+    "car_norm",
+    "dict"
+  ],
+  "sample_count": 20,
+  "success_count": 20,
+  "avg_cer_raw": 0.2748,
+  "avg_cer_final": 0.2793,
+  "avg_improvement": -0.0045,
+  "avg_wer_final": 0.4794,
+  "by_event_type": {
+    "emergency": {
+      "count": 5,
+      "cer_raw": 1.312,
+      "cer_final": 1.3229,
+      "improve": -0.010900000000000003,
+      "avg_cer_raw": 0.2624,
+      "avg_cer_final": 0.2646,
+      "avg_improve": -0.0022
+    },
+    "door": {
+      "count": 10,
+      "cer_raw": 2.5643,
+      "cer_final": 2.6521,
+      "improve": -0.08770000000000001,
+      "avg_cer_raw": 0.2564,
+      "avg_cer_final": 0.2652,
+      "avg_improve": -0.0088
+    },
+    "control": {
+      "count": 5,
+      "cer_raw": 1.6195,
+      "cer_final": 1.6116,
+      "improve": 0.007800000000000001,
+      "avg_cer_raw": 0.3239,
+      "avg_cer_final": 0.3223,
+      "avg_improve": 0.0016
+    }
+  },
+  "guard": {
+    "kw": {
+      "ref": 81,
+      "hit": 54,
+      "halluc": 0,
+      "recall": 0.6667
+    },
+    "station": {
+      "ref": 111,
+      "hit": 31,
+      "halluc": 59,
+      "recall": 0.2793
+    },
+    "car": {
+      "ref": 63,
+      "hit": 15,
+      "halluc": 31,
+      "recall": 0.2381
+    }
+  },
+  "samples": [
+    {
+      "id": "251209_水安宮旅客昏倒_185032_UltraLog063",
+      "event_type": "emergency",
+      "audio_file": "experiments/golden_dataset/audio/251209_水安宮旅客昏倒_185032_UltraLog063.wav",
+      "gt_chars": 202,
+      "stt_chars": 186,
+      "final_chars": 188,
+      "cer_raw": 0.3267,
+      "cer_final": 0.3366,
+      "cer_improvement": -0.0099,
+      "wer_final": 0.49,
+      "pp_changes": {
+        "number_norm": 8,
+        "dict": 1
+      },
+      "elapsed_sec": 0.057,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 5,
+          "hit": 2,
+          "halluc": 0
+        },
+        "car": {
+          "ref": 1,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "251209_水安宮旅客昏倒_185322_UltraLog063",
+      "event_type": "emergency",
+      "audio_file": "experiments/golden_dataset/audio/251209_水安宮旅客昏倒_185322_UltraLog063.wav",
+      "gt_chars": 136,
+      "stt_chars": 131,
+      "final_chars": 134,
+      "cer_raw": 0.1544,
+      "cer_final": 0.1618,
+      "cer_improvement": -0.0074,
+      "wer_final": 0.2424,
+      "pp_changes": {
+        "number_norm": 5,
+        "dict": 1,
+        "station_code": 1
+      },
+      "elapsed_sec": 0.001,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 5,
+          "hit": 1,
+          "halluc": 3
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "251209_水安宮旅客昏倒_185509_UltraLog063",
+      "event_type": "emergency",
+      "audio_file": "experiments/golden_dataset/audio/251209_水安宮旅客昏倒_185509_UltraLog063.wav",
+      "gt_chars": 156,
+      "stt_chars": 146,
+      "final_chars": 150,
+      "cer_raw": 0.2564,
+      "cer_final": 0.25,
+      "cer_improvement": 0.0064,
+      "wer_final": 0.5942,
+      "pp_changes": {
+        "car_norm": 1,
+        "number_norm": 4,
+        "station_code": 2
+      },
+      "elapsed_sec": 0.001,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 1,
+          "hit": 1,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 5,
+          "hit": 3,
+          "halluc": 0
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "251209_水安宮旅客昏倒_190252_UltraLog006",
+      "event_type": "emergency",
+      "audio_file": "experiments/golden_dataset/audio/251209_水安宮旅客昏倒_190252_UltraLog006.wav",
+      "gt_chars": 232,
+      "stt_chars": 238,
+      "final_chars": 238,
+      "cer_raw": 0.2888,
+      "cer_final": 0.2888,
+      "cer_improvement": 0.0,
+      "wer_final": 0.4492,
+      "pp_changes": {},
+      "elapsed_sec": 0.001,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "251209_水安宮旅客昏倒_191505_UltraLog025",
+      "event_type": "emergency",
+      "audio_file": "experiments/golden_dataset/audio/251209_水安宮旅客昏倒_191505_UltraLog025.wav",
+      "gt_chars": 301,
+      "stt_chars": 296,
+      "final_chars": 296,
+      "cer_raw": 0.2857,
+      "cer_final": 0.2857,
+      "cer_improvement": 0.0,
+      "wer_final": 0.3713,
+      "pp_changes": {},
+      "elapsed_sec": 0.001,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "251216_九張犁車門連動_174436_UltraLog063",
+      "event_type": "door",
+      "audio_file": "experiments/golden_dataset/audio/251216_九張犁車門連動_174436_UltraLog063.wav",
+      "gt_chars": 712,
+      "stt_chars": 667,
+      "final_chars": 673,
+      "cer_raw": 0.2963,
+      "cer_final": 0.2978,
+      "cer_improvement": -0.0014,
+      "wer_final": 0.5424,
+      "pp_changes": {
+        "car_norm": 9,
+        "number_norm": 18,
+        "dict": 3,
+        "station_code": 1
+      },
+      "elapsed_sec": 0.001,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 3,
+          "hit": 1,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 18,
+          "hit": 3,
+          "halluc": 15
+        },
+        "car": {
+          "ref": 12,
+          "hit": 0,
+          "halluc": 1
+        }
+      }
+    },
+    {
+      "id": "251216_九張犁車門連動_174813_UltraLog063",
+      "event_type": "door",
+      "audio_file": "experiments/golden_dataset/audio/251216_九張犁車門連動_174813_UltraLog063.wav",
+      "gt_chars": 45,
+      "stt_chars": 40,
+      "final_chars": 40,
+      "cer_raw": 0.3778,
+      "cer_final": 0.3778,
+      "cer_improvement": 0.0,
+      "wer_final": 0.7,
+      "pp_changes": {
+        "number_norm": 1
+      },
+      "elapsed_sec": 0.0,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 2,
+          "hit": 0,
+          "halluc": 2
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "251216_九張犁車門連動_175200_UltraLog063",
+      "event_type": "door",
+      "audio_file": "experiments/golden_dataset/audio/251216_九張犁車門連動_175200_UltraLog063.wav",
+      "gt_chars": 176,
+      "stt_chars": 163,
+      "final_chars": 165,
+      "cer_raw": 0.2443,
+      "cer_final": 0.25,
+      "cer_improvement": -0.0057,
+      "wer_final": 0.4545,
+      "pp_changes": {
+        "number_norm": 5,
+        "dict": 1
+      },
+      "elapsed_sec": 0.0,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 3,
+          "hit": 0,
+          "halluc": 3
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "251216_九張犁車門連動_175812_UltraLog063",
+      "event_type": "door",
+      "audio_file": "experiments/golden_dataset/audio/251216_九張犁車門連動_175812_UltraLog063.wav",
+      "gt_chars": 123,
+      "stt_chars": 120,
+      "final_chars": 120,
+      "cer_raw": 0.252,
+      "cer_final": 0.252,
+      "cer_improvement": 0.0,
+      "wer_final": 0.5,
+      "pp_changes": {
+        "number_norm": 2
+      },
+      "elapsed_sec": 0.001,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 1,
+          "hit": 1,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 2,
+          "hit": 0,
+          "halluc": 2
+        },
+        "car": {
+          "ref": 2,
+          "hit": 0,
+          "halluc": 1
+        }
+      }
+    },
+    {
+      "id": "251222_三軌電力異常_194517_UltraLog064",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/251222_三軌電力異常_194517_UltraLog064.wav",
+      "gt_chars": 589,
+      "stt_chars": 539,
+      "final_chars": 552,
+      "cer_raw": 0.2411,
+      "cer_final": 0.2292,
+      "cer_improvement": 0.0119,
+      "wer_final": 0.4424,
+      "pp_changes": {
+        "car_norm": 6,
+        "number_norm": 15,
+        "dict": 2,
+        "station_code": 4
+      },
+      "elapsed_sec": 0.001,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 42,
+          "hit": 35,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 14,
+          "hit": 7,
+          "halluc": 0
+        },
+        "car": {
+          "ref": 12,
+          "hit": 2,
+          "halluc": 9
+        }
+      }
+    },
+    {
+      "id": "251222_三軌電力異常_200202_UltraLog063",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/251222_三軌電力異常_200202_UltraLog063.wav",
+      "gt_chars": 707,
+      "stt_chars": 665,
+      "final_chars": 675,
+      "cer_raw": 0.3296,
+      "cer_final": 0.3267,
+      "cer_improvement": 0.0028,
+      "wer_final": 0.5292,
+      "pp_changes": {
+        "car_norm": 4,
+        "number_norm": 5,
+        "dict": 4,
+        "station_code": 2
+      },
+      "elapsed_sec": 0.001,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 17,
+          "hit": 9,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 13,
+          "hit": 6,
+          "halluc": 4
+        },
+        "car": {
+          "ref": 9,
+          "hit": 0,
+          "halluc": 9
+        }
+      }
+    },
+    {
+      "id": "251222_三軌電力異常_212545_UltraLog063",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/251222_三軌電力異常_212545_UltraLog063.wav",
+      "gt_chars": 613,
+      "stt_chars": 561,
+      "final_chars": 561,
+      "cer_raw": 0.323,
+      "cer_final": 0.323,
+      "cer_improvement": 0.0,
+      "wer_final": 0.5166,
+      "pp_changes": {
+        "car_norm": 4,
+        "number_norm": 5,
+        "dict": 2
+      },
+      "elapsed_sec": 0.001,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 9,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 7,
+          "hit": 6,
+          "halluc": 1
+        },
+        "car": {
+          "ref": 13,
+          "hit": 4,
+          "halluc": 7
+        }
+      }
+    },
+    {
+      "id": "251222_三軌電力異常_213242_UltraLog029",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/251222_三軌電力異常_213242_UltraLog029.wav",
+      "gt_chars": 709,
+      "stt_chars": 647,
+      "final_chars": 647,
+      "cer_raw": 0.3695,
+      "cer_final": 0.3695,
+      "cer_improvement": 0.0,
+      "wer_final": 0.5082,
+      "pp_changes": {
+        "dict": 1
+      },
+      "elapsed_sec": 0.001,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 2,
+          "hit": 2,
+          "halluc": 0
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "251222_三軌電力異常_224138_UltraLog003",
+      "event_type": "control",
+      "audio_file": "experiments/golden_dataset/audio/251222_三軌電力異常_224138_UltraLog003.wav",
+      "gt_chars": 581,
+      "stt_chars": 535,
+      "final_chars": 536,
+      "cer_raw": 0.3563,
+      "cer_final": 0.3632,
+      "cer_improvement": -0.0069,
+      "wer_final": 0.4622,
+      "pp_changes": {
+        "car_norm": 1,
+        "number_norm": 1,
+        "dict": 1
+      },
+      "elapsed_sec": 0.001,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 1
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 1
+        }
+      }
+    },
+    {
+      "id": "251222_中清車門障礙_060548_UltraLog063",
+      "event_type": "door",
+      "audio_file": "experiments/golden_dataset/audio/251222_中清車門障礙_060548_UltraLog063.wav",
+      "gt_chars": 145,
+      "stt_chars": 150,
+      "final_chars": 155,
+      "cer_raw": 0.2138,
+      "cer_final": 0.2483,
+      "cer_improvement": -0.0345,
+      "wer_final": 0.5806,
+      "pp_changes": {
+        "car_norm": 2,
+        "number_norm": 5
+      },
+      "elapsed_sec": 0.001,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 6,
+          "hit": 0,
+          "halluc": 5
+        },
+        "car": {
+          "ref": 3,
+          "hit": 1,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "251222_中清車門障礙_061021_UltraLog063",
+      "event_type": "door",
+      "audio_file": "experiments/golden_dataset/audio/251222_中清車門障礙_061021_UltraLog063.wav",
+      "gt_chars": 116,
+      "stt_chars": 114,
+      "final_chars": 117,
+      "cer_raw": 0.1466,
+      "cer_final": 0.1638,
+      "cer_improvement": -0.0172,
+      "wer_final": 0.3818,
+      "pp_changes": {
+        "car_norm": 1,
+        "number_norm": 3,
+        "dict": 1
+      },
+      "elapsed_sec": 0.001,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 3,
+          "hit": 3,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 3,
+          "hit": 0,
+          "halluc": 3
+        },
+        "car": {
+          "ref": 1,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "251222_中清車門障礙_061126_UltraLog063",
+      "event_type": "door",
+      "audio_file": "experiments/golden_dataset/audio/251222_中清車門障礙_061126_UltraLog063.wav",
+      "gt_chars": 104,
+      "stt_chars": 104,
+      "final_chars": 107,
+      "cer_raw": 0.1538,
+      "cer_final": 0.1442,
+      "cer_improvement": 0.0096,
+      "wer_final": 0.3542,
+      "pp_changes": {
+        "car_norm": 3,
+        "number_norm": 2,
+        "dict": 1,
+        "station_code": 1
+      },
+      "elapsed_sec": 0.001,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 3,
+          "hit": 0,
+          "halluc": 3
+        },
+        "car": {
+          "ref": 3,
+          "hit": 3,
+          "halluc": 0
+        }
+      }
+    },
+    {
+      "id": "251222_中清車門障礙_061255_UltraLog063",
+      "event_type": "door",
+      "audio_file": "experiments/golden_dataset/audio/251222_中清車門障礙_061255_UltraLog063.wav",
+      "gt_chars": 195,
+      "stt_chars": 198,
+      "final_chars": 200,
+      "cer_raw": 0.2821,
+      "cer_final": 0.2821,
+      "cer_improvement": 0.0,
+      "wer_final": 0.5361,
+      "pp_changes": {
+        "number_norm": 2,
+        "dict": 1,
+        "station_code": 1
+      },
+      "elapsed_sec": 0.001,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 1,
+          "hit": 0,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 4,
+          "hit": 0,
+          "halluc": 3
+        },
+        "car": {
+          "ref": 3,
+          "hit": 2,
+          "halluc": 2
+        }
+      }
+    },
+    {
+      "id": "251222_中清車門障礙_061411_UltraLog063",
+      "event_type": "door",
+      "audio_file": "experiments/golden_dataset/audio/251222_中清車門障礙_061411_UltraLog063.wav",
+      "gt_chars": 331,
+      "stt_chars": 314,
+      "final_chars": 324,
+      "cer_raw": 0.1934,
+      "cer_final": 0.2236,
+      "cer_improvement": -0.0302,
+      "wer_final": 0.4464,
+      "pp_changes": {
+        "number_norm": 16,
+        "dict": 1
+      },
+      "elapsed_sec": 0.001,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 3,
+          "hit": 3,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 16,
+          "hit": 1,
+          "halluc": 12
+        },
+        "car": {
+          "ref": 4,
+          "hit": 3,
+          "halluc": 1
+        }
+      }
+    },
+    {
+      "id": "251222_中清車門障礙_062433_UltraLog011",
+      "event_type": "door",
+      "audio_file": "experiments/golden_dataset/audio/251222_中清車門障礙_062433_UltraLog011.wav",
+      "gt_chars": 240,
+      "stt_chars": 262,
+      "final_chars": 264,
+      "cer_raw": 0.4042,
+      "cer_final": 0.4125,
+      "cer_improvement": -0.0083,
+      "wer_final": 0.487,
+      "pp_changes": {
+        "number_norm": 2
+      },
+      "elapsed_sec": 0.001,
+      "error": null,
+      "guard": {
+        "kw": {
+          "ref": 1,
+          "hit": 1,
+          "halluc": 0
+        },
+        "station": {
+          "ref": 3,
+          "hit": 0,
+          "halluc": 2
+        },
+        "car": {
+          "ref": 0,
+          "hit": 0,
+          "halluc": 0
+        }
+      }
+    }
+  ]
+}
