@@ -48,6 +48,7 @@ import asyncio
 import json
 import os
 import sqlite3
+import time
 import tempfile
 import wave
 from dataclasses import dataclass, field
@@ -167,6 +168,23 @@ DB_PATH = Path(__file__).parent / "data" / "aiSpeechMulti.db"
 # 設 0（天）可關閉自動清理。
 TRANSCRIPT_RETENTION_DAYS        = int(os.getenv("TRANSCRIPT_RETENTION_DAYS", "30"))
 TRANSCRIPT_CLEANUP_INTERVAL_DAYS = int(os.getenv("TRANSCRIPT_CLEANUP_INTERVAL_DAYS", "30"))
+
+# ── SenseVoice 啟動暖機 ──────────────────────────────────────────────────────
+# 預設情況下 ~900MB 的 SenseVoice 模型在「首次連 sensevoice_local」時才載入
+# （Intel CPU 約 13 秒），期間使用者點「開始監聽」需等待。開啟暖機後，伺服器
+# 啟動會在背景先把模型載好（不阻塞 :8000 就緒），首次辨識即零等待。
+#   SENSEVOICE_WARMUP=1/0 明確開關；未設定時：預設模式或引擎本就走 SenseVoice
+#   則自動開啟（例如本機這種離線 SenseVoice 為主的部署）。
+_warmup_env = os.getenv("SENSEVOICE_WARMUP", "").strip().lower()
+if _warmup_env in ("1", "true", "yes", "on"):
+    SENSEVOICE_WARMUP = True
+elif _warmup_env in ("0", "false", "no", "off"):
+    SENSEVOICE_WARMUP = False
+else:
+    SENSEVOICE_WARMUP = (
+        DEFAULT_STREAM_MODE == "sensevoice_local"
+        or DEFAULT_STT_BACKEND == "sensevoice"
+    )
 
 
 # ==============================================================================
@@ -536,6 +554,21 @@ async def _transcript_cleanup_loop():
         await asyncio.sleep(max(1, TRANSCRIPT_CLEANUP_INTERVAL_DAYS) * 86400)
 
 
+async def _warmup_sensevoice():
+    """伺服器啟動後在背景預載 SenseVoice 模型（Intel CPU ~13s），首次辨識零等待。
+
+    不阻塞 :8000 就緒；若使用者在暖機完成前就連線，_get_sensevoice_model 的
+    asyncio.Lock 會讓其等待同一份載入，不會重複載入。失敗為非致命（首次連線重試）。
+    """
+    try:
+        logger.info("[warmup] SenseVoice 背景預載開始…")
+        t0 = time.monotonic()
+        await _get_sensevoice_model()
+        logger.info(f"[warmup] ✅ SenseVoice 預載完成（{time.monotonic() - t0:.1f}s）")
+    except Exception as exc:
+        logger.warning(f"[warmup] SenseVoice 預載失敗（非致命，將於首次連線時重試）：{exc}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("=" * 60)
@@ -569,13 +602,24 @@ async def lifespan(app: FastAPI):
     # 背景定期清理 transcripts（啟動先清一次，再每 INTERVAL 天清）
     cleanup_task = asyncio.create_task(_transcript_cleanup_loop())
 
+    # SenseVoice 背景暖機（不阻塞 :8000 就緒；首次辨識零等待）
+    warmup_task = None
+    if SENSEVOICE_WARMUP:
+        logger.info("   SenseVoice 暖機   : 啟用（背景預載模型）")
+        warmup_task = asyncio.create_task(_warmup_sensevoice())
+
     yield
 
     cleanup_task.cancel()
-    try:
-        await cleanup_task
-    except asyncio.CancelledError:
-        pass
+    if warmup_task is not None:
+        warmup_task.cancel()
+    for _t in (cleanup_task, warmup_task):
+        if _t is None:
+            continue
+        try:
+            await _t
+        except asyncio.CancelledError:
+            pass
 
     logger.info("🛑 aiSpeechMulti API 關閉  v2.0.0")
 
