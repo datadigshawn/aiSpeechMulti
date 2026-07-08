@@ -47,6 +47,10 @@ torch                                # PyTorch 深度學習框架
 torchaudio                           # PyTorch 音訊處理
 # torchvision==0.25.0.dev20251124    # 圖像處理，aiSpeech 不需要，已移除
 peft                                 # LoRA 微調權重載入（SenseVoice FT 模型用）
+# ⚠️ Intel Mac 限定：PyTorch 官方 x86_64 wheel 停在 2.2.2（2.3+ 不再出 Intel 版），
+#    transformers 5.x 需要 torch>=2.4，在 2.2.2 上 import 即炸（NameError: nn）。
+#    環境標記只對 Intel Mac 生效；Apple Silicon 與 Linux(3090) 不受影響。
+transformers<5; sys_platform == "darwin" and platform_machine == "x86_64"
 
 # -----------------------------------------------------------------------------
 # 數值計算與資料處理 (Numerical Computing & Data Processing)
